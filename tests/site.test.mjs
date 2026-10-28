@@ -49,11 +49,32 @@ test("FR/EN, sélecteur de langue persistant et les pages de service",()=>{
 test("responsive et accessibilité : page unique et défilement autorisé si nécessaire",()=>{
   assert.match(css,/100dvh/);
   assert.match(css,/overflow-y:auto/);
-  assert.match(css,/\.viewport-content\{overflow:visible/);
+  assert.match(css,/\.viewport-content\{/);
+  assert.doesNotMatch(css,/html,body\{[^}]*overflow:hidden/);
   assert.match(css,/@media\(max-height:520px\)/);
-  for(const breakpoint of ["max-width:380px","max-width:680px","max-width:1050px"])
+  for(const breakpoint of ["max-width:370px","max-width:680px","max-width:1100px"])
     assert.ok(css.includes(breakpoint));
   assert.match(css,/\.hero-visual\{display:none\}/);
   assert.match(html,/class="skip"/);
   assert.match(html,/aria-describedby="signup-status"/);
+});
+
+test("Direction artistique : portable illustratif Pict-au, pas de capture réelle inventée",()=>{
+  assert.match(html,/class="hero-visual"/);
+  assert.equal((html.match(/class="laptop-picto"/g)||[]).length,3);
+  assert.equal((html.match(/class="laptop-screen"/g)||[]).length,1);
+  assert.match(html,/Illustration conceptuelle/);
+  assert.doesNotMatch(html,/capture réelle|fonctionnement garanti|site de démonstration/i);
+  assert.doesNotMatch(css,/url\(https?:\/\//i,"Pas de photographie ni image tiers distante dans le héros");
+  assert.ok(css.includes("--blue:#609dba"));
+  assert.ok(css.includes("--yellow:#ffd16b"));
+});
+test("Trio compact sans faux prix, et aucun second appel à l'inscription",()=>{
+  for(const label of ["Trouver","Personnaliser","Imprimer"])assert.ok(html.includes(">"+label+"<"));
+  assert.equal((html.match(/class="benefit"/g)||[]).length,3);
+  assert.equal((html.match(/class="plan"/g)||[]).length,1);
+  assert.equal((html.match(/Créer mon compte/g)||[]).length,1);
+  assert.match(html,/Tarif à confirmer/);
+  assert.match(html,/Inscriptions à venir/);
+  assert.doesNotMatch(html,/9,99|Stripe|\$\/mois|paiement sécurisé/i);
 });
