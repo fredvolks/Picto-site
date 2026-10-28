@@ -2481,6 +2481,14 @@ root.addEventListener("submit",function(event){
     if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||editableDrafts.busy||pendingGeneratedPdf)return;
     const kind=officialForm.dataset.kind;
     if(!["routine","board"].includes(kind))return;
+    // Ne jamais exporter pendant qu'une écriture d'autosave est déjà partie.
+    // Le bouton est désactivé visuellement, mais l'événement submit doit aussi le vérifier.
+    if(draftAutosave.status(kind).busy){
+      officialComposer.error=state.language==="fr"?
+        "Un brouillon est en cours d'enregistrement. Réessayez après sa confirmation.":
+        "A draft is being saved. Try again after it is confirmed.";
+      render();return;
+    }
     const invalidCaption=root.querySelector('.pa-composer-item [data-input="official-caption"]:invalid');
     if(invalidCaption){invalidCaption.reportValidity();return;}
     const data=new FormData(officialForm),title=String(data.get("title")||""),

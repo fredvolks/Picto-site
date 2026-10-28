@@ -6,17 +6,17 @@ export function createDraftAutosave({save,onState=()=>{},delay=DRAFT_AUTOSAVE_DE
  if(typeof save!=="function"||typeof onState!=="function"||
    !Number.isFinite(delay)||delay<0)throw Error("Configuration de sauvegarde invalide.");
  const states={
-   routine:{epoch:0,version:0,dirty:false,busy:false,blocked:false,retryOnEdit:false,failed:"",timer:null,inflight:null,confirmed:false},
+   routine:{epoch:0,version:0,dirty:false,busy:false,paused:false,blocked:false,retryOnEdit:false,failed:"",timer:null,inflight:null,confirmed:false},
    board:{epoch:0,version:0,dirty:false,busy:false,blocked:false,retryOnEdit:false,failed:"",timer:null,inflight:null,confirmed:false}
  };
  const valid=k=>{if(!Object.hasOwn(states,k))throw Error("Type de brouillon invalide.");return states[k];};
- function view(k){const s=valid(k);return {dirty:s.dirty,busy:s.busy,blocked:s.blocked,
+ function view(k){const s=valid(k);return {dirty:s.dirty,busy:s.busy,paused:s.paused,blocked:s.blocked,
    failed:s.failed,confirmed:s.confirmed,version:s.version};}
  function notify(k){onState(k,view(k));}
  function clear(s){if(s.timer!==null){cancel(s.timer);s.timer=null;}}
  function queue(k){
    const s=valid(k);clear(s);
-   if(!s.dirty||s.blocked||s.busy)return;
+   if(!s.dirty||s.blocked||s.busy||s.paused)return;
    s.timer=schedule(()=>{s.timer=null;void flush(k);},delay);
  }
  function change(k){
@@ -27,6 +27,8 @@ export function createDraftAutosave({save,onState=()=>{},delay=DRAFT_AUTOSAVE_DE
  }
  async function flush(k,{force=false}={}){
    const s=valid(k);
+   // Une sauvegarde en arrière-plan ne doit pas redémarrer pendant l'export PDF.
+   if(s.paused){notify(k);return false;}
    if(force){s.blocked=false;s.retryOnEdit=false;s.failed="";}
    clear(s);
    if(!s.dirty||s.blocked){notify(k);return false;}
@@ -59,11 +61,12 @@ export function createDraftAutosave({save,onState=()=>{},delay=DRAFT_AUTOSAVE_DE
  }
  function discard(k,{confirmed=false}={}){
    const s=valid(k);clear(s);s.epoch++;s.version++;
-   s.dirty=false;s.busy=false;s.blocked=false;s.retryOnEdit=false;s.failed="";
+   s.dirty=false;s.busy=false;s.paused=false;s.blocked=false;s.retryOnEdit=false;s.failed="";
    s.inflight=null;s.confirmed=Boolean(confirmed);notify(k);
  }
- function pause(k){clear(valid(k));}
- function resume(k){queue(k);}
+ function pause(k){const s=valid(k);s.paused=true;clear(s);notify(k);}
+ function resume(k){const s=valid(k);s.paused=false;queue(k);notify(k);}
+
  function reset(){for(const k of Object.keys(states))discard(k);}
  return {change,flush,pause,resume,discard,reset,status:view};
 }
