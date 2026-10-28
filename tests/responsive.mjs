@@ -91,37 +91,35 @@ try{
   await command("Page.enable");
   await command("Runtime.enable");
   await mkdir(screenshots,{recursive:true});
-  for(const viewport of [{width:320,height:568,mobile:true},{width:360,height:640,mobile:true},{width:390,height:844,mobile:true},{width:768,height:1024,mobile:true},{width:1024,height:768,mobile:false},{width:1440,height:900,mobile:false}]){
+  for(const viewport of [{width:320,height:568,mobile:true},{width:360,height:640,mobile:true},{width:390,height:844,mobile:true},{width:412,height:915,mobile:true},{width:768,height:1024,mobile:true},{width:1024,height:768,mobile:false},{width:1440,height:900,mobile:false}]){
     await command("Emulation.setDeviceMetricsOverride",{...viewport,deviceScaleFactor:1});
     await command("Page.navigate",{url:base});
-    await waitFor("return !!document.querySelector('.home-site[data-view=home] .home-hero') && !!document.querySelector('.home-plan')");
-    await sleep(250);
-    for(const view of ["home","features","plan"]){
-      const selector=(viewport.width<=820?".mobile-dock ":"")+'[data-view-link="'+view+'"]';
-      await evaluate('const link=document.querySelector('+JSON.stringify(selector)+');if(!link)throw Error("No view link");link.click();return true;');
+    await waitFor("return !!document.querySelector('.site .hero') && !!document.querySelector('.benefits') && !!document.querySelector('.plan')");
+    await sleep(500);
+    for(const lang of ["fr","en"]){
+      if(lang==="en")await evaluate("document.querySelector('[data-lang=en]').click();return true;");
       const expr=[
-        "const site=document.querySelector('.home-site');",
-        "const box=el=>{if(!el)return null;const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}};",
-        "const inside=el=>{const r=box(el);return !!r&&r.width>0&&r.height>0&&r.top>=-1&&r.left>=-1&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1};",
-        "const home=site.dataset.view==='home',features=site.dataset.view==='features',plan=site.dataset.view==='plan';",
-        "const label=document.querySelector('.home-kicker>span:last-child'),range=document.createRange();range.selectNodeContents(label);const textRect=range.getBoundingClientRect();const labelBox=box(label);return {view:site.dataset.view,viewport:[innerWidth,innerHeight],scroll:[document.documentElement.scrollWidth,document.documentElement.scrollHeight],kicker:box(document.querySelector('.home-kicker')),kickerText:{top:textRect.top,bottom:textRect.bottom,left:textRect.left,right:textRect.right},kickerTextElement:labelBox,kickerComputed:{width:getComputedStyle(label).width,height:getComputedStyle(label).height},title:box(document.querySelector('.home-hero h1')),homeButtons:home?inside(document.querySelector('.home-hero-actions')):true,heroImage:home?inside(document.querySelector('.home-device')):true,featuresFirst:features?inside(document.querySelector('.home-feature-grid article:first-child')):true,featuresLast:features?inside(document.querySelector('.home-feature-grid article:last-child')):true,planCard:plan?inside(document.querySelector('.home-plan')):true,planStatus:plan?inside(document.querySelector('.home-plan-availability')):true};"
+        "const box=(s)=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();const st=getComputedStyle(e);return {x:r.left,y:r.top,right:r.right,bottom:r.bottom,w:r.width,h:r.height,scrollH:e.scrollHeight,clientH:e.clientHeight,display:st.display}};",
+        "const label=document.querySelector('.kicker>span:last-child');const range=document.createRange();range.selectNodeContents(label);const tb=range.getBoundingClientRect();",
+        "return {vw:innerWidth,vh:innerHeight,scrollW:document.documentElement.scrollWidth,scrollH:document.documentElement.scrollHeight,hero:box('.hero'),features:box('.benefits'),plan:box('.plan'),title:box('.hero-title'),kicker:box('.kicker'),kickerText:{bottom:tb.bottom,right:tb.right},intro:box('.intro'),cta:box('.hero-cta'),price:box('.price'),availability:box('.availability'),planFeatures:box('.plan-features'),lang:document.documentElement.lang};"
       ].join("\n");
       const metrics=await evaluate(expr);
       const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
-      await writeFile(join(screenshots,"pictau-"+viewport.width+"x"+viewport.height+"-"+view+".png"),Buffer.from(shot.data,"base64"));
-      assert.equal(metrics.view,view,"Onglet actif incorrect");
-      assert.ok(metrics.scroll[0]<=viewport.width+1,"Débordement horizontal "+JSON.stringify(metrics));
-      assert.ok(metrics.scroll[1]<=viewport.height+1,"Débordement vertical "+JSON.stringify(metrics));
-      if(view==="home"){
-        assert.ok(metrics.kickerTextElement.width>30,"Texte accroche dans une boîte microscopique "+JSON.stringify(metrics));
-        assert.ok(metrics.kickerText.bottom<=metrics.kickerTextElement.bottom+2,"Le texte déborde de son propre conteneur "+JSON.stringify(metrics));
-        assert.ok(metrics.kickerText.right<=metrics.kickerTextElement.right+2,"Le texte déborde horizontalement de son conteneur "+JSON.stringify(metrics));
-        assert.ok(metrics.title.top>=metrics.kickerText.bottom+4,"Titre superposé aux vraies lettres de l'accroche "+JSON.stringify(metrics));
-        assert.ok(metrics.title.top>=metrics.kicker.bottom+2,"Titre superposé à l'accroche "+JSON.stringify(metrics));
+      await writeFile(join(screenshots,"pictau-single-"+viewport.width+"x"+viewport.height+"-"+lang+".png"),Buffer.from(shot.data,"base64"));
+      assert.equal(metrics.lang,lang,"Bilinguisme");
+      assert.ok(metrics.scrollW<=viewport.width+1,"Débordement horizontal "+JSON.stringify(metrics));
+      assert.ok(metrics.scrollH<=viewport.height+1,"Débordement vertical "+JSON.stringify(metrics));
+      for(const part of ["hero","features","plan","title","cta","price","availability"]){
+        const b=metrics[part];
+        assert.ok(b&&b.w>0&&b.h>0&&b.y>=0&&b.bottom<=viewport.height+1&&b.x>=0&&b.right<=viewport.width+1,"Partie cachée: "+part+" "+JSON.stringify(metrics));
       }
-      for(const key of ["homeButtons","heroImage","featuresFirst","featuresLast","planCard","planStatus"])
-        assert.ok(metrics[key],"Élément coupé : "+key+" "+JSON.stringify(metrics));
-      console.log("UX OK",viewport.width,viewport.height,view);
+      assert.ok(metrics.title.y>=metrics.kickerText.bottom+4,"L'accroche chevauche le titre "+JSON.stringify(metrics));
+      assert.ok(metrics.intro.y>=metrics.title.bottom+2,"La description chevauche le titre "+JSON.stringify(metrics));
+      assert.ok(metrics.cta.y>=metrics.intro.bottom+2,"Le CTA chevauche la description "+JSON.stringify(metrics));
+      assert.ok(metrics.cta.bottom<=metrics.hero.bottom-2,"CTA coupé par le héros "+JSON.stringify(metrics));
+      assert.ok(metrics.availability.bottom<=metrics.plan.bottom-2,"Inscription coupée "+JSON.stringify(metrics));
+      if(metrics.planFeatures?.display!=="none")assert.ok(metrics.planFeatures.bottom<=metrics.plan.bottom-2,"Détails du forfait coupés "+JSON.stringify(metrics));
+      console.log("UNIQUE VUE OK",viewport.width,viewport.height,lang);
     }
   }
 }catch(error){
