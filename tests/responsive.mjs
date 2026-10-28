@@ -97,7 +97,7 @@ try{
     await waitFor("return !!document.querySelector('.site .hero') && !!document.querySelector('.benefits') && !!document.querySelector('.plan')");
     await sleep(500);
     for(const lang of ["fr","en"]){
-      if(lang==="en")await evaluate("document.querySelector('[data-lang=en]').click();return true;");
+      await evaluate('document.querySelector(\'[data-lang="'+lang+'"]\').click();return true;');
       const expr=[
         "const box=(s)=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();const st=getComputedStyle(e);return {x:r.left,y:r.top,right:r.right,bottom:r.bottom,w:r.width,h:r.height,scrollH:e.scrollHeight,clientH:e.clientHeight,display:st.display}};",
         "const label=document.querySelector('.kicker>span:last-child');const range=document.createRange();range.selectNodeContents(label);const tb=range.getBoundingClientRect();",
