@@ -1242,3 +1242,39 @@
   .pa-client-workspace .pa-client-creation-actions button{padding:9px 6px;font-size:12px}
 }
 @media print{.pa-client-workspace .pa-client-creation-actions,.pa-client-workspace .files-upload-panel{display:none!important}}
+
+/* Pictogrammes officiels — dessin, séparateur noir, libellé centré. */
+@media screen {
+  .pa-catalog-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+  .pa-catalog-card{min-width:0;padding:14px;background:#fff;border:1px solid #e5e5e5;border-radius:18px;box-shadow:0 3px 14px #00000006}
+  .pa-catalog-art{display:flex;flex-direction:column;aspect-ratio:1/1;max-width:100%;border:2px solid #111;border-radius:2px;background:#fff;overflow:hidden}
+  .pa-catalog-art-body{flex:1;min-height:0;display:grid;place-items:center;padding:7%;background:#fff}
+  .pa-catalog-art-body img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+  .pa-catalog-art-caption{display:grid;place-items:center;flex:0 0 24%;min-height:0;padding:5px 8px;text-align:center;font:650 clamp(11px,1.1vw,15px)/1.15 "DM Sans",system-ui,sans-serif;color:#111;background:#fff;border-top:2px solid #111;overflow-wrap:anywhere}
+  .pa-catalog-card-label{font-size:14px;color:#111;font-weight:750;line-height:1.4;margin:12px 0 5px;text-align:center}
+  .pa-catalog-card-category{display:block;font-size:12px;color:#686868;text-align:center}
+  .pa-catalog-art.is-unavailable .pa-catalog-art-body:after{content:"Image indisponible";font-size:12px;color:#686868}
+  .pa-catalog-art.is-unavailable img{display:none}
+  .pa-catalog-notice{padding:26px 20px;background:#f7f7f7;border:1px solid #e5e5e5;border-radius:16px;font-size:15px;color:#686868}
+  .pa-catalog-pages{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:15px;margin:25px 0}
+  .pa-catalog-search-button{min-width:105px;min-height:44px;background:#111;border:1px solid #111;border-radius:10px;color:#fff;font:750 13px "DM Sans",system-ui;cursor:pointer}
+  .pa-catalog-search-button:hover{background:#292929}
+  .admin-publish-control{background:#f7f7f7;border:1px solid #e5e5e5;border-radius:17px;margin-top:20px;padding:19px}
+  .admin-publish-control h4{font-size:17px;line-height:1.35;color:#111;margin:0 0 9px}
+  .admin-publish-control p{font-size:13px;line-height:1.6;color:#686868;margin:0 0 16px}
+  .admin-publish-control label{display:flex;align-items:flex-start;gap:11px;margin:0 0 20px;color:#222;font-size:14px;font-weight:650;line-height:1.5}
+  .admin-publish-control input[type=checkbox]{flex:none;min-width:22px;min-height:22px;accent-color:#111}
+  .admin-publish-control .btn{min-height:48px}
+}
+@media screen and (max-width:1199px){.pa-catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}}
+@media screen and (max-width:899px){.pa-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}}
+@media screen and (max-width:599px){
+  .pa-catalog-grid{gap:10px}
+  .pa-catalog-card{padding:9px;border-radius:13px}
+  .pa-catalog-art-caption{font-size:clamp(10px,2.9vw,13px)}
+  .pa-catalog-card-label{font-size:12px}
+  .pa-catalog-search-button{min-width:84px;padding:0 8px;font-size:12px}
+  .admin-publish-control{padding:16px}
+}
+@media screen and (max-width:350px){.pa-catalog-grid{gap:7px}.pa-catalog-card{padding:7px}.pa-catalog-art-caption{padding:3px}}
+@media print{.pa-catalog-search-button,.pa-catalog-pages,.admin-publish-control{display:none!important}}

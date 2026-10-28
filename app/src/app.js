@@ -18,6 +18,7 @@ import {submitPictogramRequest,listMyPictogramRequests,listAdminPictogramRequest
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles} from "./client-files-ui.js";
+import {listPublishedCatalog,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
@@ -133,6 +134,78 @@ let pdfExportBusy=false;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
+const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
+  imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:""};
+function clearPublishedCatalog(){
+  publishedCatalog.request++;
+  for(const url of publishedCatalog.imageUrls.values())URL.revokeObjectURL(url);
+  publishedCatalog.imageUrls.clear();publishedCatalog.loadingImages.clear();
+  publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.page=0;
+  publishedCatalog.loading=false;publishedCatalog.loaded=false;publishedCatalog.error="";
+  publishedCatalog.approvedByAdmin.clear();publishedCatalog.publishing=false;
+  publishedCatalog.publishError="";publishedCatalog.publishMessage="";
+}
+async function fetchPublishedCatalog(){
+  if(!SITE_EMBEDDED||!authStatus.user||!authStatus.roleReady||canOpenAdmin())return;
+  const uid=authStatus.user.id,ticket=++publishedCatalog.request;
+  publishedCatalog.loading=true;publishedCatalog.error="";render();
+  try{
+    const client=await supabaseClient();
+    const result=await listPublishedCatalog(client,uid,{
+      query:state.search,theme:state.clientCategory||"all",page:publishedCatalog.page
+    });
+    if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
+    for(const [id,url] of publishedCatalog.imageUrls)if(!result.items.some(row=>row.id===id)){
+      URL.revokeObjectURL(url);publishedCatalog.imageUrls.delete(id);
+    }
+    publishedCatalog.items=result.items;publishedCatalog.total=result.total;
+    publishedCatalog.page=result.page;publishedCatalog.loaded=true;
+  }catch(error){
+    if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
+    publishedCatalog.error=String(error?.message||error);
+    publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.loaded=false;
+  }finally{
+    if(ticket===publishedCatalog.request){publishedCatalog.loading=false;render();}
+  }
+}
+let catalogImageObserver=null;
+function observePublishedArtwork(){
+  if(catalogImageObserver)catalogImageObserver.disconnect();
+  catalogImageObserver=null;
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||state.page!=="library")return;
+  const nodes=[...root.querySelectorAll("img[data-catalog-id]")];
+  if(!nodes.length)return;
+  const uid=authStatus.user.id;
+  const load=async img=>{
+    const id=img.dataset.catalogId,row=publishedCatalog.items.find(x=>x.id===id);
+    if(!row||publishedCatalog.loadingImages.has(id))return;
+    if(publishedCatalog.imageUrls.has(id)){img.src=publishedCatalog.imageUrls.get(id);return;}
+    publishedCatalog.loadingImages.add(id);
+    try{
+      const client=await supabaseClient();
+      const blob=await downloadPublishedArtwork(client,uid,row);
+      if(authStatus.user?.id!==uid||!publishedCatalog.items.some(x=>x.id===id))return;
+      const url=URL.createObjectURL(blob);
+      publishedCatalog.imageUrls.set(id,url);
+      for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id)match.src=url;
+    }catch(error){
+      if(authStatus.user?.id===uid)for(const match of root.querySelectorAll("img[data-catalog-id]")){
+        if(match.dataset.catalogId===id)match.closest(".pa-catalog-art")?.classList.add("is-unavailable");
+      }
+    }finally{publishedCatalog.loadingImages.delete(id);}
+  };
+  if(typeof IntersectionObserver==="undefined"){nodes.forEach(node=>{void load(node);});return;}
+  catalogImageObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries)if(entry.isIntersecting){
+      catalogImageObserver?.unobserve(entry.target);
+      void load(entry.target);
+    }
+  },{rootMargin:"220px"});
+  nodes.forEach(node=>{
+    if(publishedCatalog.imageUrls.has(node.dataset.catalogId))node.src=publishedCatalog.imageUrls.get(node.dataset.catalogId);
+    else catalogImageObserver.observe(node);
+  });
+}
 const clientFiles={items:[],total:0,page:0,query:"",type:"all",loading:false,busy:false,error:"",message:"",
  renameId:null,request:0,preview:null,draft:{title:"",documentType:"routine"}};
 function clearClientPreview(){
@@ -395,7 +468,7 @@ async function openAdminPreview(assetId){
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
 function resetPrivateBank(){
-  resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
+  clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -412,7 +485,10 @@ async function refreshPrivateBank(client,userId){
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
     authStatus.roleReady=true;authStatus.roleError="";
-    if(SITE_EMBEDDED&&!result.authorized&&state.page==="home")void fetchClientFiles(client,userId);
+    if(SITE_EMBEDDED&&!result.authorized){
+      if(state.page==="home")void fetchClientFiles(client,userId);
+      if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();
+    }
     if(SITE_EMBEDDED&&result.authorized){state.page="admin";state.adminTab="overview";}
     else if(SITE_EMBEDDED&&state.page==="admin")state.page="home";
     privateBank.items=result.items;privateBank.total=result.total;privateBank.page=result.page;
@@ -895,7 +971,19 @@ function renderAdmin(){
     "Informations techniques seulement : qualité graphique et publication à valider manuellement.":
     "Technical information only: artwork quality and publishing still require human review.")+'</p>':"")
     +(privatePreview.inkError?'<p class="admin-import-alert" role="status">'+esc(fr?"Aperçu d'encre indisponible : ":"Ink preview unavailable: ")+esc(privatePreview.inkError)+'</p>':"")
-    +privateInkCard+reviewHtml+'</section>';
+    +privateInkCard+reviewHtml
+    +(publishedCatalog.publishError?'<p role="alert" class="admin-import-alert">'+esc(publishedCatalog.publishError)+'</p>':'')
+    +(publishedCatalog.publishMessage?'<p role="status" class="admin-import-success">'+esc(publishedCatalog.publishMessage)+'</p>':'')
+    +(privatePreview.asset&&privatePreview.technical&&chosen.status==="draft"
+       ?'<form data-form="catalog-publish" data-id="'+esc(chosen.id)+'" class="admin-publish-control">'
+        +'<h4>'+esc(fr?'Publication dans la bibliothèque client':'Publish to client library')+'</h4>'
+        +'<p>'+esc(fr?'L’original reste privé. Seule une copie PNG expressément approuvée sera visible par les clients connectés.':'The source stays private. Only an explicitly approved PNG copy becomes visible to signed-in clients.')+'</p>'
+        +'<label><input type="checkbox" name="confirmed" required>'+esc(fr?'J’ai vérifié le dessin, son cadrage, les droits et le libellé.':'I reviewed the artwork, framing, rights and caption.')+'</label>'
+        +'<button type="submit" class="btn btn-primary"'+(publishedCatalog.publishing?' disabled':'')+'>'+icon("check","btn-icon")+esc(publishedCatalog.publishing?(fr?'Publication…':'Publishing…'):(fr?'Approuver et publier':'Approve and publish'))+'</button></form>'
+       :chosen.status==="published"
+       ?'<div class="admin-publish-control"><p>'+esc(fr?'Ce pictogramme est publié dans le catalogue client.':'This pictogram is published in the client catalogue.')+'</p>'
+        +'<button type="button" class="btn btn-light" data-action="catalog-unpublish" data-id="'+esc(chosen.id)+'"'+(publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?'Retirer de la bibliothèque client':'Remove from client library')+'</button></div>'
+       :"")+'</section>';
 
   const themes=[["autres",fr?"Autres":"Other"],["hygiene",fr?"Hygiène":"Hygiene"],["autonomie",fr?"Autonomie":"Independence"],["alimentation",fr?"Alimentation":"Food"],["ecole",fr?"École":"School"],["loisirs",fr?"Loisirs":"Leisure"],["socialisation",fr?"Socialisation":"Socializing"],["consignes",fr?"Consignes":"Instructions"],["etapes",fr?"Étapes":"Steps"],["transport",fr?"Transport":"Transport"],["sensoriel",fr?"Sensoriel":"Sensory"],["objets",fr?"Objets significatifs":"Meaningful objects"],["lieux",fr?"Lieux":"Places"]]
      .map(([code,label])=>[code,themeUI.items.find(t=>t.code===code)?.[fr?"label_fr":"label_en"]||label])
@@ -1172,23 +1260,46 @@ function renderClientHome(){
     +'</section></div>';
 }
 function renderClientLibrary(){
-  const fr=state.language==="fr";
-  const c=CLIENT_CATEGORIES.find(x=>x[0]===state.clientCategory);
+  const fr=state.language==="fr",f=publishedCatalog,c=CLIENT_CATEGORIES.find(x=>x[0]===state.clientCategory);
+  const first=f.total?f.page*CATALOG_PAGE_SIZE+1:0;
+  const last=Math.min(f.total,(f.page+1)*CATALOG_PAGE_SIZE);
+  const pages=Math.max(1,Math.ceil(f.total/CATALOG_PAGE_SIZE));
+  const cards=f.items.map(item=>{
+    const name=fr?item.title_fr:(item.title_en||item.title_fr);
+    const url=f.imageUrls.get(item.id);
+    return '<article class="pa-catalog-card"><div class="pa-catalog-art">'
+      +'<div class="pa-catalog-art-body"><img data-catalog-id="'+esc(item.id)+'"'
+      +(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async"></div>'
+      +'<div class="pa-catalog-art-caption">'+esc(name)+'</div></div>'
+      +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
+        CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
+      )+'</span></article>';
+  }).join("");
+  const feedback=f.loading?'<p class="pa-catalog-notice" role="status">'+esc(fr?'Chargement de la bibliothèque officielle…':'Loading official library…')+'</p>':
+    f.error?'<div class="pa-catalog-notice" role="alert"><p>'+esc(fr?'La bibliothèque est momentanément indisponible.':'The library is temporarily unavailable.')+'</p>'
+      +'<button class="btn btn-light" data-action="catalog-refresh">'+esc(fr?'Réessayer':'Retry')+'</button></div>':
+    !f.items.length?'<div class="pa-client-empty pa-client-catalog-empty">'+icon("library")+'<div><h2>'
+      +esc(fr?'Aucun pictogramme approuvé pour ces critères':'No approved pictograms for this selection')+'</h2>'
+      +'<p>'+esc(fr?'Seules les images réellement validées par le Super Admin apparaissent ici. Aucun brouillon ni dessin d’essai.':'Only artwork reviewed by the Super Admin appears here. No drafts or sample illustrations.')+'</p>'
+      +(c?'<p>'+esc(fr?'Catégorie : ':'Category: ')+esc(fr?c[1]:c[2])+'</p>':'')+'</div></div>':
+    '<div class="pa-catalog-grid">'+cards+'</div>'
+      +(pages>1?'<nav class="pa-catalog-pages" aria-label="'+esc(fr?'Pages des pictogrammes':'Pictogram pages')+'">'
+        +'<button type="button" class="btn btn-light" data-action="catalog-page" data-direction="-1"'+(f.page===0?' disabled':'')+'>'+esc(fr?'Précédent':'Previous')+'</button>'
+        +'<span>'+first+'–'+last+' / '+f.total+'</span>'
+        +'<button type="button" class="btn btn-light" data-action="catalog-page" data-direction="1"'+(f.page>=pages-1?' disabled':'')+'>'+esc(fr?'Suivant':'Next')+'</button></nav>':'');
   return '<section class="pa-client-catalog" aria-labelledby="pa-catalog-title">'
     +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'BIBLIOTHÈQUE':'LIBRARY')+'</span>'
-    +'<h1 id="pa-catalog-title">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</h1></div></div>'
-    +'<div class="pa-client-search-wrap"><label for="pa-client-search">'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</label>'
-    +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="100"'
-    +' value="'+esc(state.search)+'" placeholder="'+esc(fr?'Ex. : toilette, manger, école…':'E.g. bathroom, eat, school…')+'"></div></div>'
+    +'<h1 id="pa-catalog-title">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</h1></div>'
+    +(f.loaded?'<span class="pa-client-section-meta">'+f.total+' '+esc(fr?'résultats approuvés':'approved results')+'</span>':'')+'</div>'
+    +'<form data-form="catalog-filter" class="pa-client-search-wrap" role="search">'
+    +'<label for="pa-client-search">'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</label>'
+    +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="80"'
+    +' value="'+esc(state.search)+'" placeholder="'+esc(fr?'Ex. : toilette, manger, école…':'E.g. bathroom, eat, school…')+'">'
+    +'<button class="pa-catalog-search-button" type="submit">'+esc(fr?'Rechercher':'Search')+'</button></div></form>'
     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'">'
-      +esc(fr?frName:enName)+'</button>').join("")+'</div>'
-    +'<div class="pa-client-empty pa-client-catalog-empty">'+icon("library")+'<div><h2>'+esc(fr?'Aucun pictogramme publié pour le moment':'No published pictograms yet')+'</h2>'
-    +'<p>'+esc(fr?'La banque officielle est en préparation. Les recherches et catégories sont prêtes, mais aucune image de test ne sera affichée comme un vrai pictogramme.':'The official library is being prepared. Search and categories are available, but test images will never be shown as real pictograms.')+'</p>'
-    +(c?'<p><strong>'+esc(fr?'Catégorie choisie : ':'Selected category: ')+esc(fr?c[1]:c[2])+'</strong></p>':'')
-    +(state.search?'<p><strong>'+esc(fr?'Recherche : ':'Search: ')+esc(state.search)+'</strong></p>':'')+'</div></div>'
-    +'</section>';
+      +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>';
 }
 function renderClientCreate(){
   const fr=state.language==="fr";
@@ -1266,6 +1377,7 @@ function render(){
   layoutArtwork(root);
   updateArtFeedback();
   observeBankThumbnails();
+  observePublishedArtwork();
 }
 let artworkResizeFrame=0;
 window.addEventListener("resize",()=>{
@@ -1370,18 +1482,24 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();}
+  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();}
   if(a==="client-search"){
-    if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
+    if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
     return;
   }
   if(a==="client-category"){
     if(SITE_EMBEDDED&&!canOpenAdmin()){
       const value=el.dataset.category||"";
       state.clientCategory=CLIENT_CATEGORIES.some(x=>x[0]===value)?value:"";
-      state.page="library";render();window.scrollTo({top:0,behavior:"instant"});
+      state.page="library";publishedCatalog.page=0;render();void fetchPublishedCatalog();window.scrollTo({top:0,behavior:"instant"});
     }
     return;
+  }
+  if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
+  if(a==="catalog-page"&&SITE_EMBEDDED&&!canOpenAdmin()&&!publishedCatalog.loading){
+    const target=publishedCatalog.page+Number(el.dataset.direction);
+    if(!Number.isSafeInteger(target)||target<0||target>=Math.ceil(publishedCatalog.total/CATALOG_PAGE_SIZE))return;
+    publishedCatalog.page=target;void fetchPublishedCatalog();window.scrollTo({top:0,behavior:"instant"});return;
   }
   if(a==="files-preview-close"){
     const docId=clientFiles.preview?.id;
@@ -1722,6 +1840,24 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-rename"){openBankRename(el.dataset.id);return;}
   if(a==="admin-rename-cancel"){if(!bankRename.busy){clearBankRename();render();}return;}
+  if(a==="catalog-unpublish"){
+    if(!canOpenAdmin()||publishedCatalog.publishing)return;
+    const asset=privateBank.items.find(x=>x.id===el.dataset.id);
+    if(!asset||asset.status!=="published")return;
+    if(!window.confirm(state.language==="fr"?"Retirer ce pictogramme de tous les catalogues clients ?":"Remove this pictogram from all client catalogues?"))return;
+    publishedCatalog.publishing=true;publishedCatalog.publishError="";publishedCatalog.publishMessage="";render();
+    const uid=authStatus.user.id;
+    void (async()=>{
+      try{
+        const client=await supabaseClient();
+        await unpublishReviewedPictogram(client,uid,asset.id);
+        if(authStatus.user?.id!==uid)return;
+        publishedCatalog.publishMessage=state.language==="fr"?"Pictogramme retiré. Le brouillon privé est conservé.":"Removed from client catalogue. Original draft remains private.";
+        clearAdminPreview();await refreshPrivateBank(client,uid);
+      }catch(error){publishedCatalog.publishError=String(error?.message||error);}
+      finally{publishedCatalog.publishing=false;render();}
+    })();return;
+  }
   if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
   if(a==="close-admin-preview"){clearAdminPreview();render();return;}
   if(a==="download-admin-preview"){
@@ -1816,6 +1952,32 @@ root.addEventListener("submit",function(event){
     }).catch(()=>{authStatus.emailError=state.language==="fr"?"Impossible d’enregistrer le nouveau mot de passe.":"Unable to save the new password.";})
       .finally(()=>{authStatus.emailBusy=false;render();});
     return;
+  }
+  if(event.target.matches('form[data-form="catalog-filter"]')){
+    event.preventDefault();if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+    const query=String(new FormData(event.target).get("query")||event.target.querySelector("#pa-client-search")?.value||"").slice(0,80);
+    state.search=query;publishedCatalog.page=0;void fetchPublishedCatalog();return;
+  }
+  const publishForm=event.target.closest('form[data-form="catalog-publish"]');
+  if(publishForm){
+    event.preventDefault();
+    if(!canOpenAdmin()||publishedCatalog.publishing||!publishForm.querySelector('[name="confirmed"]')?.checked)return;
+    const asset=privateBank.items.find(x=>x.id===publishForm.dataset.id);
+    if(!asset||asset.status!=="draft"||privatePreview.asset?.id!==asset.id||!privatePreview.technical)return;
+    if(!window.confirm(state.language==="fr"?"Confirmer la publication de cette image approuvée dans le catalogue des clients ?":"Publish this reviewed picture to the client catalogue?"))return;
+    publishedCatalog.publishing=true;publishedCatalog.publishError="";publishedCatalog.publishMessage="";
+    const uid=authStatus.user.id;render();
+    void (async()=>{
+      try{
+        const client=await supabaseClient();
+        await publishReviewedPictogram(client,uid,asset.id);
+        if(authStatus.user?.id!==uid)return;
+        publishedCatalog.publishMessage=state.language==="fr"?"Publication confirmée par le serveur.":"Publication confirmed by the server.";
+        clearAdminPreview();
+        await refreshPrivateBank(client,uid);
+      }catch(error){if(authStatus.user?.id===uid)publishedCatalog.publishError=String(error?.message||error);}
+      finally{publishedCatalog.publishing=false;render();}
+    })();return;
   }
   const uploadForm=event.target.closest('form[data-form="archive-pdf"]');
   if(uploadForm){
