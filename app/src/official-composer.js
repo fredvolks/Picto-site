@@ -8,6 +8,18 @@ export function selectApprovedItem(items,row,kind){
     throw Error("Sélection de pictogramme invalide ou complète.");
   return [...items,{id:row.id,title_fr:row.title_fr,title_en:row.title_en||null,theme:row.theme,image_path:row.image_path}];
 }
+// Libellé personnalisé par case; l'illustration approuvée et son titre officiel restent inchangés.
+export function setApprovedItemLabel(items,index,value){
+  if(!Array.isArray(items)||!Number.isInteger(index)||index<0||index>=items.length)
+    throw Error("Case de pictogramme invalide.");
+  if(typeof value!=="string"||value.length>48||/[\p{C}]/u.test(value))
+    throw Error("Le texte doit contenir au plus 48 caractères, sans caractères de contrôle.");
+  const label=value.replace(/\s+/g," ").trim();
+  return items.map((item,i)=>i===index?{...item,customLabel:label||null}:item);
+}
+export function approvedItemCaption(item,language="fr"){
+  return item.customLabel||(language==="en"?(item.title_en||item.title_fr):item.title_fr);
+}
 export function changeApprovedOrder(items,index,direction){
   if(!Array.isArray(items)||!Number.isInteger(index)||![-1,1].includes(direction)||index<0||
     index>=items.length||index+direction<0||index+direction>=items.length)return [...items];
@@ -39,11 +51,16 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
  const paper=settings.paper==="a4"?"a4":"letter";
  const columns=["2","3","4"].includes(settings.columns)?settings.columns:"3";
  const content=items.map((item,i)=>{
-  const title=fr?item.title_fr:(item.title_en||item.title_fr),src=imageUrls.get(item.id);
+  const title=approvedItemCaption(item,language),src=imageUrls.get(item.id);
   return '<li class="pa-composer-item"><div class="pa-catalog-art"><div class="pa-catalog-art-body">'
    +'<img data-catalog-id="'+e(item.id)+'"'+(src?' src="'+e(src)+'"':'')+' alt="" loading="lazy"></div>'
    +'<div class="pa-catalog-art-caption">'+e(title)+'</div></div>'
-   +'<span class="pa-composer-item-name">'+e(title)+'</span><div class="pa-composer-item-actions">'
+   +'<span class="pa-composer-item-name">'+e(title)+'</span>'
+   +'<div class="pa-composer-label-edit"><label for="official-caption-'+kind+'-'+i+'">'
+   +e(label("Texte du pictogramme","Pictogram caption"))+'</label>'
+   +'<input id="official-caption-'+kind+'-'+i+'" type="text" data-input="official-caption"'
+   +' data-kind="'+kind+'" data-index="'+i+'" maxlength="48" aria-describedby="official-caption-help"'
+   +' value="'+e(item.customLabel||title)+'"></div><div class="pa-composer-item-actions">'
    +'<button type="button" data-action="approved-move" data-kind="'+kind+'" data-index="'+i+'" data-direction="-1"'
    +(!i?' disabled':'')+' aria-label="'+e(label("Vers la gauche","Move left"))+'">'+icon("up")+'</button>'
    +'<button type="button" data-action="approved-move" data-kind="'+kind+'" data-index="'+i+'" data-direction="1"'
@@ -56,7 +73,8 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
   +'<p class="pa-client-context">'+e(label("Seuls les pictogrammes publiés peuvent être utilisés. Le PDF original est sauvegardé dans Mes créations.","Only published pictograms can be used. The original PDF is saved in My creations."))+'</p>'
   +'<div class="pa-composer-toolbar"><strong>'+items.length+' / '+(routine?10:16)+'</strong>'
   +'<button type="button" data-action="nav" data-page="library">'+icon("plus")+e(label("Ajouter des pictogrammes","Add pictograms"))+'</button></div>'
-  +(items.length?'<ol class="pa-composer-items">'+content+'</ol>':
+  +(items.length?'<p id="official-caption-help" class="pa-client-context">'
+    +e(label("Modifiez le texte au besoin; effacez-le pour retrouver le libellé officiel.","Edit a caption if needed; clear it to restore the original label."))+'</p><ol class="pa-composer-items">'+content+'</ol>':
     '<p class="pa-catalog-notice">'+e(label("Aucune image choisie. Ouvrez la bibliothèque pour commencer.","No images selected. Open the library to start."))+'</p>')
   +pending
   +(error?'<p role="alert" class="pa-catalog-notice">'+e(error)+'</p>':'')

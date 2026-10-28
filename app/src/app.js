@@ -19,7 +19,7 @@ import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
-import {selectApprovedItem,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
+import {selectApprovedItem,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
@@ -151,6 +151,27 @@ function recordComposerFormValue(target){
   const field=target.name;
   if(!["title","widthCm","paper","columns"].includes(field))return false;
   officialComposer.settings[kind][field]=String(target.value).slice(0,120);
+  return true;
+}
+function recordComposerCaption(target){
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||
+     target?.dataset?.input!=="official-caption")return false;
+  const kind=target.dataset.kind,index=Number(target.dataset.index);
+  if(!["routine","board"].includes(kind)||!Number.isInteger(index))return true;
+  try{
+    officialComposer[kind]=setApprovedItemLabel(officialComposer[kind],index,target.value);
+    target.setCustomValidity("");
+    const caption=approvedItemCaption(officialComposer[kind][index],state.language);
+    const card=target.closest(".pa-composer-item");
+    if(card){
+      const below=card.querySelector(".pa-catalog-art-caption");
+      const title=card.querySelector(".pa-composer-item-name");
+      if(below)below.textContent=caption;
+      if(title)title.textContent=caption;
+    }
+  }catch(error){target.setCustomValidity(state.language==="fr"?
+    "Le texte doit contenir 48 caractères ou moins, sans caractères de contrôle.":
+    "Use 48 characters or fewer, with no control characters.");}
   return true;
 }
 const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
@@ -1933,6 +1954,7 @@ root.addEventListener("click",function(event){
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
+  if(recordComposerCaption(event.target))return;
   if(recordComposerFormValue(event.target))return;
   if(event.target.closest('form[data-form="admin-bank-rename"]')&&event.target.name==="adminName"){
     bankRename.value=event.target.value;bankRename.error="";return;
@@ -2034,6 +2056,8 @@ root.addEventListener("submit",function(event){
     if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||pendingGeneratedPdf)return;
     const kind=officialForm.dataset.kind;
     if(!["routine","board"].includes(kind))return;
+    const invalidCaption=root.querySelector('.pa-composer-item [data-input="official-caption"]:invalid');
+    if(invalidCaption){invalidCaption.reportValidity();return;}
     const data=new FormData(officialForm),title=String(data.get("title")||""),
       widthCm=Number(data.get("widthCm")),paper=String(data.get("paper")||"letter"),
       columns=kind==="board"?Number(data.get("columns")):3,
@@ -2053,7 +2077,10 @@ root.addEventListener("submit",function(event){
         const items=[];
         for(const row of rows){
           const pngBlob=await downloadPublishedArtwork(client,uid,row);
-          items.push({fr:row.title_fr,en:row.title_en||row.title_fr,pngBlob});
+          const position=items.length;
+          const customLabel=snapshot[position]?.customLabel;
+          const label=typeof customLabel==="string"&&customLabel.trim()?customLabel:null;
+          items.push({fr:label||row.title_fr,en:label||(row.title_en||row.title_fr),pngBlob});
         }
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
         const {blob,pageCount}=await createPreparedPdf({
@@ -2312,6 +2339,7 @@ root.addEventListener("submit",function(event){
   })();
 });
 root.addEventListener("change",function(event){
+  if(recordComposerCaption(event.target))return;
   if(recordComposerFormValue(event.target))return;
   if(event.target.closest('form[data-form="customer-request"]')&&event.target.name==="theme"){
     customerRequests.form.theme=event.target.value;return;
