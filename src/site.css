@@ -181,3 +181,7 @@ a:focus-visible,button:focus-visible{outline:3px solid #2b7297;outline-offset:3p
 .plan-page-status strong{display:block;color:#1f536d;font-size:18px}
 .plan-page-status p{margin:9px 0 0}
 .plan-page .plan-page-note{font-size:13px;color:#526977}
+
+/* Le texte des trois bénéfices reste centré même si une étiquette s'étale sur deux lignes. */
+.benefit>div{width:100%;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+.benefit strong,.benefit small{width:100%;text-align:center}
