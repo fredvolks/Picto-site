@@ -1200,3 +1200,45 @@
 @media screen and (min-width:1101px){.admin-workspace>.admin-sidebar{position:sticky;top:0;height:100dvh;align-self:start;overflow-y:auto}}
 
 @media screen and (max-width:980px){.pa-client-workspace.pa-keyboard-open .pa-client-mobile-nav{display:none!important}.pa-client-workspace.pa-keyboard-open .pa-client-main{padding-bottom:38px}}
+
+
+/* Mes créations : historique en premier, actions directes de réimpression, tactile. */
+@media screen{
+  .pa-client-workspace .pa-client-creation{
+    grid-template-columns:28px minmax(0,1fr) auto;
+    padding:14px 18px;gap:14px;min-height:78px;cursor:default
+  }
+  .pa-client-workspace .pa-client-creation-info{min-width:0;display:flex;flex-direction:column;gap:5px}
+  .pa-client-workspace .pa-client-creation-info strong{font-size:15px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pa-client-workspace .pa-client-creation-info small{font-size:12px;color:#686868;line-height:1.45}
+  .pa-client-workspace .pa-client-creation-actions{display:flex;align-items:center;gap:8px}
+  .pa-client-workspace .pa-client-creation-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:9px 14px;border-radius:11px;border:1px solid #d5d5d5;background:#fff;color:#111;font-size:13px;font-weight:750;cursor:pointer;white-space:nowrap}
+  .pa-client-workspace .pa-client-creation-actions button:hover{border-color:#111}
+  .pa-client-workspace .pa-client-creation-actions button.pa-client-creation-reprint{background:#111;color:#fff;border-color:#111}
+  .pa-client-workspace .pa-client-creation-actions button.pa-client-creation-reprint:hover{background:#292929}
+  .pa-client-workspace .pa-client-creation-actions button:disabled{opacity:.55;cursor:wait}
+  .pa-client-workspace .files-upload-panel{margin-top:20px}
+  .pa-client-workspace .files-upload-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:750;color:#111;min-height:48px;list-style:none}
+  .pa-client-workspace .files-upload-toggle::-webkit-details-marker{display:none}
+  .pa-client-workspace .files-upload-toggle::before{content:"+";display:grid;place-items:center;width:31px;height:31px;border:1px solid #d5d5d5;border-radius:9px;font-size:20px;font-weight:500}
+  .pa-client-workspace details[open]>.files-upload-toggle::before{content:"−"}
+  .pa-client-workspace .files-upload-panel-inner{padding:15px 0 0}
+  .pa-client-workspace .files-upload-panel-inner>p{font-size:13px;line-height:1.6;color:#686868;margin:0 0 16px}
+  .pa-client-workspace .files-history-head h2{color:#111}
+  .pa-client-workspace .files-entry-actions .btn-primary{background:#111!important;color:#fff!important;border-color:#111!important}
+  .pa-client-workspace .files-entry-actions .btn-light{color:#111!important;background:#fff!important;border-color:#d5d5d5!important}
+  .pa-client-workspace .files-entry-icon{background:#f7f7f7;color:#111}
+  .pa-client-workspace .files-entry-body strong{color:#111}
+  .pa-client-workspace .files-page label{color:#333}
+  .pa-client-workspace .files-empty,.pa-client-workspace .files-feedback{background:#f7f7f7;color:#686868}
+}
+@media screen and (max-width:860px){
+  .pa-client-workspace .pa-client-creation{grid-template-columns:28px minmax(0,1fr);gap:12px}
+  .pa-client-workspace .pa-client-creation-actions{grid-column:1/-1;justify-content:stretch}
+  .pa-client-workspace .pa-client-creation-actions button{flex:1;min-width:0}
+}
+@media screen and (max-width:380px){
+  .pa-client-workspace .pa-client-creation{padding:12px}
+  .pa-client-workspace .pa-client-creation-actions button{padding:9px 6px;font-size:12px}
+}
+@media print{.pa-client-workspace .pa-client-creation-actions,.pa-client-workspace .files-upload-panel{display:none!important}}

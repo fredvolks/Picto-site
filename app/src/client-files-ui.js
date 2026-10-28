@@ -10,12 +10,12 @@ export function renderClientFiles({language,logged,files,escape:e,icon}){
  };
  const pageMax=Math.max(0,Math.ceil(files.total/20)-1);
  const panel='<div class="files-heading"><div><span class="client-detail-kicker">'+t("VOTRE ESPACE PRIVÉ","YOUR PRIVATE SPACE")+'</span>'
-   +'<h1>'+t("Mes fichiers","My files")+'</h1>'
+   +'<h1>'+t("Mes créations","My creations")+'</h1>'
    +'<p>'+t("Retrouvez vos PDF préparés et réimprimez le document original, sans le reconstruire.","Find your prepared PDFs and print the original document without rebuilding it.")+'</p></div></div>';
  if(!logged)return '<div class="files-page">'+panel+'<section class="panel files-sign-in"><h2>'+t("Connectez-vous pour retrouver vos documents","Sign in to find your documents")+'</h2>'
   +'<p>'+t("Les PDF sont conservés de façon privée et associés à votre compte Google. Utilisez « Continuer avec Google » dans l’en-tête.","PDFs are stored privately under your Google account. Use Continue with Google in the header.")+'</p></section></div>';
- const form='<section class="panel files-upload-panel"><h2>'+t("Archiver un PDF existant","Archive an existing PDF")+'</h2>'
-   +'<p>'+t("Vous pouvez archiver ici un PDF existant. Depuis une routine ou un tableau d’essai, le bouton « Créer et archiver le PDF » permet aussi de sauvegarder une nouvelle composition. Contrôlez sa taille réelle avant d’imprimer.","You can archive an existing PDF here. From a sample routine or board, Create and archive PDF can also save a new composition. Check its actual size before printing.")+'</p>'
+ const form='<details class="panel files-upload-panel"><summary class="files-upload-toggle">'+t("Ajouter un PDF existant","Add an existing PDF")+'</summary><div class="files-upload-panel-inner"><h2>'+t("Archiver un PDF existant","Archive an existing PDF")+'</h2>'
+   +'<p>'+t("Choisissez un PDF de votre appareil. Son original sera conservé dans votre compte pour le retrouver et le réimprimer sur un autre appareil.","Choose a PDF from your device. Its original will be saved to your account so you can find and reprint it on another device.")+'</p>'
    +'<form data-form="archive-pdf" class="files-upload-form">'
    +'<div class="control"><label for="files-title">'+t("Nom du document","Document name")+'</label>'
    +'<input id="files-title" name="title" type="text" required maxlength="120" placeholder="'+t("Ma routine du soir","My evening routine")+'" value="'+e(files.draft.title)+'"></div>'
@@ -24,7 +24,7 @@ export function renderClientFiles({language,logged,files,escape:e,icon}){
    +'<div class="control files-file-control"><label for="files-pdf">'+t("Fichier PDF de votre appareil","PDF file from your device")+'</label>'
    +'<input id="files-pdf" name="pdf" type="file" accept=".pdf,application/pdf" required>'
    +'<small>'+t("PDF d’origine : copie privée non modifiée (limite technique 20 Mo).","Original PDF: unchanged private copy (technical limit 20 MB).")+'</small></div>'
-   +'<button type="submit" class="btn btn-primary"'+(files.busy?' disabled':'')+'>'+icon("save","btn-icon")+t(files.busy?"Archivage…":"Archiver le PDF",files.busy?"Archiving…":"Archive PDF")+'</button></form></section>';
+   +'<button type="submit" class="btn btn-primary"'+(files.busy?' disabled':'')+'>'+icon("save","btn-icon")+t(files.busy?"Archivage…":"Archiver le PDF",files.busy?"Archiving…":"Archive PDF")+'</button></form></div></details>';
  const filters='<form data-form="files-filter" class="files-filters"><div class="control"><label for="files-search">'+t("Rechercher par nom","Search by name")+'</label>'
    +'<input id="files-search" name="query" type="search" maxlength="80" value="'+e(files.query)+'" placeholder="'+t("Ex. routine du soir","E.g. evening routine")+'"></div>'
    +'<div class="control"><label for="files-filter-type">'+t("Type","Type")+'</label>'
@@ -71,7 +71,7 @@ export function renderClientFiles({language,logged,files,escape:e,icon}){
  return '<div class="files-page">'+panel
    +(files.error?'<p class="request-error" role="alert">'+e(files.error)+'</p>':"")
    +(files.message?'<p class="request-success" role="status">'+e(files.message)+'</p>':"")
-   +form+'<section class="panel files-history"><div class="files-history-head"><h2>'+t("Documents préparés","Prepared documents")+'</h2>'
+   +'<section class="panel files-history"><div class="files-history-head"><h2>'+t("Documents enregistrés","Saved documents")+'</h2>'
    +'<button type="button" class="btn btn-light btn-small" data-action="files-refresh"'+(files.loading?' disabled':'')+'>'+t("Actualiser","Refresh")+'</button></div>'
-   +filters+list+pages+'</section>'+preview+'</div>';
+   +filters+list+pages+'</section>'+form+preview+'</div>';
 }
