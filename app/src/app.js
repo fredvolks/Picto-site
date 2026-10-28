@@ -21,7 +21,7 @@ import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
-import {selectApprovedItem,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
+import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
@@ -312,15 +312,15 @@ function recordComposerCaption(target){
     "Use 48 characters or fewer, with no control characters.");}
   return true;
 }
-const usedPictos={items:[],total:0,page:0,loading:false,error:"",query:"",sort:"recent",theme:"all",request:0};
+const usedPictos={items:[],total:0,page:0,loading:false,error:"",query:"",sort:"recent",theme:"all",request:0,notice:""};
 function resetUsedPictos(){
   usedPictos.request++;usedPictos.items=[];usedPictos.total=0;usedPictos.page=0;
-  usedPictos.loading=false;usedPictos.error="";usedPictos.query="";usedPictos.sort="recent";usedPictos.theme="all";
+  usedPictos.loading=false;usedPictos.error="";usedPictos.notice="";usedPictos.query="";usedPictos.sort="recent";usedPictos.theme="all";
 }
 async function fetchUsedPictos(){
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
   const uid=authStatus.user.id,ticket=++usedPictos.request;
-  usedPictos.loading=true;usedPictos.error="";render();
+  usedPictos.loading=true;usedPictos.error="";usedPictos.notice="";render();
   try{
     const client=await supabaseClient();
     const result=await listUsedPictograms(client,uid,{
@@ -1592,6 +1592,15 @@ function renderClientUsed(){
     +'<select id="pa-used-theme" name="theme"><option value="all">'+esc(fr?"Toutes":"All")+'</option>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<option value="'+esc(key)+'"'+(u.theme===key?' selected':'')+'>'+esc(fr?frName:enName)+'</option>').join("")+'</select></div>'
     +'<button type="submit" class="btn btn-primary"'+(u.loading?' disabled':'')+'>'+esc(fr?"Filtrer":"Filter")+'</button></form>'
+    +(!u.loading&&!u.error&&u.items.some(row=>approvedFromUsage(row))?
+      '<div class="pa-composer-toolbar pa-used-bulk-toolbar"><strong>'+esc(fr?"Ajouter les images affichées":"Add visible pictograms")+'</strong>'
+      +'<button type="button" data-action="used-add-page" data-kind="routine"'
+      +(officialComposer.routine.length>=10||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
+      +'>'+icon("plus")+esc(fr?"À ma routine (max. 10)":"To my routine (max 10)")+'</button>'
+      +'<button type="button" data-action="used-add-page" data-kind="board"'
+      +(officialComposer.board.length>=16||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
+      +'>'+icon("plus")+esc(fr?"À mon tableau (max. 16)":"To my board (max 16)")+'</button></div>':'')
+    +(u.notice?'<p role="status" aria-live="polite" class="pa-catalog-notice">'+esc(u.notice)+'</p>':'')
     +(officialComposer.routine.length||officialComposer.board.length?
       '<div class="pa-composer-toolbar"><strong>'+esc(fr?"Votre sélection":"Your selection")+'</strong>'
       +'<button type="button" data-action="nav" data-page="routines">'+esc(fr?"Routine":"Routine")+' · '+officialComposer.routine.length+'</button>'
@@ -2070,6 +2079,29 @@ root.addEventListener("click",function(event){
      officialComposer[kind]=a==="approved-remove"?removeApprovedItem(officialComposer[kind],index):
        changeApprovedOrder(officialComposer[kind],index,Number(el.dataset.direction));
      markDraftChanged(kind);render();return;
+   }
+   if(a==="used-add-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      !usedPictos.loading&&!usedPictos.error&&!officialComposer.busy&&
+      !editableDrafts.deletingKind&&!editableDrafts.copyKind){
+     const kind=el.dataset.kind;
+     if(!["routine","board"].includes(kind))return;
+     try{
+       const rows=usedPictos.items.map(approvedFromUsage).filter(Boolean);
+       const result=addApprovedPage(officialComposer[kind],rows,kind);
+       if(result.added){
+         officialComposer[kind]=result.items;
+         markDraftChanged(kind);
+         officialComposer.error="";
+       }
+       const fr=state.language==="fr";
+       usedPictos.notice=result.added?
+         (fr?result.added+(result.added===1?" pictogramme ajouté.":" pictogrammes ajoutés.")+
+             (result.capacityReached?" Limite du support atteinte.":""):
+           result.added+(result.added===1?" pictogram added.":" pictograms added.")+
+             (result.capacityReached?" Support limit reached.":"")):
+         (fr?"Aucune nouvelle image ajoutée : déjà choisie ou support complet.":"No new images added: already selected or support full.");
+     }catch(error){usedPictos.notice=String(error?.message||error);}
+     render();return;
    }
    if(a==="used-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading){
     const target=usedPictos.page+Number(el.dataset.direction);

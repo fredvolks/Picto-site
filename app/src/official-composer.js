@@ -8,6 +8,24 @@ export function selectApprovedItem(items,row,kind){
     throw Error("Sélection de pictogramme invalide ou complète.");
   return [...items,{id:row.id,title_fr:row.title_fr,title_en:row.title_en||null,theme:row.theme,image_path:row.image_path}];
 }
+// Ajout rapide de la page courante des pictogrammes déjà utilisés : ne modifie ni
+// les choix existants, ni les PDF d'archives. La revalidation serveur reste requise à l'export.
+export function addApprovedPage(items,rows,kind){
+  const limit=OFFICIAL_LIMITS[kind];
+  if(!limit||!Array.isArray(items)||!Array.isArray(rows)||items.length>limit)
+    throw Error("Sélection de pictogrammes invalide.");
+  const next=[...items],seen=new Set(items.map(item=>item?.id));
+  let added=0,capacityReached=false;
+  for(const row of rows){
+    if(!row||seen.has(row.id))continue;
+    if(next.length>=limit){capacityReached=true;break;}
+    const selected=selectApprovedItem(next,row,kind);
+    next.push(selected[selected.length-1]);
+    seen.add(row.id);added++;
+  }
+  return {items:next,added,capacityReached};
+}
+
 // Libellé personnalisé par case; l'illustration approuvée et son titre officiel restent inchangés.
 export function setApprovedItemLabel(items,index,value){
   if(!Array.isArray(items)||!Number.isInteger(index)||index<0||index>=items.length)
