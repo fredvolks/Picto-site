@@ -24,7 +24,7 @@
 .home-hero-copy{padding:75px 15px 75px clamp(28px,5vw,72px);position:relative;z-index:2}
 .home-kicker,.home-section-label{font-size:10px;font-weight:800;letter-spacing:2px;color:#727c72;text-transform:uppercase}
 .home-kicker{display:flex;align-items:center;gap:9px}
-.home-kicker>span{width:7px;height:7px;background:#58695b;display:inline-block;border-radius:50%}
+.home-kicker>.home-kicker-dot{width:7px;height:7px;background:#58695b;display:inline-block;border-radius:50%;flex:0 0 7px}
 .home-hero h1{font-size:clamp(36px,4.2vw,60px);letter-spacing:-2.6px;line-height:1.08;font-weight:800;margin:22px 0;color:#181d19}
 .home-hero-copy>p{font-size:14px;max-width:390px;line-height:1.78;color:#6e786e;margin:0 0 27px}
 .home-hero-actions{display:flex;gap:10px;flex-wrap:wrap}
@@ -205,7 +205,7 @@ body{min-width:280px}
 .home-hero-copy{align-self:center;min-height:0;padding:clamp(14px,3vw,48px) 14px clamp(14px,3vw,48px) clamp(24px,4.2vw,62px)}
 .home-kicker{display:flex;align-items:center;gap:9px;font-size:10px;line-height:1.45;letter-spacing:1.25px;max-width:100%;margin:0}
 .home-kicker .home-kicker-dot{flex:0 0 7px;width:7px;height:7px}
-.home-kicker>span:last-child{display:block;min-width:0;max-width:100%}
+.home-kicker>span:last-child{display:block;min-width:0;max-width:100%;width:auto;height:auto;flex:1 1 auto;background:none;border-radius:0;line-height:1.4;overflow-wrap:normal;white-space:normal}
 .home-hero h1{position:relative;clear:both;font-size:clamp(32px,3.7vw,57px);letter-spacing:-.05em;line-height:1.1;margin:20px 0 18px;overflow-wrap:normal}
 .home-hero-copy>p{font-size:clamp(12px,.98vw,15px);line-height:1.6;margin-bottom:20px}
 .home-hero-actions{display:flex;flex-wrap:wrap;gap:9px}
@@ -358,3 +358,8 @@ body{min-width:280px}
  .home-pricing-intro{display:none}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Correctif du titre : le texte de l’accroche ne doit jamais hériter de la taille 7×7 px du point décoratif. */
+.home-kicker{align-items:center}
+.home-kicker>.home-kicker-dot{display:block;flex:0 0 7px}
+.home-kicker>span:last-child{width:auto;height:auto;flex:1 1 auto;background:transparent;border-radius:0;line-height:1.4}

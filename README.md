@@ -21,3 +21,7 @@ Le code applicatif, la banque Supabase, les outils du super admin, l'extension C
 ## Contrôles
 
 Exécuter `node --check src/site.js` et `node --test tests/site.test.mjs` si les tests du dépôt sont présents. Vérifier manuellement les rendus à 375, 768 et 1440 pixels avant mise en production commerciale.
+
+## Contrôle correctif du titre — 28 octobre 2026
+
+L'accroche était accidentellement stylée comme le point décoratif (boîte de 7 × 7 px), ce qui faisait déborder les lettres sur le titre. Le sélecteur CSS cible désormais **uniquement** `.home-kicker-dot`. Le test Chrome vérifie à présent les **vrais caractères** (via DOM Range et leurs rectangles) et échoue si les lettres quittent leur boîte ou recouvrent le titre.

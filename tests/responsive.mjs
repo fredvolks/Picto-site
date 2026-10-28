@@ -104,7 +104,7 @@ try{
         "const box=el=>{if(!el)return null;const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height}};",
         "const inside=el=>{const r=box(el);return !!r&&r.width>0&&r.height>0&&r.top>=-1&&r.left>=-1&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1};",
         "const home=site.dataset.view==='home',features=site.dataset.view==='features',plan=site.dataset.view==='plan';",
-        "return {view:site.dataset.view,viewport:[innerWidth,innerHeight],scroll:[document.documentElement.scrollWidth,document.documentElement.scrollHeight],kicker:box(document.querySelector('.home-kicker')),title:box(document.querySelector('.home-hero h1')),homeButtons:home?inside(document.querySelector('.home-hero-actions')):true,heroImage:home?inside(document.querySelector('.home-device')):true,featuresFirst:features?inside(document.querySelector('.home-feature-grid article:first-child')):true,featuresLast:features?inside(document.querySelector('.home-feature-grid article:last-child')):true,planCard:plan?inside(document.querySelector('.home-plan')):true,planStatus:plan?inside(document.querySelector('.home-plan-availability')):true};"
+        "const label=document.querySelector('.home-kicker>span:last-child'),range=document.createRange();range.selectNodeContents(label);const textRect=range.getBoundingClientRect();const labelBox=box(label);return {view:site.dataset.view,viewport:[innerWidth,innerHeight],scroll:[document.documentElement.scrollWidth,document.documentElement.scrollHeight],kicker:box(document.querySelector('.home-kicker')),kickerText:{top:textRect.top,bottom:textRect.bottom,left:textRect.left,right:textRect.right},kickerTextElement:labelBox,kickerComputed:{width:getComputedStyle(label).width,height:getComputedStyle(label).height},title:box(document.querySelector('.home-hero h1')),homeButtons:home?inside(document.querySelector('.home-hero-actions')):true,heroImage:home?inside(document.querySelector('.home-device')):true,featuresFirst:features?inside(document.querySelector('.home-feature-grid article:first-child')):true,featuresLast:features?inside(document.querySelector('.home-feature-grid article:last-child')):true,planCard:plan?inside(document.querySelector('.home-plan')):true,planStatus:plan?inside(document.querySelector('.home-plan-availability')):true};"
       ].join("\n");
       const metrics=await evaluate(expr);
       const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
@@ -112,7 +112,13 @@ try{
       assert.equal(metrics.view,view,"Onglet actif incorrect");
       assert.ok(metrics.scroll[0]<=viewport.width+1,"Débordement horizontal "+JSON.stringify(metrics));
       assert.ok(metrics.scroll[1]<=viewport.height+1,"Débordement vertical "+JSON.stringify(metrics));
-      if(view==="home")assert.ok(metrics.title.top>=metrics.kicker.bottom+2,"Titre superposé au sous-titre "+JSON.stringify(metrics));
+      if(view==="home"){
+        assert.ok(metrics.kickerTextElement.width>30,"Texte accroche dans une boîte microscopique "+JSON.stringify(metrics));
+        assert.ok(metrics.kickerText.bottom<=metrics.kickerTextElement.bottom+2,"Le texte déborde de son propre conteneur "+JSON.stringify(metrics));
+        assert.ok(metrics.kickerText.right<=metrics.kickerTextElement.right+2,"Le texte déborde horizontalement de son conteneur "+JSON.stringify(metrics));
+        assert.ok(metrics.title.top>=metrics.kickerText.bottom+4,"Titre superposé aux vraies lettres de l'accroche "+JSON.stringify(metrics));
+        assert.ok(metrics.title.top>=metrics.kicker.bottom+2,"Titre superposé à l'accroche "+JSON.stringify(metrics));
+      }
       for(const key of ["homeButtons","heroImage","featuresFirst","featuresLast","planCard","planStatus"])
         assert.ok(metrics[key],"Élément coupé : "+key+" "+JSON.stringify(metrics));
       console.log("UX OK",viewport.width,viewport.height,view);
