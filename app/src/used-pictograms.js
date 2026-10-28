@@ -26,6 +26,28 @@ export function approvedFromUsage(row){
   return {id:row.approved_id,title_fr:row.title_fr,title_en:row.title_en||null,
     theme:row.theme,image_path:row.image_path};
 }
+// Sélection temporaire, sans écriture au serveur. Conservée entre filtres et pages,
+// mais jamais entre comptes. L'export revalide toujours les images officielles.
+export const MAX_USED_CHOICES=16;
+export function toggleUsedChoice(current,id,visibleRows){
+  if(!(current instanceof Map)||!Array.isArray(visibleRows)||current.size>MAX_USED_CHOICES)
+    throw Error("Sélection de pictogrammes invalide.");
+  const item=approvedFromUsage(visibleRows.find(row=>row?.pictogram_id===id));
+  if(!item||item.id!==id)throw Error("Pictogramme indisponible pour la sélection.");
+  const next=new Map(current);
+  if(next.has(id))next.delete(id);
+  else{
+    if(next.size>=MAX_USED_CHOICES)throw Error("Maximum de 16 pictogrammes sélectionnés.");
+    next.set(id,item);
+  }
+  return next;
+}
+export function selectedUsedChoices(current){
+  if(!(current instanceof Map)||current.size>MAX_USED_CHOICES)
+    throw Error("Sélection de pictogrammes invalide.");
+  return [...current.values()].map(item=>({...item}));
+}
+
 export async function listUsedPictograms(client,uid,filters={}){
   const f=normalizeUsedFilters(filters);
   await authenticated(client,uid);

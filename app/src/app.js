@@ -19,7 +19,7 @@ import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
-import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE} from "./used-pictograms.js";
+import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,selectedUsedChoices} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
@@ -312,10 +312,10 @@ function recordComposerCaption(target){
     "Use 48 characters or fewer, with no control characters.");}
   return true;
 }
-const usedPictos={items:[],total:0,page:0,loading:false,error:"",query:"",sort:"recent",theme:"all",request:0,notice:""};
+const usedPictos={items:[],total:0,page:0,loading:false,error:"",query:"",sort:"recent",theme:"all",request:0,notice:"",selected:new Map()};
 function resetUsedPictos(){
   usedPictos.request++;usedPictos.items=[];usedPictos.total=0;usedPictos.page=0;
-  usedPictos.loading=false;usedPictos.error="";usedPictos.notice="";usedPictos.query="";usedPictos.sort="recent";usedPictos.theme="all";
+  usedPictos.loading=false;usedPictos.error="";usedPictos.notice="";usedPictos.selected=new Map();usedPictos.query="";usedPictos.sort="recent";usedPictos.theme="all";
 }
 async function fetchUsedPictos(){
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
@@ -1565,12 +1565,17 @@ function renderClientUsed(){
       +'<div class="pa-client-empty">'+icon("info")+'<p>'+esc(fr?"Pictogramme retiré du catalogue":"Pictogram removed from catalogue")+'</p></div>'
       +'<p>'+esc(fr?"Ancienne utilisation conservée; nouvelle impression indisponible.":"Previous use saved; new printing unavailable.")+'</p></article>';
     const title=fr?item.title_fr:(item.title_en||item.title_fr),url=publishedCatalog.imageUrls.get(item.id);
-    return '<article class="pa-catalog-card"><div class="pa-catalog-art"><div class="pa-catalog-art-body">'
+    const picked=u.selected.has(item.id);
+    return '<article class="pa-catalog-card'+(picked?' pa-used-picked':'')+'"><div class="pa-catalog-art"><div class="pa-catalog-art-body">'
       +'<img data-catalog-id="'+esc(item.id)+'"'+(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async"></div>'
       +'<div class="pa-catalog-art-caption">'+esc(title)+'</div></div>'
       +'<p class="pa-catalog-card-label">'+esc(title)+'</p><span class="pa-catalog-card-category">'+esc(
         CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
-      )+'</span><div class="pa-catalog-add">'
+      )+'</span><button type="button" class="pa-used-choice" data-action="used-toggle" data-id="'+esc(item.id)+'"'
+      +' aria-pressed="'+(picked?'true':'false')+'" aria-label="'+esc(
+        picked?(fr?'Retirer '+title+' de la sélection':'Remove '+title+' from selection'):
+          (fr?'Sélectionner '+title:'Select '+title))+'">'
+      +icon(picked?'check':'plus')+esc(picked?(fr?'Sélectionné':'Selected'):(fr?'Sélectionner':'Select'))+'</button><div class="pa-catalog-add">'
       +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'
       +(officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?"Routine":"Routine")+'</button>'
       +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'
@@ -1592,14 +1597,19 @@ function renderClientUsed(){
     +'<select id="pa-used-theme" name="theme"><option value="all">'+esc(fr?"Toutes":"All")+'</option>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<option value="'+esc(key)+'"'+(u.theme===key?' selected':'')+'>'+esc(fr?frName:enName)+'</option>').join("")+'</select></div>'
     +'<button type="submit" class="btn btn-primary"'+(u.loading?' disabled':'')+'>'+esc(fr?"Filtrer":"Filter")+'</button></form>'
-    +(!u.loading&&!u.error&&u.items.some(row=>approvedFromUsage(row))?
-      '<div class="pa-composer-toolbar pa-used-bulk-toolbar"><strong>'+esc(fr?"Ajouter les images affichées":"Add visible pictograms")+'</strong>'
+    +(!u.loading&&!u.error&&(u.selected.size||u.items.some(row=>approvedFromUsage(row)))?
+      '<div class="pa-composer-toolbar pa-used-bulk-toolbar"><strong aria-live="polite">'+esc(u.selected.size?
+        (fr?u.selected.size+(u.selected.size===1?' pictogramme sélectionné':' pictogrammes sélectionnés'):
+          u.selected.size+(u.selected.size===1?' pictogram selected':' pictograms selected')):
+        (fr?'Ajouter les images affichées':'Add visible pictograms'))+'</strong>'
       +'<button type="button" data-action="used-add-page" data-kind="routine"'
       +(officialComposer.routine.length>=10||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
       +'>'+icon("plus")+esc(fr?"À ma routine (max. 10)":"To my routine (max 10)")+'</button>'
       +'<button type="button" data-action="used-add-page" data-kind="board"'
       +(officialComposer.board.length>=16||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
-      +'>'+icon("plus")+esc(fr?"À mon tableau (max. 16)":"To my board (max 16)")+'</button></div>':'')
+      +'>'+icon("plus")+esc(fr?"À mon tableau (max. 16)":"To my board (max 16)")+'</button>'
+      +(u.selected.size?'<button type="button" data-action="used-clear">'+esc(fr?'Effacer la sélection':'Clear selection')+'</button>':'')
+      +'</div>':'')
     +(u.notice?'<p role="status" aria-live="polite" class="pa-catalog-notice">'+esc(u.notice)+'</p>':'')
     +(officialComposer.routine.length||officialComposer.board.length?
       '<div class="pa-composer-toolbar"><strong>'+esc(fr?"Votre sélection":"Your selection")+'</strong>'
@@ -2080,13 +2090,25 @@ root.addEventListener("click",function(event){
        changeApprovedOrder(officialComposer[kind],index,Number(el.dataset.direction));
      markDraftChanged(kind);render();return;
    }
+   if(a==="used-toggle"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      !usedPictos.loading&&!usedPictos.error&&!officialComposer.busy){
+     try{
+       usedPictos.selected=toggleUsedChoice(usedPictos.selected,el.dataset.id,usedPictos.items);
+       usedPictos.notice="";
+     }catch(error){usedPictos.notice=String(error?.message||error);}
+     render();return;
+   }
+   if(a==="used-clear"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()){
+     usedPictos.selected=new Map();usedPictos.notice="";render();return;
+   }
    if(a==="used-add-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       !usedPictos.loading&&!usedPictos.error&&!officialComposer.busy&&
       !editableDrafts.deletingKind&&!editableDrafts.copyKind){
      const kind=el.dataset.kind;
      if(!["routine","board"].includes(kind))return;
      try{
-       const rows=usedPictos.items.map(approvedFromUsage).filter(Boolean);
+       const rows=usedPictos.selected.size?selectedUsedChoices(usedPictos.selected):
+         usedPictos.items.map(approvedFromUsage).filter(Boolean);
        const result=addApprovedPage(officialComposer[kind],rows,kind);
        if(result.added){
          officialComposer[kind]=result.items;
