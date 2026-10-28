@@ -19,7 +19,7 @@ import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
-import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices} from "./used-pictograms.js";
+import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
@@ -312,9 +312,9 @@ function recordComposerCaption(target){
     "Use 48 characters or fewer, with no control characters.");}
   return true;
 }
-const usedPictos={items:[],total:0,page:0,loading:false,error:"",query:"",sort:"recent",theme:"all",request:0,notice:"",selected:new Map()};
+const usedPictos={items:[],total:0,page:0,loading:false,error:"",query:"",sort:"recent",theme:"all",request:0,notice:"",selected:new Map(),adding:false,addRequest:0};
 function resetUsedPictos(){
-  usedPictos.request++;usedPictos.items=[];usedPictos.total=0;usedPictos.page=0;
+  usedPictos.request++;usedPictos.addRequest++;usedPictos.adding=false;usedPictos.items=[];usedPictos.total=0;usedPictos.page=0;
   usedPictos.loading=false;usedPictos.error="";usedPictos.notice="";usedPictos.selected=new Map();usedPictos.query="";usedPictos.sort="recent";usedPictos.theme="all";
 }
 async function fetchUsedPictos(){
@@ -1587,7 +1587,7 @@ function renderClientUsed(){
       +'<p class="pa-catalog-card-label">'+esc(title)+'</p><span class="pa-catalog-card-category">'+esc(
         CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
       )+'</span><button type="button" class="pa-used-choice" data-action="used-toggle" data-id="'+esc(item.id)+'"'
-      +' aria-pressed="'+(picked?'true':'false')+'" aria-label="'+esc(
+      +(u.adding?' disabled':'')+' aria-pressed="'+(picked?'true':'false')+'" aria-label="'+esc(
         picked?(fr?'Retirer '+title+' de la sélection':'Remove '+title+' from selection'):
           (fr?'Sélectionner '+title:'Select '+title))+'">'
       +icon(picked?'check':'plus')+esc(picked?(fr?'Sélectionné':'Selected'):(fr?'Sélectionner':'Select'))+'</button><div class="pa-catalog-add">'
@@ -1619,14 +1619,14 @@ function renderClientUsed(){
           u.selected.size+(u.selected.size===1?' pictogram selected':' pictograms selected')):
         (fr?'Ajouter les images affichées':'Add visible pictograms'))+'</strong>'
       +'<button type="button" data-action="used-add-page" data-kind="routine"'
-      +(officialComposer.routine.length>=10||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
+      +(u.adding||officialComposer.routine.length>=10||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
       +'>'+icon("plus")+esc(fr?(u.selected.size?"Ajouter mes choix à la routine":"À ma routine (max. 10)"):
         (u.selected.size?"Add my picks to routine":"To my routine (max 10)"))+'</button>'
       +'<button type="button" data-action="used-add-page" data-kind="board"'
-      +(officialComposer.board.length>=16||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
+      +(u.adding||officialComposer.board.length>=16||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
       +'>'+icon("plus")+esc(fr?(u.selected.size?"Ajouter mes choix au tableau":"À mon tableau (max. 16)"):
         (u.selected.size?"Add my picks to board":"To my board (max 16)"))+'</button>'
-      +(u.selected.size?'<button type="button" data-action="used-clear">'+esc(fr?'Effacer la sélection':'Clear selection')+'</button>':'')
+      +(u.selected.size?'<button type="button" data-action="used-clear"'+(u.adding?' disabled':'')+'>'+esc(fr?'Effacer la sélection':'Clear selection')+'</button>':'')
       +'</div>':'')
     +(u.notice?'<p role="status" aria-live="polite" class="pa-catalog-notice">'+esc(u.notice)+'</p>':'')
     +(officialComposer.routine.length||officialComposer.board.length?
@@ -2108,7 +2108,7 @@ root.addEventListener("click",function(event){
        changeApprovedOrder(officialComposer[kind],index,Number(el.dataset.direction));
      markDraftChanged(kind);render();return;
    }
-   if(a==="used-remove-choice"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+   if(a==="used-remove-choice"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.adding&&
       !officialComposer.busy&&!editableDrafts.deletingKind&&!editableDrafts.copyKind){
      try{
        usedPictos.selected=removeUsedChoice(usedPictos.selected,el.dataset.id);
@@ -2120,48 +2120,67 @@ root.addEventListener("click",function(event){
      return;
    }
    if(a==="used-toggle"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      !usedPictos.loading&&!usedPictos.error&&!officialComposer.busy){
+      !usedPictos.loading&&!usedPictos.error&&!usedPictos.adding&&!officialComposer.busy){
      try{
        usedPictos.selected=toggleUsedChoice(usedPictos.selected,el.dataset.id,usedPictos.items);
        usedPictos.notice="";
      }catch(error){usedPictos.notice=String(error?.message||error);}
      render();return;
    }
-   if(a==="used-clear"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()){
+   if(a==="used-clear"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.adding){
      usedPictos.selected=new Map();usedPictos.notice="";render();return;
    }
    if(a==="used-add-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      !usedPictos.loading&&!usedPictos.error&&!officialComposer.busy&&
-      !editableDrafts.deletingKind&&!editableDrafts.copyKind){
+       !usedPictos.loading&&!usedPictos.error&&!usedPictos.adding&&!officialComposer.busy&&
+       !editableDrafts.deletingKind&&!editableDrafts.copyKind){
      const kind=el.dataset.kind;
      if(!["routine","board"].includes(kind))return;
-     try{
-       const rows=usedPictos.selected.size?selectedUsedChoices(usedPictos.selected):
-         usedPictos.items.map(approvedFromUsage).filter(Boolean);
-       const result=addApprovedPage(officialComposer[kind],rows,kind);
-       if(result.added){
-         officialComposer[kind]=result.items;
-         markDraftChanged(kind);
-         officialComposer.error="";
+     const uid=authStatus.user.id,request=++usedPictos.addRequest,
+       historyTicket=usedPictos.request,session=editableDrafts.sessionEpoch,
+       selection=usedPictos.selected,before=officialComposer[kind];
+     const current=()=>authStatus.user?.id===uid&&usedPictos.addRequest===request&&
+       usedPictos.request===historyTicket&&editableDrafts.sessionEpoch===session&&
+       usedPictos.selected===selection&&officialComposer[kind]===before&&
+       state.page==="used"&&!canOpenAdmin()&&!officialComposer.busy;
+     usedPictos.adding=true;
+     usedPictos.notice=state.language==="fr"?
+       "Vérification des pictogrammes encore approuvés…":"Checking currently approved pictograms…";
+     render();
+     void(async()=>{
+       try{
+         const plan=planUsedBatchApproval(selection,usedPictos.items,before,kind);
+         // L'historique ne prouve pas la publication courante : relecture
+         // du catalogue officiel authentifié avant toute mutation.
+         const rows=plan.ids.length?await loadApprovedSelection(await supabaseClient(),uid,plan.ids):[];
+         if(!current())return;
+         const result=addApprovedPage(before,rows,kind);
+         if(result.added){
+           officialComposer[kind]=result.items;
+           markDraftChanged(kind);officialComposer.error="";
+         }
+         const fr=state.language==="fr",full=plan.capacityReached||result.capacityReached;
+         usedPictos.notice=result.added?
+           (fr?result.added+(result.added===1?" pictogramme ajouté.":" pictogrammes ajoutés.")+
+             (full?" Limite du support atteinte.":""):
+             result.added+(result.added===1?" pictogram added.":" pictograms added.")+
+             (full?" Support limit reached.":"")):
+           (fr?"Aucune nouvelle image ajoutée : déjà choisie ou support complet.":"No new images added: already selected or support full.");
+       }catch(error){if(current())usedPictos.notice=String(error?.message||error);}
+       finally{
+         if(authStatus.user?.id===uid&&usedPictos.addRequest===request){
+           usedPictos.adding=false;render();
+         }
        }
-       const fr=state.language==="fr";
-       usedPictos.notice=result.added?
-         (fr?result.added+(result.added===1?" pictogramme ajouté.":" pictogrammes ajoutés.")+
-             (result.capacityReached?" Limite du support atteinte.":""):
-           result.added+(result.added===1?" pictogram added.":" pictograms added.")+
-             (result.capacityReached?" Support limit reached.":"")):
-         (fr?"Aucune nouvelle image ajoutée : déjà choisie ou support complet.":"No new images added: already selected or support full.");
-     }catch(error){usedPictos.notice=String(error?.message||error);}
-     render();return;
+     })();return;
    }
-   if(a==="used-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading){
+   if(a==="used-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading&&!usedPictos.adding){
     const target=usedPictos.page+Number(el.dataset.direction);
     if(Number.isSafeInteger(target)&&target>=0&&target<Math.ceil(usedPictos.total/USED_PAGE_SIZE)){
       usedPictos.page=target;void fetchUsedPictos();
     }
     return;
   }
-  if(a==="used-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading){
+  if(a==="used-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading&&!usedPictos.adding){
     void fetchUsedPictos();return;
   }
   if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
@@ -2710,7 +2729,7 @@ root.addEventListener("submit",function(event){
   const usedForm=event.target.closest('form[data-form="used-filter"]');
   if(usedForm){
     event.preventDefault();
-    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||usedPictos.loading)return;
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||usedPictos.loading||usedPictos.adding)return;
     const data=new FormData(usedForm);
     usedPictos.query=String(data.get("query")||"");
     usedPictos.sort=String(data.get("sort")||"recent");

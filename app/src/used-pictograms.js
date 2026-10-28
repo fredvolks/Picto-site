@@ -97,3 +97,21 @@ export async function listUsedPictogramsAvailablePage(client,uid,filters={}){
   }
   throw Error("L’historique a changé. Actualisez vos pictogrammes utilisés.");
 }
+
+// Préparer UNIQUEMENT les identifiants encore utiles à un support. Les titres
+// affichés sont un cache et ne servent jamais de preuve de publication.
+export function planUsedBatchApproval(selected,visibleRows,composerItems,kind){
+  const max=kind==="routine"?10:kind==="board"?16:0;
+  if(!max||!(selected instanceof Map)||selected.size>MAX_USED_CHOICES||
+    !Array.isArray(visibleRows)||!Array.isArray(composerItems)||composerItems.length>max)
+    throw Error("Sélection groupée invalide.");
+  const choices=selected.size?selectedUsedChoices(selected):
+    visibleRows.map(approvedFromUsage).filter(Boolean);
+  const existing=new Set(composerItems.map(item=>item?.id)),ids=[],seen=new Set();
+  for(const choice of choices){
+    if(!choice||!UUID.test(choice.id||"")||existing.has(choice.id)||seen.has(choice.id))continue;
+    seen.add(choice.id);ids.push(choice.id);
+  }
+  const remaining=Math.max(0,max-composerItems.length);
+  return {ids:ids.slice(0,remaining),capacityReached:ids.length>remaining};
+}
