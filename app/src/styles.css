@@ -1386,3 +1386,26 @@
 @media screen and (max-width:520px){.pa-used-filters{grid-template-columns:minmax(0,1fr);gap:11px;padding:13px}
   .pa-used-filters>.btn{width:100%}}
 @media print{.pa-used-discovery,.pa-used-filters{display:none!important}}
+
+/* Super Admin — réglage réel, contrasté, accessible sur mobile, tablette et PC. */
+@media screen{
+.pa-feature-settings{max-width:900px;display:grid;gap:15px}
+.pa-feature-settings h1{margin:0;font-size:clamp(22px,3vw,30px)}
+.pa-feature-settings>p{line-height:1.5;margin:0}
+.pa-feature-settings>.btn{justify-self:start;min-height:44px}
+.pa-feature-switch-row{display:flex;align-items:center;justify-content:space-between;gap:20px;
+  background:#f7f7f7;color:#111;border:1px solid #dedede;padding:20px;border-radius:16px}
+.pa-feature-switch-row>div{display:grid;gap:7px;min-width:0}
+.pa-feature-switch-row strong{font-size:16px}
+.pa-feature-switch-row small{color:#555;font-size:13px;line-height:1.4}
+.pa-feature-switch{min-width:106px;min-height:48px;border-radius:999px;border:2px solid #333;
+  background:#fff;color:#111;font-size:14px;font-weight:800;cursor:pointer}
+.pa-feature-switch[aria-checked="true"]{background:#111;color:#fff}
+.pa-feature-switch:disabled{opacity:.45;cursor:not-allowed}
+.pa-feature-switch:focus-visible{outline:3px solid #333;outline-offset:3px}
+}
+@media screen and (max-width:599px){
+.pa-feature-switch-row{flex-direction:column;align-items:stretch;padding:15px}
+.pa-feature-switch{align-self:flex-start}
+}
+@media print{.pa-feature-settings{display:none!important}}

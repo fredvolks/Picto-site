@@ -20,6 +20,7 @@ import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS
 import {renderClientFiles} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE} from "./used-pictograms.js";
+import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft} from "./client-drafts.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
@@ -142,6 +143,30 @@ function emptyComposerSettings(){
     board:{title:null,widthCm:"5",paper:"letter",columns:"3"}};
 }
 const officialComposer={routine:[],board:[],settings:emptyComposerSettings(),busy:false,error:"",request:0};
+const captionFeature={enabled:false,loaded:false,loading:false,saving:false,error:"",message:"",request:0,updated_at:null};
+function resetCaptionFeature(){
+  captionFeature.request++;captionFeature.enabled=false;captionFeature.loaded=false;
+  captionFeature.loading=false;captionFeature.saving=false;captionFeature.error="";
+  captionFeature.message="";captionFeature.updated_at=null;
+}
+async function fetchCaptionFeature(){
+  if(!SITE_EMBEDDED||!authStatus.user)return;
+  const uid=authStatus.user.id,ticket=++captionFeature.request;
+  captionFeature.enabled=false;captionFeature.loaded=false;
+  captionFeature.loading=true;captionFeature.error="";render();
+  try{
+    const client=await supabaseClient(),p=await readCaptionPermission(client,uid);
+    if(authStatus.user?.id!==uid||ticket!==captionFeature.request)return;
+    captionFeature.enabled=p.enabled;captionFeature.loaded=true;captionFeature.updated_at=p.updated_at;
+  }catch(error){
+    if(authStatus.user?.id!==uid||ticket!==captionFeature.request)return;
+    captionFeature.enabled=false;captionFeature.error=String(error?.message||error);
+  }finally{
+    if(ticket===captionFeature.request&&authStatus.user?.id===uid){
+      captionFeature.loading=false;render();
+    }
+  }
+}
 const editableDrafts={items:[],loaded:false,loading:false,busy:false,error:"",message:"",request:0,
   current:{routine:null,board:null},dirty:{routine:false,board:false}};
 function resetEditableDrafts(){
@@ -195,6 +220,7 @@ function recordComposerFormValue(target){
 function recordComposerCaption(target){
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||
      target?.dataset?.input!=="official-caption")return false;
+  if(!captionFeature.loaded||!captionFeature.enabled)return true;
   const kind=target.dataset.kind,index=Number(target.dataset.index);
   if(!["routine","board"].includes(kind)||!Number.isInteger(index))return true;
   try{
@@ -578,7 +604,7 @@ async function openAdminPreview(assetId){
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
 function resetPrivateBank(){
-  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
+  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -595,6 +621,8 @@ async function refreshPrivateBank(client,userId){
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
     authStatus.roleReady=true;authStatus.roleError="";
+    if(SITE_EMBEDDED&&!captionFeature.loading&&!captionFeature.loaded)
+      void fetchCaptionFeature();
     if(SITE_EMBEDDED&&!result.authorized){
       if(state.page==="home")void fetchClientFiles(client,userId);
       if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();
@@ -1255,6 +1283,25 @@ function renderAdminHome(){
       +icon(ico)+ '<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
     +'</section>';
 }
+function renderAdminCaptionSettings(){
+  const fr=state.language==="fr",f=captionFeature;
+  return '<section class="admin-surface pa-feature-settings" aria-labelledby="pa-caption-settings-title">'
+    +'<span class="pa-client-overline">'+esc(fr?"PARAMÈTRES DE L'APPLICATION":"APPLICATION SETTINGS")+'</span>'
+    +'<h1 id="pa-caption-settings-title">'+esc(fr?"Personnalisation des pictogrammes":"Pictogram customization")+'</h1>'
+    +'<p>'+esc(fr?"Ce réglage s'applique aux nouvelles modifications de texte des clients. Il ne change jamais leurs PDF déjà archivés.":"This setting controls new customer caption edits. It never changes archived PDFs.")+'</p>'
+    +(f.loading?'<p role="status">'+esc(fr?"Lecture du réglage serveur…":"Loading server setting…")+'</p>':'')
+    +(f.error?'<p role="alert">'+esc(f.error)+'</p>':'')
+    +'<div class="pa-feature-switch-row"><div><strong>'+esc(fr?"Autoriser les clients à modifier le texte sous les pictogrammes":"Allow customers to edit pictogram captions")+'</strong>'
+    +'<small>'+esc(fr?"Activé : texte personnalisable. Désactivé : libellés officiels pour les nouvelles impressions.":"On: editable captions. Off: official labels on new prints.")+'</small></div>'
+    +'<button type="button" class="pa-feature-switch" role="switch" aria-checked="'+(f.loaded&&f.enabled)
+    +'" data-action="caption-toggle"'+(!f.loaded||f.loading||f.saving?' disabled':'')+'>'
+    +esc(f.loaded&&f.enabled?(fr?"Activé":"On"):(fr?"Désactivé":"Off"))+'</button></div>'
+    +'<button type="button" class="btn btn-light" data-action="caption-refresh"'+(f.loading||f.saving?' disabled':'')+'>'
+    +esc(fr?"Actualiser le réglage":"Refresh setting")+'</button>'
+    +(f.message?'<p role="status">'+esc(f.message)+'</p>':'')
+    +'<p class="pa-client-context">'+esc(fr?"Les anciens textes des brouillons sont conservés même lorsque la modification est désactivée.":"Old captions stay saved in drafts even when editing is disabled.")+'</p>'
+    +'</section>';
+}
 function renderAdminWorkspace(){
   if(!canOpenAdmin())return renderRoleChecking();
   const fr=state.language==="fr";
@@ -1263,7 +1310,8 @@ function renderAdminWorkspace(){
     ["bank",fr?"Banque":"Image bank","library"],
     ["requests",fr?"Demandes":"Requests","file-text"],
     ["tools",fr?"Outils":"Tools","upload"],
-    ["templates",fr?"Gabarits":"Templates","settings"]
+    ["templates",fr?"Gabarits":"Templates","settings"],
+    ["settings",fr?"Paramètres":"Settings","settings"]
   ];
   const button=([tab,label,ico],compact=false)=>
     '<button type="button" class="'+(compact?'admin-mobile-link':'admin-side-link')+(state.adminTab===tab?' active':'')
@@ -1287,7 +1335,7 @@ function renderAdminWorkspace(){
     +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
     +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
     +googleButton()+'</div></header>'
-    +'<main id="admin-main" class="admin-main">'+(state.adminTab==="overview"?renderAdminHome():renderAdmin())+'</main></div>'
+    +'<main id="admin-main" class="admin-main">'+(state.adminTab==="overview"?renderAdminHome():state.adminTab==="settings"?renderAdminCaptionSettings():renderAdmin())+'</main></div>'
     +'</div>';
 }
 // BOUTIQUE CLIENT : structure premium noire et blanche, contenus uniquement du vrai compte.
@@ -1564,6 +1612,7 @@ function render(){
      busy:officialComposer.busy,error:officialComposer.error,
      draftBusy:editableDrafts.busy,draftDirty:editableDrafts.dirty[state.page==="routines"?"routine":"board"],
      draftSaved:Boolean(editableDrafts.current[state.page==="routines"?"routine":"board"]),
+     allowCaptionEdit:captionFeature.loaded&&captionFeature.enabled,
      pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,language:state.language,escape:esc,icon}),
      escape:esc,icon
     }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
@@ -1689,6 +1738,9 @@ root.addEventListener("click",function(event){
     void(async()=>{
       try{
         const client=await supabaseClient();
+        const permission=await readCaptionPermission(client,uid);
+        if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
+        captionFeature.enabled=permission.enabled;captionFeature.loaded=true;
         const saved=await saveEditableDraft(client,uid,composerSource(kind),current||{});
         if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
         editableDrafts.current[kind]={id:saved.id,revision:saved.revision};
@@ -2042,10 +2094,36 @@ root.addEventListener("click",function(event){
     }
     window.print();return;
   }
+  if(a==="caption-refresh"&&canOpenAdmin()&&!captionFeature.saving){
+    void fetchCaptionFeature();return;
+  }
+  if(a==="caption-toggle"&&canOpenAdmin()&&captionFeature.loaded&&!captionFeature.saving){
+    const uid=authStatus.user.id,ticket=++captionFeature.request,previous=captionFeature.enabled;
+    captionFeature.saving=true;captionFeature.error="";captionFeature.message="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        const p=await setCaptionPermission(client,uid,previous,!previous);
+        if(authStatus.user?.id!==uid||ticket!==captionFeature.request)return;
+        captionFeature.enabled=p.enabled;captionFeature.loaded=true;captionFeature.updated_at=p.updated_at;
+        captionFeature.message=state.language==="fr"?"Réglage enregistré sur le serveur.":"Setting saved on server.";
+      }catch(error){
+        if(authStatus.user?.id===uid&&ticket===captionFeature.request){
+          captionFeature.loaded=false;captionFeature.enabled=false;
+          captionFeature.error=String(error?.message||error);
+        }
+      }finally{
+        if(authStatus.user?.id===uid&&ticket===captionFeature.request){
+          captionFeature.saving=false;render();
+        }
+      }
+    })();return;
+  }
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
     if(el.dataset.tab!=="bank"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
+    if(state.adminTab==="settings"&&authStatus.user)void fetchCaptionFeature();
     if(state.adminTab==="requests"&&authStatus.user)
       void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id))
        .catch(error=>{adminRequests.error=String(error?.message||error);render();});
@@ -2312,13 +2390,16 @@ root.addEventListener("submit",function(event){
     void(async()=>{
       try{
         const client=await supabaseClient();
+        const permission=await readCaptionPermission(client,uid);
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        captionFeature.enabled=permission.enabled;captionFeature.loaded=true;
         const rows=await loadApprovedSelection(client,uid,snapshot.map(x=>x.id));
         const items=[];
         for(const row of rows){
           const pngBlob=await downloadPublishedArtwork(client,uid,row);
           const position=items.length;
           const customLabel=snapshot[position]?.customLabel;
-          const label=typeof customLabel==="string"&&customLabel.trim()?customLabel:null;
+          const label=permission.enabled&&typeof customLabel==="string"&&customLabel.trim()?customLabel:null;
           items.push({fr:label||row.title_fr,en:label||(row.title_en||row.title_fr),pngBlob});
         }
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
@@ -2331,6 +2412,14 @@ root.addEventListener("submit",function(event){
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
         editableDrafts.current[kind]={id:savedDraft.id,revision:savedDraft.revision};
         editableDrafts.dirty[kind]=false;
+        const beforePdf=await readCaptionPermission(client,uid);
+        if(!beforePdf.enabled){
+          for(let i=0;i<items.length;i++){
+            items[i].fr=rows[i].title_fr;
+            items[i].en=rows[i].title_en||rows[i].title_fr;
+          }
+        }
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
         const {blob,pageCount}=await createPreparedPdf({
           items,kind,widthCm,paper,columns,language:state.language,title,
           separatorMode:"simple",preset:{...DEFAULT_PRESET,color:"#111111",colored:false}

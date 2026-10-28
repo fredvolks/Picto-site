@@ -42,7 +42,7 @@ export function canPrepareApproved({kind,items,widthCm,paper,columns=3}){
   return n*widthCm*10+gaps<=maxWidth+1e-6;
 }
 
-export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",draftBusy=false,draftDirty=false,draftSaved=false,escape:e,icon}){
+export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",draftBusy=false,draftDirty=false,draftSaved=false,allowCaptionEdit=false,escape:e,icon}){
  const fr=language==="fr",routine=kind==="routine";
  const label=(a,b)=>fr?a:b;
  const defaultName=label(routine?"Ma routine":"Mon tableau",routine?"My routine":"My board");
@@ -51,16 +51,18 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
  const paper=settings.paper==="a4"?"a4":"letter";
  const columns=["2","3","4"].includes(settings.columns)?settings.columns:"3";
  const content=items.map((item,i)=>{
-  const title=approvedItemCaption(item,language),src=imageUrls.get(item.id);
+  const title=allowCaptionEdit?approvedItemCaption(item,language):
+    (language==="en"?(item.title_en||item.title_fr):item.title_fr),src=imageUrls.get(item.id);
   return '<li class="pa-composer-item"><div class="pa-catalog-art"><div class="pa-catalog-art-body">'
    +'<img data-catalog-id="'+e(item.id)+'"'+(src?' src="'+e(src)+'"':'')+' alt="" loading="lazy"></div>'
    +'<div class="pa-catalog-art-caption">'+e(title)+'</div></div>'
    +'<span class="pa-composer-item-name">'+e(title)+'</span>'
-   +'<div class="pa-composer-label-edit"><label for="official-caption-'+kind+'-'+i+'">'
+   +(allowCaptionEdit?'<div class="pa-composer-label-edit"><label for="official-caption-'+kind+'-'+i+'">'
    +e(label("Texte du pictogramme","Pictogram caption"))+'</label>'
    +'<input id="official-caption-'+kind+'-'+i+'" type="text" data-input="official-caption"'
    +' data-kind="'+kind+'" data-index="'+i+'" maxlength="48" aria-describedby="official-caption-help"'
-   +' value="'+e(item.customLabel||title)+'"></div><div class="pa-composer-item-actions">'
+   +' value="'+e(item.customLabel||title)+'"></div>':'')
+   +'<div class="pa-composer-item-actions">'
    +'<button type="button" data-action="approved-move" data-kind="'+kind+'" data-index="'+i+'" data-direction="-1"'
    +(!i?' disabled':'')+' aria-label="'+e(label("Vers la gauche","Move left"))+'">'+icon("up")+'</button>'
    +'<button type="button" data-action="approved-move" data-kind="'+kind+'" data-index="'+i+'" data-direction="1"'
@@ -73,8 +75,11 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
   +'<p class="pa-client-context">'+e(label("Seuls les pictogrammes publiés peuvent être utilisés. Le PDF original est sauvegardé dans Mes créations.","Only published pictograms can be used. The original PDF is saved in My creations."))+'</p>'
   +'<div class="pa-composer-toolbar"><strong>'+items.length+' / '+(routine?10:16)+'</strong>'
   +'<button type="button" data-action="nav" data-page="library">'+icon("plus")+e(label("Ajouter des pictogrammes","Add pictograms"))+'</button></div>'
-  +(items.length?'<p id="official-caption-help" class="pa-client-context">'
-    +e(label("Modifiez le texte au besoin; effacez-le pour retrouver le libellé officiel.","Edit a caption if needed; clear it to restore the original label."))+'</p><ol class="pa-composer-items">'+content+'</ol>':
+  +(items.length?'<p '+(allowCaptionEdit?'id="official-caption-help"':'')+' class="pa-client-context">'
+    +e(allowCaptionEdit?
+      label("Modifiez le texte au besoin; effacez-le pour retrouver le libellé officiel.","Edit a caption if needed; clear it to restore the original label."):
+      label("Modification du texte désactivée par le Super Admin. Les anciens textes restent dans vos brouillons.","Text editing is disabled by the Super Admin. Older captions remain saved in your drafts."))+
+    '</p><ol class="pa-composer-items">'+content+'</ol>':
     '<p class="pa-catalog-notice">'+e(label("Aucune image choisie. Ouvrez la bibliothèque pour commencer.","No images selected. Open the library to start."))+'</p>')
   +pending
   +(error?'<p role="alert" class="pa-catalog-notice">'+e(error)+'</p>':'')
