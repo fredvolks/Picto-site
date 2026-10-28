@@ -851,7 +851,11 @@
   .admin-workspace{--admin-ink:#263d4a;--admin-blue:#2d7392;--admin-border:#dce7eb;min-height:100dvh;display:grid;grid-template-columns:244px minmax(0,1fr);background:#f6f9fb;color:var(--admin-ink);font-family:"DM Sans",system-ui,sans-serif}
   .admin-sidebar{min-width:0;display:flex;flex-direction:column;gap:8px;background:#fff;border-right:1px solid var(--admin-border);padding:26px 14px}
   .admin-brand{display:flex;align-items:center;border:0;background:transparent;cursor:pointer;min-height:56px;text-align:left;padding:0 9px;color:#275773}
-  .admin-brand .brand-mark{flex:none}
+  .admin-brand-mark{display:grid;place-items:center;flex:none;width:39px;height:39px;border-radius:13px;background:#327b99;color:#fff;font-size:23px;font-weight:800}
+  .admin-brand-identity{display:flex;flex-direction:column;gap:3px}
+  .admin-brand-identity strong{white-space:nowrap;font-size:23px;letter-spacing:-.05em;color:#233f4f;line-height:1}
+  .admin-brand-hand{font-family:"Patrick Hand",cursive;font-size:1.25em;font-weight:400}
+  .admin-brand-identity small{font-size:10px;font-weight:800;letter-spacing:.14em;color:#5c8094}
   .admin-sidebar-caption{margin:20px 13px 8px;font-size:11px;font-weight:800;letter-spacing:.14em;color:#75909e}
   .admin-side-nav{display:flex;flex-direction:column;gap:5px}
   .admin-side-link{display:flex;align-items:center;gap:11px;width:100%;min-height:48px;text-align:left;padding:12px 14px;border:1px solid transparent;border-radius:13px;background:transparent;color:#496678;font-weight:650;font-size:14px;cursor:pointer}
