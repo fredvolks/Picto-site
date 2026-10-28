@@ -42,7 +42,7 @@ export function canPrepareApproved({kind,items,widthCm,paper,columns=3}){
   return n*widthCm*10+gaps<=maxWidth+1e-6;
 }
 
-export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",draftBusy=false,draftDirty=false,draftSaved=false,draftStatus="",allowCaptionEdit=false,escape:e,icon}){
+export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",draftBusy=false,draftDirty=false,draftSaved=false,draftStatus="",draftConflict=false,allowCaptionEdit=false,escape:e,icon}){
  const fr=language==="fr",routine=kind==="routine";
  const label=(a,b)=>fr?a:b;
  const defaultName=label(routine?"Ma routine":"Mon tableau",routine?"My routine":"My board");
@@ -84,19 +84,22 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
   +pending
   +(error?'<p role="alert" class="pa-catalog-notice">'+e(error)+'</p>':'')
   +'<div class="pa-composer-draft-actions"><button type="button" class="btn btn-light" data-action="draft-save" data-kind="'+kind+'"'
-  +(busy||draftBusy?' disabled':'')+'>'+icon("save","btn-icon")+e(label(draftBusy?"Enregistrement…":"Enregistrer le brouillon",draftBusy?"Saving…":"Save editable draft"))+'</button>'
+  +(busy||draftBusy||draftConflict?' disabled':'')+'>'+icon("save","btn-icon")+e(label(draftBusy?"Enregistrement…":"Enregistrer le brouillon",draftBusy?"Saving…":"Save editable draft"))+'</button>'
+  +(draftConflict?'<button type="button" class="btn btn-light" data-action="draft-save-copy" data-kind="'+kind+'"'
+    +(busy||draftBusy?' disabled':'')+'>'+icon("save","btn-icon")+e(label("Enregistrer une copie","Save as a new copy"))+'</button>':'')
   +'<button type="button" class="btn btn-light" data-action="nav" data-page="create">'+e(label("Retrouver mes brouillons","My saved drafts"))+'</button>'
   +'<span role="status" aria-live="polite" class="pa-composer-draft-status">'+e(draftStatus||label(
     draftBusy?"Sauvegarde en cours":draftDirty?"Modifications non enregistrées":draftSaved?"Brouillon enregistré dans votre compte":"Pas encore enregistré",
     draftBusy?"Saving":draftDirty?"Unsaved changes":draftSaved?"Draft saved in your account":"Not saved yet"
   ))+'</span></div>'
+  +(draftConflict?'<p class="pa-client-context" role="note">'+e(label("L’autre appareil conserve sa version. Enregistrez une copie pour garder vos modifications sans rien écraser.","The other device keeps its version. Save a new copy to preserve your changes without overwriting it."))+'</p>':'')
   +'<p class="pa-client-context pa-autosave-explainer">'+e(label("Sauvegarde automatique privée après une pause de saisie. Attendez la confirmation avant de fermer la page; si le réseau échoue, utilisez « Enregistrer le brouillon ».","Private autosave after you stop editing. Wait for confirmation before closing the page; if the network fails, use Save editable draft."))+'</p>'
   +'<form data-form="approved-export" data-kind="'+kind+'" class="pa-composer-form">'
   +'<div class="control"><label for="official-name">'+e(label("Nom du document","Document name"))+'</label><input id="official-name" name="title" value="'+e(name)+'" maxlength="120" required></div>'
   +'<div class="control"><label for="official-width">'+e(label("Largeur des cases en cm","Cell width in cm"))+'</label><input id="official-width" name="widthCm" type="number" min="2" max="10" step="0.5" value="'+e(width)+'" required></div>'
   +'<div class="control"><label for="official-paper">'+e(label("Format papier","Paper"))+'</label><select id="official-paper" name="paper"><option value="letter"'+(paper==="letter"?" selected":"")+'>'+e(label("Lettre","Letter"))+'</option><option value="a4"'+(paper==="a4"?" selected":"")+'>A4</option></select></div>'
   +(routine?'':'<div class="control"><label for="official-columns">'+e(label("Colonnes","Columns"))+'</label><select id="official-columns" name="columns"><option value="2"'+(columns==="2"?" selected":"")+'>2</option><option value="3"'+(columns==="3"?" selected":"")+'>3</option><option value="4"'+(columns==="4"?" selected":"")+'>4</option></select></div>')
-  +'<button type="submit" class="btn btn-primary"'+(items.length<(routine?2:1)||busy||draftBusy||Boolean(pending)?' disabled':'')+'>'+icon("save","btn-icon")
+  +'<button type="submit" class="btn btn-primary"'+(items.length<(routine?2:1)||busy||draftBusy||draftConflict||Boolean(pending)?' disabled':'')+'>'+icon("save","btn-icon")
   +e(label(busy?"Création et archivage…":"Créer et archiver le PDF",busy?"Creating and archiving…":"Create and archive PDF"))+'</button></form>'
   +'<p class="pa-client-context">'+e(label("Vérifiez les dimensions réelles sur papier avant utilisation.","Check actual printed dimensions before use."))+'</p></section>';
 }

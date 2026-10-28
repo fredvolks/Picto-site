@@ -93,8 +93,11 @@ export async function saveEditableDraft(client,uid,source,{id=null,revision=null
   }
   if(result.error)throw result.error;
   if(!result.data||id!==null&&result.data.id!==id||
-    id!==null&&result.data.revision!==revision+1)
-    throw Error("Ce brouillon a changé sur un autre appareil. Rechargez-le avant de sauvegarder.");
+    id!==null&&result.data.revision!==revision+1){
+    const error=Error("Ce brouillon a changé sur un autre appareil. Rechargez-le ou enregistrez une copie.");
+    error.code="DRAFT_REVISION_CONFLICT";
+    throw error;
+  }
   await authorized(client,uid);
   return validateRow(result.data,uid);
 }

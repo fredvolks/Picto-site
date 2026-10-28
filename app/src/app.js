@@ -23,7 +23,7 @@ import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE} from "./used-pictog
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
-import {createDraftAutosave} from "./draft-autosave.js";
+import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
@@ -169,13 +169,13 @@ async function fetchCaptionFeature(){
     }
   }
 }
-const editableDrafts={items:[],loaded:false,loading:false,busy:false,error:"",message:"",request:0,sessionEpoch:0,
+const editableDrafts={items:[],loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
   openEpoch:{routine:0,board:0},current:{routine:null,board:null},dirty:{routine:false,board:false}};
 function resetEditableDrafts(){
   draftAutosave.reset();editableDrafts.sessionEpoch++;
   editableDrafts.openEpoch.routine++;editableDrafts.openEpoch.board++;
   editableDrafts.request++;editableDrafts.items=[];editableDrafts.loaded=false;
-  editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.error="";editableDrafts.message="";
+  editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.deletingKind=null;editableDrafts.copyKind=null;editableDrafts.error="";editableDrafts.message="";
   editableDrafts.current={routine:null,board:null};editableDrafts.dirty={routine:false,board:false};
 }
 async function fetchEditableDrafts(){
@@ -236,7 +236,9 @@ async function saveCurrentDraftSnapshot(kind){
 }
 function draftAutosaveLabel(kind,status){
   const fr=state.language==="fr";
+  if(editableDrafts.copyKind===kind)return fr?"Enregistrement d’une nouvelle copie…":"Saving a new copy…";
   if(status.busy)return fr?"Enregistrement dans votre compte…":"Saving to your account…";
+  if(status.blocked&&status.conflict)return fr?"Conflit : ce brouillon a changé sur un autre appareil. Enregistrez une copie pour conserver vos modifications.":"Conflict: this draft changed on another device. Save a new copy to keep your edits.";
   if(status.blocked)return fr?"Sauvegarde interrompue : "+status.failed+" Cliquez sur « Enregistrer le brouillon » pour réessayer.":"Save failed: "+status.failed+" Select Save draft to retry.";
   if(status.dirty)return fr?"Modifications non enregistrées — sauvegarde automatique prévue.":"Unsaved edits — autosave scheduled.";
   if(status.confirmed||editableDrafts.current[kind])return fr?"Brouillon enregistré dans votre compte.":"Draft saved in your account.";
@@ -248,13 +250,21 @@ const draftAutosave=createDraftAutosave({
     editableDrafts.dirty[kind]=status.dirty;
     const active=state.page==="routines"?"routine":state.page==="boards"?"board":null;
     if(active!==kind)return;
+    // Un conflit change aussi les ACTIONS visibles : ajouter/retirer « Enregistrer
+    // une copie » sans reconstruire l'éditeur pendant chaque frappe de saisie.
+    // Le statut seul ne suffit pas : la reprise serait autrement inaccessible.
+    const copyAction=root.querySelector('[data-action="draft-save-copy"][data-kind="'+kind+'"]');
+    if(Boolean(copyAction)!==Boolean(status.conflict)){
+      render();
+      return;
+    }
     const info=root.querySelector(".pa-composer-draft-status");
     if(info){info.textContent=draftAutosaveLabel(kind,status);info.setAttribute("data-save-state",
       status.blocked?"error":status.busy?"saving":status.dirty?"pending":"saved");}
     const button=root.querySelector('[data-action="draft-save"][data-kind="'+kind+'"]');
-    if(button)button.disabled=status.busy||editableDrafts.busy||officialComposer.busy;
+    if(button)button.disabled=status.busy||status.conflict||editableDrafts.busy||officialComposer.busy||editableDrafts.copyKind===kind;
     const pdf=root.querySelector('form[data-form="approved-export"] [type="submit"]');
-    if(pdf)pdf.disabled=status.busy||editableDrafts.busy||officialComposer.busy||Boolean(pendingGeneratedPdf)||
+    if(pdf)pdf.disabled=status.busy||status.conflict||editableDrafts.busy||officialComposer.busy||editableDrafts.copyKind===kind||Boolean(pendingGeneratedPdf)||
       officialComposer[kind].length<(kind==="routine"?2:1);
   }
 });
@@ -271,7 +281,7 @@ function resetOfficialComposer(){
 function recordComposerFormValue(target){
   const form=target?.closest?.('form[data-form="approved-export"]'),kind=form?.dataset.kind;
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||
-     !["routine","board"].includes(kind))return false;
+     (editableDrafts.deletingKind===kind||editableDrafts.copyKind===kind)||!["routine","board"].includes(kind))return false;
   const field=target.name;
   if(!["title","widthCm","paper","columns"].includes(field))return false;
   officialComposer.settings[kind][field]=String(target.value).slice(0,120);
@@ -280,6 +290,7 @@ function recordComposerFormValue(target){
 }
 function recordComposerCaption(target){
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||
+     (editableDrafts.deletingKind===target?.dataset?.kind||editableDrafts.copyKind===target?.dataset?.kind)||
      target?.dataset?.input!=="official-caption")return false;
   if(!captionFeature.loaded||!captionFeature.enabled)return true;
   const kind=target.dataset.kind,index=Number(target.dataset.index);
@@ -443,8 +454,15 @@ async function fetchClientFiles(client,uid){
 function refreshFilesForCurrentUser(){
  if(!authStatus.user)return;
  const uid=authStatus.user.id;
- void supabaseClient().then(client=>fetchClientFiles(client,uid)).catch(error=>{
-  if(authStatus.user?.id===uid){clientFiles.error=String(error?.message||error);render();}
+ void supabaseClient().then(client=>{
+  // Un chargement de liste différé ne doit JAMAIS annuler l'ouverture d'une
+  // source PDF, une réimpression ou une autre mutation déjà commencée.
+  if(authStatus.user?.id!==uid||clientFiles.busy||!["files","home"].includes(state.page))return;
+  return fetchClientFiles(client,uid);
+ }).catch(error=>{
+  if(authStatus.user?.id===uid&&!clientFiles.busy){
+    clientFiles.error=String(error?.message||error);render();
+  }
  });
 }
 
@@ -1673,9 +1691,10 @@ function render(){
      items:officialComposer[state.page==="routines"?"routine":"board"],
      language:state.language,imageUrls:publishedCatalog.imageUrls,
      settings:officialComposer.settings[state.page==="routines"?"routine":"board"],
-     busy:officialComposer.busy,error:officialComposer.error,
+     busy:officialComposer.busy||editableDrafts.deletingKind===(state.page==="routines"?"routine":"board")||editableDrafts.copyKind===(state.page==="routines"?"routine":"board"),error:officialComposer.error,
      draftBusy:editableDrafts.busy,draftDirty:editableDrafts.dirty[state.page==="routines"?"routine":"board"],
      draftSaved:Boolean(editableDrafts.current[state.page==="routines"?"routine":"board"]),
+     draftConflict:draftAutosave.status(state.page==="routines"?"routine":"board").conflict,
      draftStatus:draftAutosaveLabel(state.page==="routines"?"routine":"board",
        draftAutosave.status(state.page==="routines"?"routine":"board")),
      allowCaptionEdit:captionFeature.loaded&&captionFeature.enabled,
@@ -1804,7 +1823,7 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
+  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
   if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
     void fetchEditableDrafts();return;
   }
@@ -1813,26 +1832,89 @@ root.addEventListener("click",function(event){
     if(!["routine","board"].includes(kind))return;
     const fields=root.querySelector('form[data-form="approved-export"][data-kind="'+kind+'"]');
     if(fields&&!fields.reportValidity())return;
+    // Un conflit de révision ne peut être résolu par un second UPDATE du même brouillon.
+    if(draftAutosave.status(kind).conflict){
+      notify(state.language==="fr"?
+        "Ce brouillon a été modifié sur un autre appareil. Choisissez « Enregistrer une copie » pour conserver vos changements.":
+        "This draft changed on another device. Choose Save as a new copy to keep your edits.");
+      return;
+    }
     if(!draftAutosave.status(kind).dirty)draftAutosave.change(kind);
     void draftAutosave.flush(kind,{force:true});return;
+  }
+  if(a==="draft-save-copy"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+     !officialComposer.busy&&!editableDrafts.busy&&!editableDrafts.copyKind&&!editableDrafts.deletingKind&&!pendingGeneratedPdf){
+    const kind=el.dataset.kind;
+    if(!["routine","board"].includes(kind))return;
+    const status=draftAutosave.status(kind);
+    if(!status.blocked||!status.conflict||!status.dirty||status.busy||status.paused)return;
+    const source=composerSource(kind);
+    try{normalizeEditableDraft(source);}
+    catch(error){officialComposer.error=String(error?.message||error);render();return;}
+    const uid=authStatus.user.id,session=editableDrafts.sessionEpoch,
+      opening=editableDrafts.openEpoch[kind],version=status.version;
+    draftAutosave.pause(kind);
+    const pauseId=draftAutosave.status(kind).pauseId;
+    editableDrafts.copyKind=kind;
+    officialComposer.error="";render();
+    const valid=()=>authStatus.user?.id===uid&&editableDrafts.sessionEpoch===session&&
+      editableDrafts.openEpoch[kind]===opening&&editableDrafts.copyKind===kind&&
+      draftAutosave.status(kind).paused&&draftAutosave.status(kind).pauseId===pauseId&&
+      draftAutosave.status(kind).version===version&&!canOpenAdmin();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        // La copie reste soumise aux permissions de texte en vigueur.
+        await readCaptionPermission(client,uid);
+        if(!valid())return;
+        const saved=await saveEditableDraft(client,uid,source,{});
+        if(!valid())return;
+        editableDrafts.openEpoch[kind]++;
+        editableDrafts.current[kind]={id:saved.id,revision:saved.revision};
+        draftAutosave.discard(kind,{confirmed:true});
+        editableDrafts.loaded=false;
+        editableDrafts.message=state.language==="fr"?
+          "Nouvelle copie enregistrée. L'autre version demeure intacte.":
+          "New copy saved. The other version is unchanged.";
+      }catch(error){
+        if(valid())officialComposer.error=String(error?.message||error);
+      }finally{
+        if(authStatus.user?.id===uid&&editableDrafts.sessionEpoch===session&&
+          editableDrafts.copyKind===kind){
+          editableDrafts.copyKind=null;
+          if(draftAutosave.status(kind).paused&&draftAutosave.status(kind).pauseId===pauseId)
+            draftAutosave.resume(kind);
+          render();
+        }
+      }
+    })();return;
   }
   if(a==="files-edit-source"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!clientFiles.busy&&!officialComposer.busy&&!editableDrafts.busy){
     const file=clientFiles.items.find(row=>row.id===el.dataset.id);
     if(!file?.source_draft_id||!["routine","board"].includes(file.document_type))return;
-    if((editableDrafts.dirty.routine||editableDrafts.dirty.board)&&!window.confirm(state.language==="fr"?
-      "Des modifications de votre éditeur ne sont pas sauvegardées. Ouvrir la source de ce PDF sans les conserver ?":
-      "You have unsaved edits. Open this PDF's source without saving them?"))return;
+    const opening=beginDraftReplacement(draftAutosave,file.document_type,{
+      confirmDiscard:()=>window.confirm(state.language==="fr"?
+        "Les modifications non enregistrées de cette composition seront perdues. Ouvrir la source du PDF ?":
+        "Unsaved edits to this composition will be lost. Open the PDF source?"),
+      onBusy:()=>notify(state.language==="fr"?
+        "Enregistrement en cours. Réessayez une fois le brouillon sauvegardé.":
+        "A draft is being saved. Try again after the save is complete.")
+    });
+    if(!opening)return;
     const uid=authStatus.user.id,epoch=++clientFiles.request;
-    clientFiles.busy=true;clientFiles.error="";render();
+    // Invalider les anciennes lectures qui sont déjà en cours; leur callback
+    // ne doit pas réécrire l'écran pendant le chargement de la source.
+    clientFiles.busy=true;clientFiles.loading=false;clientFiles.error="";render();
     void(async()=>{
       try{
         const client=await supabaseClient();
         const draft=await loadEditableDraft(client,uid,file.source_draft_id);
         if(authStatus.user?.id!==uid||epoch!==clientFiles.request)return;
         if(draft.kind!==file.document_type)throw Error("La source de ce PDF ne correspond pas au type de document.");
+        if(!opening.complete())throw Error("Cette composition a changé pendant son chargement. Réessayez.");
         officialComposer[draft.kind]=draft.content.items.map(item=>({...item}));
         officialComposer.settings[draft.kind]={...draft.content.settings};
-        editableDrafts.openEpoch[draft.kind]++;draftAutosave.discard(draft.kind,{confirmed:true});
+        editableDrafts.openEpoch[draft.kind]++;
         editableDrafts.current[draft.kind]={id:draft.id,revision:draft.revision};
         editableDrafts.dirty[draft.kind]=false;
         officialComposer.error="";
@@ -1846,6 +1928,7 @@ root.addEventListener("click",function(event){
           clientFiles.error=String(error?.message||error);
         }
       }finally{
+        opening.cancel();
         if(authStatus.user?.id===uid&&epoch===clientFiles.request){
           clientFiles.busy=false;render();
         }
@@ -1855,19 +1938,26 @@ root.addEventListener("click",function(event){
   if(a==="draft-open"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
     const id=el.dataset.id,row=editableDrafts.items.find(x=>x.id===id);
     if(!row)return;
-    if((editableDrafts.dirty.routine||editableDrafts.dirty.board)&&
-      !window.confirm(state.language==="fr"?
-        "Des changements ne sont pas enregistrés. Ouvrir ce brouillon sans les conserver ?":
-        "You have unsaved changes. Open another draft without saving them?"))return;
+    const opening=beginDraftReplacement(draftAutosave,row.kind,{
+      confirmDiscard:()=>window.confirm(state.language==="fr"?
+        "Les modifications non enregistrées de cette composition seront perdues. Ouvrir ce brouillon ?":
+        "Unsaved edits to this composition will be lost. Open this draft?"),
+      onBusy:()=>notify(state.language==="fr"?
+        "Enregistrement en cours. Réessayez une fois le brouillon sauvegardé.":
+        "A draft is being saved. Try again after the save is complete.")
+    });
+    if(!opening)return;
     const uid=authStatus.user.id,request=++editableDrafts.request;
     editableDrafts.busy=true;editableDrafts.error="";render();
     void(async()=>{
       try{
         const client=await supabaseClient(),doc=await loadEditableDraft(client,uid,id);
         if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
+        if(doc.kind!==row.kind)throw Error("Le type de brouillon a changé. Rechargez la liste.");
+        if(!opening.complete())throw Error("Cette composition a changé pendant son chargement. Réessayez.");
         officialComposer[doc.kind]=doc.content.items.map(item=>({...item}));
         officialComposer.settings[doc.kind]={...doc.content.settings};
-        editableDrafts.openEpoch[doc.kind]++;draftAutosave.discard(doc.kind,{confirmed:true});
+        editableDrafts.openEpoch[doc.kind]++;
         editableDrafts.current[doc.kind]={id:doc.id,revision:doc.revision};
         editableDrafts.dirty[doc.kind]=false;officialComposer.error="";
         state.page=doc.kind==="routine"?"routines":"boards";
@@ -1875,6 +1965,7 @@ root.addEventListener("click",function(event){
         if(authStatus.user?.id===uid&&request===editableDrafts.request)
           editableDrafts.error=String(error?.message||error);
       }finally{
+        opening.cancel();
         if(authStatus.user?.id===uid&&request===editableDrafts.request){
           editableDrafts.busy=false;render();
         }
@@ -1884,27 +1975,57 @@ root.addEventListener("click",function(event){
   if(a==="draft-delete"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
     const doc=editableDrafts.items.find(x=>x.id===el.dataset.id);
     if(!doc)return;
-    if(!window.confirm(state.language==="fr"?
-      "Supprimer le brouillon « "+doc.title+" » ? Les PDF déjà imprimés resteront intacts.":
-      "Delete draft “"+doc.title+"”? Previously printed PDFs will remain unchanged."))return;
+    const active=editableDrafts.current[doc.kind]?.id===doc.id;
+    const deletion=beginDraftDeletion(draftAutosave,doc.kind,{
+      isOpen:active,
+      confirmDelete:dirty=>window.confirm(state.language==="fr"?
+        "Supprimer le brouillon « "+doc.title+" » ? "+(dirty?"Ses modifications non enregistrées seront perdues. ":"")+
+          (active?"L'éditeur sera vidé. ":"")+"Les PDF originaux resteront intacts.":
+        "Delete draft “"+doc.title+"”? "+(dirty?"Unsaved edits will be lost. ":"")+
+          (active?"The editor will be cleared. ":"")+"Original PDFs will remain unchanged."),
+      onBusy:()=>notify(state.language==="fr"?
+        "Sauvegarde en cours. Réessayez après sa confirmation avant de supprimer ce brouillon.":
+        "Saving in progress. Try deleting this draft after the save is confirmed.")
+    });
+    if(!deletion)return;
     const uid=authStatus.user.id,request=++editableDrafts.request;
+    const revision=active?editableDrafts.current[doc.kind].revision:doc.revision;
+    if(active)editableDrafts.deletingKind=doc.kind;
     editableDrafts.busy=true;editableDrafts.error="";render();
     void(async()=>{
       try{
         const client=await supabaseClient();
-        await deleteEditableDraft(client,uid,doc.id,doc.revision);
+        await deleteEditableDraft(client,uid,doc.id,revision);
         if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
         editableDrafts.items=editableDrafts.items.filter(item=>item.id!==doc.id);
-        if(editableDrafts.current[doc.kind]?.id===doc.id){
-          editableDrafts.openEpoch[doc.kind]++;draftAutosave.discard(doc.kind);
-          editableDrafts.current[doc.kind]=null;editableDrafts.dirty[doc.kind]=true;
+        if(active&&editableDrafts.current[doc.kind]?.id===doc.id){
+          const unchanged=deletion.complete();
+          editableDrafts.openEpoch[doc.kind]++;
+          editableDrafts.current[doc.kind]=null;
+          if(unchanged){
+            // La suppression ne doit jamais recréer automatiquement le même brouillon.
+            officialComposer[doc.kind]=[];
+            officialComposer.settings[doc.kind]=emptyComposerSettings()[doc.kind];
+            draftAutosave.discard(doc.kind);
+            editableDrafts.dirty[doc.kind]=false;
+          }else{
+            // Une nouvelle saisie imprévue n'est pas perdue : elle devient une
+            // nouvelle composition sans lien vers le brouillon supprimé.
+            deletion.cancel();
+            draftAutosave.discard(doc.kind);
+            if(officialComposer[doc.kind].length)markDraftChanged(doc.kind);
+          }
         }
-        editableDrafts.message=state.language==="fr"?"Brouillon supprimé, PDF préservés.":"Draft deleted, PDFs preserved.";
+        editableDrafts.message=state.language==="fr"?
+          "Brouillon supprimé. Les PDF originaux sont préservés.":
+          "Draft deleted. Original PDFs remain unchanged.";
       }catch(error){
         if(authStatus.user?.id===uid&&request===editableDrafts.request)
           editableDrafts.error=String(error?.message||error);
       }finally{
+        deletion.cancel();
         if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          editableDrafts.deletingKind=null;
           editableDrafts.busy=false;render();
         }
       }
@@ -1922,14 +2043,14 @@ root.addEventListener("click",function(event){
     }
     return;
   }
-  if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy){
+  if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy&&!editableDrafts.deletingKind&&!editableDrafts.copyKind){
      const kind=el.dataset.kind,row=[...publishedCatalog.items,...usedPictos.items.map(approvedFromUsage).filter(Boolean)].find(x=>x.id===el.dataset.id);
      if(!row||!["routine","board"].includes(kind))return;
      try{officialComposer[kind]=selectApprovedItem(officialComposer[kind],row,kind);markDraftChanged(kind);officialComposer.error="";render();}
      catch(error){officialComposer.error=String(error.message||error);render();}
      return;
    }
-   if((a==="approved-remove"||a==="approved-move")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy){
+   if((a==="approved-remove"||a==="approved-move")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy&&!editableDrafts.deletingKind&&!editableDrafts.copyKind){
      const kind=el.dataset.kind,index=Number(el.dataset.index);
      if(!["routine","board"].includes(kind))return;
      officialComposer[kind]=a==="approved-remove"?removeApprovedItem(officialComposer[kind],index):
@@ -2478,9 +2599,15 @@ root.addEventListener("submit",function(event){
   const officialForm=event.target.closest('form[data-form="approved-export"]');
   if(officialForm){
     event.preventDefault();
-    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||editableDrafts.busy||pendingGeneratedPdf)return;
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||editableDrafts.busy||editableDrafts.copyKind||pendingGeneratedPdf)return;
     const kind=officialForm.dataset.kind;
     if(!["routine","board"].includes(kind))return;
+    if(draftAutosave.status(kind).conflict){
+      officialComposer.error=state.language==="fr"?
+        "Conflit de brouillon : enregistrez une copie avant de créer le PDF, afin de conserver les deux versions.":
+        "Draft conflict: save a new copy before creating the PDF so both versions are preserved.";
+      render();return;
+    }
     // Ne jamais exporter pendant qu'une écriture d'autosave est déjà partie.
     // Le bouton est désactivé visuellement, mais l'événement submit doit aussi le vérifier.
     if(draftAutosave.status(kind).busy){
