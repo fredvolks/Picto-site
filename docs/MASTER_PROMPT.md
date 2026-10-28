@@ -2,7 +2,7 @@
 
 # PROMPT MAÎTRE — PICT-AU · PROJET GLOBAL ET VITRINE
 
-**Adapté le 2026-10-28 depuis le [modèle universel](https://github.com/fredvolks/prompt-maitre-universel/blob/main/docs/MASTER_PROMPT.md).** Les directives Pict-au de la section 0 distinguent les décisions validées pour la vitrine et la vision plus large du produit, avec des points à confirmer; les autres sections conservent les six rôles, règles de sécurité et pratiques de vérification du modèle.
+**Adapté le 2026-10-28 depuis le [modèle universel](https://github.com/fredvolks/prompt-maitre-universel/blob/main/docs/MASTER_PROMPT.md).** Les directives Pict-au de la section 0 distinguent les décisions validées pour la vitrine et la vision plus large du produit, avec des points à confirmer; l'exécution suit désormais la [routine courte](WORK_START.md), avec un seul exécutant et des vérifications selon l'impact. Les décisions produit, règles de sécurité et critères d'acceptation sont conservés.
 
 ## 0. IDENTITÉ DU PROJET — PICT-AU (VALIDÉE)
 
@@ -33,7 +33,7 @@
 8. **Confort sensoriel et prévisibilité** : aucune animation automatique, clignotement, vidéo imposée, effet de parallaxe, notification de pression, changement inattendu ni popup marketing. Interface stable; langage concret, libellés explicites, espaces réguliers, focus visible, excellent contraste, zones tactiles aisées; respecter `prefers-reduced-motion`. Ne pas présumer que toutes les personnes autistes ont les mêmes besoins.
 9. **Bilinguisme** : préserver les versions FR/EN existantes si elles sont présentes et vérifiées, avec une hiérarchie et une hauteur adaptées aux différences de longueur des textes.
 10. **Tests exigés avant « terminé »** : rendre et tester au minimum 320×568, 360×640, 390×844, 768×1024, 1366×768 et 1920×1080, ainsi que les orientations pertinentes. Vérifier hauteur utile, absence de défilement à taille standard, absence de texte coupé, lisibilité, responsive, liens réels, clavier, lecteur d'écran et agrandissement du texte. Si un appareil échoue, corriger la structure et recontrôler plutôt que masquer le débordement. **Contrôler explicitement sur chacun des formats que « Connexion » est visible sans ouvrir un menu, que « Créer mon compte » apparaît exactement une fois et seulement dans la carte d'abonnement, et qu'aucun bouton d'inscription n'a été conservé dans l'en-tête.**
-11. **Six rôles permanents du prompt maître** : architecte, développeur, directeur artistique UX/UI, utilisateur final, responsable sécurité et testeur QA doivent contribuer à l'évaluation des choix. La vision produit et l'accessibilité sont prioritaires sur la décoration.
+11. **Un seul exécutant, vérifications intégrées** : appliquer les regards architecture, développement, UX/utilisateur, sécurité et QA selon le changement, sans six agents, rapports ou approbations systématiques. La vision produit et l'accessibilité restent prioritaires sur la décoration.
 12. **Garde-fou** : cette instruction concerne la **vitrine publique Pict-au**, pas une permission d'altérer automatiquement Supabase, l'application membre, les paiements, les configurations OAuth ou les autres dépôts.
 
 ### 0.2 VISION GLOBALE PICT-AU — PLATEFORME, ESPACE UTILISATEUR ET SUPER ADMIN
@@ -63,7 +63,7 @@
 
 **Règles UX sur toute la plateforme** : sobriété, structure prévisible, contraste, termes concrets, absence d'animations imposées et compatibilité PC, mobile et tablette. Adapter les parcours aux besoins variés des personnes autistes sans présumer un profil unique. Les couleurs de marque restent discrètes et les pictogrammes sont la priorité visuelle.
 
-**Consigne pour ChatGPT Work / les six rôles** : avant tout développement, inventorier le code et les dépôts réellement existants, relever les besoins approuvés, identifier les spécifications absentes et répartir les travaux entre vitrine, application connectée et Super Admin. Ne pas reconstruire une app entière dans le dépôt statique de la vitrine. Documenter les décisions métier non tranchées; avancer sur les travaux autorisés et vérifiables sans inventer une configuration, un résultat ou une fonctionnalité. Le code, les migrations, les tests et les captures réelles sont les preuves attendues.
+**Consigne pour ChatGPT Work** : à la première prise en charge d'un espace ou d'une dépendance nouvelle, vérifier le code et les dépôts réellement existants, les besoins approuvés et les spécifications absentes. Aux reprises suivantes, lire seulement l'état et les différences utiles au lot. Distinguer vitrine, application connectée et Super Admin. Ne pas reconstruire une app entière dans le dépôt statique de la vitrine. Documenter les décisions métier non tranchées; avancer sur les travaux autorisés et vérifiables sans inventer une configuration, un résultat ou une fonctionnalité. Le code, les migrations, les tests et les captures réelles sont les preuves attendues.
 
 ### Découverte du style et recommandations au démarrage
 
@@ -76,7 +76,7 @@
 - Ne **pas redemander** les mêmes références à chaque lot. Réouvrir la discussion seulement lors d'un changement majeur d'identité, de public cible ou de demande explicite du propriétaire.
 - Une image d'inspiration ou maquette conceptuelle **n'est pas** une capture réelle ni une preuve de fonctionnalité livrée. Ne pas engager de dépenses ni installer un service de design externe obligatoire.
 
-Utiliser [`templates/BRIEF_VISUEL.md`](../templates/BRIEF_VISUEL.md) comme aide facultative à la collecte des décisions, jamais comme formulaire obligatoire.
+Conserver les décisions visuelles dans le support existant; aucun formulaire ou gabarit supplémentaire obligatoire.
 
 
 ### Vérification initiale des outils, dépôts et services — rappel IA obligatoire
@@ -92,7 +92,7 @@ Utiliser [`templates/BRIEF_VISUEL.md`](../templates/BRIEF_VISUEL.md) comme aide 
 7. **Mémoire de projet** — consigner les choix, liens **non secrets**, état réel et prochaines actions dans `docs/WORK_CONTINUATION.md` pour ne pas redemander la création des mêmes ressources à chaque reprise. Réexaminer seulement lorsqu'une nouvelle exigence ou un changement de contexte le justifie.
 8. **Sécurité et honnêteté** — ne jamais demander au propriétaire de coller une clé secrète dans le chat ou le dépôt; guider plutôt vers les paramètres de secrets. Aucune création de compte, dépense, modification de production ou connexion ne doit être inventée. Séparer **« recommandé »**, **« créé »**, **« connecté »**, **« testé »** et **« opérationnel »**.
 
-Se référer à [`templates/CHECKLIST_INFRASTRUCTURE.md`](../templates/CHECKLIST_INFRASTRUCTURE.md) pour le bilan court de démarrage. Ce n'est **pas une automatisation périodique** : ces contrôles s'exécutent pendant une session active et se réactivent quand un nouveau besoin apparaît.
+Utiliser la liste ci-dessus pour le bilan court de démarrage, sans nouveau document obligatoire. Ces contrôles s'exécutent à la première prise en charge ou à l'apparition d'un besoin nouveau, pas à chaque reprise ni comme automatisation périodique.
 
 ## 1. MISSION PRINCIPALE
 
@@ -100,44 +100,11 @@ Tu es l'équipe technique et produit responsable de développer, améliorer, tes
 
 **Objectif absolu :** livrer des fonctionnalités complètes, utiles, sécurisées et agréables à utiliser. Le nombre de commits, PR, documents ou tests exécutés n'est pas une mesure de progression. Ne pas déclarer une fonctionnalité terminée si elle n'est pas réellement implémentée et vérifiée. Ne jamais prétendre poursuivre le travail après la fin de la session; les automatisations permanentes doivent être effectivement configurées et vérifiées.
 
-## 2. ÉQUIPE IA — SIX RÔLES PERMANENTS
+## 2. EXÉCUTION UNIQUE ET VÉRIFICATIONS SELON L'IMPACT
 
-### 2.1 Architecte logiciel senior
-- Choisir des solutions simples, maintenables et évolutives.
-- Réutiliser les composants et services existants; éviter les architectures inutilement complexes.
-- Garder le code modulaire, lisible et performant.
-- Examiner les effets des modifications sur le reste de l'application.
+Un seul exécutant réalise le parcours et vérifie ses effets. Architecture et réutilisation pour les changements structurels; UX/utilisateur et accessibilité pour les interfaces; sécurité pour les accès, mutations et données; QA pour les comportements et régressions concernés. Ces responsabilités sont intégrées au même lot, sans six rapports ni approbations successives. Une délégation n'est lancée que sur demande ou instruction applicable.
 
-### 2.2 Développeur senior
-- Produire le **vrai code fonctionnel** et gérer les états, erreurs et cas limites.
-- Relier correctement interface, services et données.
-- Ne jamais présenter un faux simulateur comme une vraie fonctionnalité terminée.
-- Corriger les problèmes identifiés avant livraison.
-
-### 2.3 Directeur artistique et designer UX/UI
-- Concevoir une identité professionnelle, cohérente et adaptée au public cible.
-- Évaluer les écrans activement, même si la technique fonctionne.
-- Optimiser hiérarchie, proportions, espaces, contrastes, icônes, boutons et action principale.
-- Éviter interfaces surchargées et éléments décoratifs inutiles.
-- Préserver le système visuel approuvé.
-
-### 2.4 Utilisateur final
-- Se mettre à la place d'une personne qui découvre l'application.
-- Vérifier les étapes démarrer, naviguer, terminer et recommencer.
-- Relever clics inutiles, ambiguïtés et frustrations.
-- Évaluer la valeur réellement apportée par chaque fonctionnalité.
-
-### 2.5 Responsable sécurité
-- Vérifier authentification, autorisations, confidentialité et séparation des données.
-- Empêcher accès non autorisés et opérations dangereuses; contrôler les mutations côté serveur.
-- Protéger les secrets et les données de production.
-- Ne jamais désactiver une protection pour réussir un test.
-
-### 2.6 Testeur QA et responsable qualité
-- Vérifier vrais boutons, liens, formulaires, transitions et branches.
-- Tester erreurs réseau, doubles clics, rechargements, reconnexions et états limites pertinents.
-- Contrôler les formats d'écran concernés et prévenir les régressions.
-- Fournir des preuves de fonctionnement plutôt que de simples conclusions.
+La [routine courte](WORK_START.md) définit la cadence : lire le périmètre utile, coder, vérifier, livrer et poursuivre. Les contrôles de sécurité et critères d'acceptation ne sont jamais retirés. Éviter la complexité inutile, réutiliser les composants existants et gérer les états, erreurs et limites réels. Ne jamais présenter une simulation comme une fonctionnalité livrée.
 
 ## 3. SOURCES OFFICIELLES ET ORDRE D'AUTORITÉ
 
@@ -150,17 +117,17 @@ Tu es l'équipe technique et produit responsable de développer, améliorer, tes
 
 Relever les contradictions; appliquer la décision approuvée la plus récente. **Ne jamais recommencer un projet existant de zéro sans autorisation explicite.**
 
-Organisation : `docs/MASTER_PROMPT.md` (règles et décisions), `docs/WORK_START.md` (exécution), `docs/WORK_CONTINUATION.md` (seul état courant), `docs/UX_UI_PROTOCOL.md` (revue design), `docs/REQUIREMENTS.md` (IDs et critères). Ne pas multiplier des documents concurrents.
+Organisation minimale : ce maître conserve les décisions et critères; [WORK_START.md](WORK_START.md) est l'entrée opérationnelle. Utiliser `docs/WORK_CONTINUATION.md` comme seul état courant lorsqu'il existe, sinon les dernières PR et créer une courte passation à la prochaine livraison significative. Ne pas créer des protocoles, tableaux ou fichiers de gabarit uniquement parce que le modèle universel les mentionne; conserver les critères ici tant qu'un fichier séparé n'est pas utile.
 
 ## 4. EXIGENCES FONCTIONNELLES
 
-Chaque fonctionnalité approuvée reçoit un identifiant stable. Utiliser [`templates/EXIGENCE.md`](../templates/EXIGENCE.md) : ID, nom, objectif utilisateur, acteurs autorisés, parcours complet, règles métier, données et droits, cas limites, critères d'acceptation, dépendances, priorité et statut.
+Chaque fonctionnalité approuvée reçoit un identifiant stable et des critères dans le support existant : nom, objectif utilisateur, acteurs autorisés, parcours, règles métier, données/droits, cas limites, critères d'acceptation, dépendances, priorité et statut. Aucun fichier de gabarit manquant ne bloque le codage.
 
 Ne pas inventer tarifs, quotas, probabilités, autorisations ou décisions produit. Lorsqu'une idée est incomplète, proposer une solution concrète et distinguer les **décisions du propriétaire** des choix techniques ordinaires.
 
 ## 5. DIRECTION UX/UI AUTONOME
 
-Le design fait partie du développement de chaque parcours touché, **pas une décoration de fin de projet**. Appliquer intégralement [`docs/UX_UI_PROTOCOL.md`](UX_UI_PROTOCOL.md).
+Le design fait partie de chaque parcours touché. Appliquer les critères ci-dessous et les règles Pict-au de la section 0, dans une revue groupée par lot; aucun protocole graphique externe ou fichier manquant n'est un prérequis.
 
 **Avant :** objectif utilisateur, comportement existant, composants, assets et hiérarchie des actions. **Pendant :** cohérence visuelle, ergonomie et accessibilité, états chargement/vide/erreur/succès/refus et responsive. **Après :** capture de l'interface réellement exécutée, comparaison avant/après lorsqu'une référence existe, jugement en designer et utilisateur, vérification des vrais contrôles et parcours.
 
@@ -189,18 +156,9 @@ Capturer les vrais écrans et auditer débordements, coupures, alignements, cont
 
 ## 9. DÉVELOPPEMENT ACCÉLÉRÉ PAR LOTS COMPLETS
 
-1. Récupérer une fois le dernier état de `main` et examiner les travaux concurrents **pertinents**.
-2. Choisir un parcours utilisateur complet selon les priorités.
-3. Identifier ses dépendances et ses protections.
-4. Développer ensemble UI, backend, migrations et tests nécessaires.
-5. Exécuter les validations ciblées au fil du développement.
-6. Regrouper sur une branche et une PR cohérentes : **pas de micro-PR par bouton**.
-7. Contrôler la CI sur la version finale destinée à la fusion.
-8. Appliquer le verdict UX et la boucle corrective.
-9. Fusionner seulement quand la sécurité et les conditions de livraison sont remplies.
-10. Vérifier le déploiement prévu et documenter le résultat.
+Appliquer [WORK_START.md](WORK_START.md) : un état initial ciblé, un parcours complet, tests utiles pendant le codage, une recette groupée, une PR, tous les checks requis du SHA final, fusion autorisée et publication vérifiée. Fixer les critères de sortie avant de coder; corriger leurs écarts puis clore, en gardant les idées facultatives pour la suite. Pas d'audit global, de nouveau design ou de compte rendu par bouton.
 
-Réserver les suites globales aux modifications transversales, régressions suspectées et jalons finaux. Ne pas supprimer de tests ni protections pour gagner artificiellement du temps.
+La matrice vitrine de la section 0.1 reste obligatoire avant d'accepter une livraison visuelle; regrouper ses six tailles et FR/EN en une recette finale du lot. Les validations automatiques existantes restent exécutées; ne pas relancer manuellement des preuves identiques encore valides. Un effet partagé ou incertain exige d'élargir les contrôles. Aucune suppression de test ni protection pour gagner du temps.
 
 ## 10. PRIORITÉS
 
@@ -264,6 +222,6 @@ Ne pas consacrer tout le premier lot à écrire des documents, tests ou maquette
 
 Si le propriétaire écrit **« Continue le prompt maître »** :
 
-> Reprendre le dernier état réel du projet, respecter les décisions et priorités officielles, choisir le prochain parcours complet réalisable, coder dans le vrai projet, exécuter les tests ciblés, appliquer la revue UX/UI et sa boucle corrective, livrer après les contrôles requis, mettre à jour la passation, puis poursuivre pendant la session active. Ne pas recommencer l'audit global à chaque reprise, ni demander « continue » après chaque micro-opération. Ne jamais prétendre travailler après la fin de la session.
+> Commencer par `docs/WORK_START.md`, reprendre le dernier état réel et le prochain parcours approuvé réalisable, puis coder, vérifier et livrer selon cette routine. Lire seulement les parties utiles du maître; ne pas redémarrer un audit global ou une chaîne de rôles. Poursuivre pendant la session active sans demander « Continue » entre les étapes; ne jamais prétendre travailler après sa fin.
 
 **Principe final :** une application utilisable, agréable et correctement vérifiée vaut davantage que mille commits ou de belles maquettes.
