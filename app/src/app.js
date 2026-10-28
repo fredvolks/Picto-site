@@ -145,6 +145,18 @@ function emptyComposerSettings(){
     board:{title:null,widthCm:"5",paper:"letter",columns:"3"}};
 }
 const officialComposer={routine:[],board:[],settings:emptyComposerSettings(),busy:false,error:"",request:0};
+// Relecture canonique au clic et résultat éphémère propre au contexte d'affichage.
+const singleApprovedAdd={busy:false,request:0,page:null,message:"",error:""};
+function resetSingleApprovedAdd(){
+ singleApprovedAdd.request++;singleApprovedAdd.busy=false;
+ singleApprovedAdd.page=null;singleApprovedAdd.message="";singleApprovedAdd.error="";
+}
+function renderSingleApprovedAddFeedback(page){
+ if(singleApprovedAdd.page!==page)return "";
+ if(singleApprovedAdd.error)return '<p class="pa-catalog-notice pa-single-add-notice" data-single-approval="error" role="alert">'+esc(singleApprovedAdd.error)+'</p>';
+ if(singleApprovedAdd.message)return '<p class="pa-catalog-notice pa-single-add-notice" data-single-approval="status" role="status">'+esc(singleApprovedAdd.message)+'</p>';
+ return "";
+}
 const captionFeature={enabled:false,loaded:false,loading:false,saving:false,error:"",message:"",request:0,updated_at:null};
 function resetCaptionFeature(){
   captionFeature.request++;captionFeature.enabled=false;captionFeature.loaded=false;
@@ -274,6 +286,7 @@ function markDraftChanged(kind){
   draftAutosave.change(kind);
 }
 function resetOfficialComposer(){
+  resetSingleApprovedAdd();
   officialComposer.request++;officialComposer.routine=[];officialComposer.board=[];
   officialComposer.settings=emptyComposerSettings();
   officialComposer.busy=false;officialComposer.error="";
@@ -319,6 +332,7 @@ function resetUsedPictos(){
 }
 async function fetchUsedPictos(){
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+  if(singleApprovedAdd.page==="used")resetSingleApprovedAdd();
   const uid=authStatus.user.id,ticket=++usedPictos.request;
   usedPictos.loading=true;usedPictos.error="";usedPictos.notice="";render();
   try{
@@ -350,6 +364,7 @@ function clearPublishedCatalog(){
 }
 async function fetchPublishedCatalog(){
   if(!SITE_EMBEDDED||!authStatus.user||!authStatus.roleReady||canOpenAdmin())return;
+  if(singleApprovedAdd.page==="library")resetSingleApprovedAdd();
   const uid=authStatus.user.id,ticket=++publishedCatalog.request;
   publishedCatalog.loading=true;publishedCatalog.error="";render();
   try{
@@ -1522,8 +1537,8 @@ function renderClientLibrary(){
       +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
         CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
       )+'</span><div class="pa-catalog-add">'
-      +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'+(officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?'Routine':'Routine')+'</button>'
-      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button></div></article>';
+      +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?'Routine':'Routine')+'</button>'
+      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button></div></article>';
   }).join("");
   const feedback=f.loading?'<p class="pa-catalog-notice" role="status">'+esc(fr?'Chargement de la bibliothèque officielle…':'Loading official library…')+'</p>':
     f.error?'<div class="pa-catalog-notice" role="alert"><p>'+esc(fr?'La bibliothèque est momentanément indisponible.':'The library is temporarily unavailable.')+'</p>'
@@ -1551,7 +1566,8 @@ function renderClientLibrary(){
        '<div class="pa-composer-toolbar"><strong>'+esc(fr?'Votre sélection':'Your selection')+'</strong>'
        +'<button data-action="nav" data-page="routines" type="button">'+esc(fr?'Routine':'Routine')+' · '+officialComposer.routine.length+'</button>'
        +'<button data-action="nav" data-page="boards" type="button">'+esc(fr?'Tableau':'Board')+' · '+officialComposer.board.length+'</button></div>':'')
-     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
+     +renderSingleApprovedAddFeedback("library")
+    +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'">'
       +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>';
@@ -1587,14 +1603,14 @@ function renderClientUsed(){
       +'<p class="pa-catalog-card-label">'+esc(title)+'</p><span class="pa-catalog-card-category">'+esc(
         CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
       )+'</span><button type="button" class="pa-used-choice" data-action="used-toggle" data-id="'+esc(item.id)+'"'
-      +(u.adding?' disabled':'')+' aria-pressed="'+(picked?'true':'false')+'" aria-label="'+esc(
+      +(u.adding||singleApprovedAdd.busy?' disabled':'')+' aria-pressed="'+(picked?'true':'false')+'" aria-label="'+esc(
         picked?(fr?'Retirer '+title+' de la sélection':'Remove '+title+' from selection'):
           (fr?'Sélectionner '+title:'Select '+title))+'">'
       +icon(picked?'check':'plus')+esc(picked?(fr?'Sélectionné':'Selected'):(fr?'Sélectionner':'Select'))+'</button><div class="pa-catalog-add">'
       +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'
-      +(officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?"Routine":"Routine")+'</button>'
+      +(singleApprovedAdd.busy||u.adding||officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?"Routine":"Routine")+'</button>'
       +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'
-      +(officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?"Tableau":"Board")+'</button></div></article>';
+      +(singleApprovedAdd.busy||u.adding||officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?"Tableau":"Board")+'</button></div></article>';
   }).join("");
   return '<section class="pa-client-catalog pa-used-pictos" aria-labelledby="pa-used-title">'
     +'<span class="pa-client-overline">'+esc(fr?"VOTRE BIBLIOTHÈQUE PERSONNELLE":"YOUR PERSONAL LIBRARY")+'</span>'
@@ -1613,17 +1629,18 @@ function renderClientUsed(){
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<option value="'+esc(key)+'"'+(u.theme===key?' selected':'')+'>'+esc(fr?frName:enName)+'</option>').join("")+'</select></div>'
     +'<button type="submit" class="btn btn-primary"'+(u.loading?' disabled':'')+'>'+esc(fr?"Filtrer":"Filter")+'</button></form>'
     +selectedReview
+    +renderSingleApprovedAddFeedback("used")
     +(!u.loading&&!u.error&&(u.selected.size||u.items.some(row=>approvedFromUsage(row)))?
       '<div class="pa-composer-toolbar pa-used-bulk-toolbar"><strong aria-live="polite">'+esc(u.selected.size?
         (fr?u.selected.size+(u.selected.size===1?' pictogramme sélectionné':' pictogrammes sélectionnés'):
           u.selected.size+(u.selected.size===1?' pictogram selected':' pictograms selected')):
         (fr?'Ajouter les images affichées':'Add visible pictograms'))+'</strong>'
       +'<button type="button" data-action="used-add-page" data-kind="routine"'
-      +(u.adding||officialComposer.routine.length>=10||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
+      +(u.adding||singleApprovedAdd.busy||officialComposer.routine.length>=10||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
       +'>'+icon("plus")+esc(fr?(u.selected.size?"Ajouter mes choix à la routine":"À ma routine (max. 10)"):
         (u.selected.size?"Add my picks to routine":"To my routine (max 10)"))+'</button>'
       +'<button type="button" data-action="used-add-page" data-kind="board"'
-      +(u.adding||officialComposer.board.length>=16||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
+      +(u.adding||singleApprovedAdd.busy||officialComposer.board.length>=16||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
       +'>'+icon("plus")+esc(fr?(u.selected.size?"Ajouter mes choix au tableau":"À mon tableau (max. 16)"):
         (u.selected.size?"Add my picks to board":"To my board (max 16)"))+'</button>'
       +(u.selected.size?'<button type="button" data-action="used-clear"'+(u.adding?' disabled':'')+'>'+esc(fr?'Effacer la sélection':'Clear selection')+'</button>':'')
@@ -1874,7 +1891,7 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
+  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;resetSingleApprovedAdd();if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
   if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
     void fetchEditableDrafts();return;
   }
@@ -2094,14 +2111,50 @@ root.addEventListener("click",function(event){
     }
     return;
   }
-  if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy&&!editableDrafts.deletingKind&&!editableDrafts.copyKind){
-     const kind=el.dataset.kind,row=[...publishedCatalog.items,...usedPictos.items.map(approvedFromUsage).filter(Boolean)].find(x=>x.id===el.dataset.id);
-     if(!row||!["routine","board"].includes(kind))return;
-     try{officialComposer[kind]=selectApprovedItem(officialComposer[kind],row,kind);markDraftChanged(kind);officialComposer.error="";render();}
-     catch(error){officialComposer.error=String(error.message||error);render();}
-     return;
-   }
-   if((a==="approved-remove"||a==="approved-move")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy&&!editableDrafts.deletingKind&&!editableDrafts.copyKind){
+  if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      !singleApprovedAdd.busy&&!usedPictos.adding&&!officialComposer.busy&&
+      !editableDrafts.deletingKind&&!editableDrafts.copyKind){
+    const kind=el.dataset.kind,page=state.page,id=el.dataset.id;
+    if(!["routine","board"].includes(kind)||!["library","used"].includes(page))return;
+    const row=page==="library"?publishedCatalog.items.find(x=>x.id===id):
+      usedPictos.items.map(approvedFromUsage).filter(Boolean).find(x=>x.id===id);
+    if(!row)return;
+    const uid=authStatus.user.id,session=editableDrafts.sessionEpoch,
+      before=officialComposer[kind],catalogTicket=publishedCatalog.request,
+      usedTicket=usedPictos.request,token=++singleApprovedAdd.request;
+    const stillCurrent=()=>authStatus.user?.id===uid&&
+      editableDrafts.sessionEpoch===session&&singleApprovedAdd.request===token&&
+      singleApprovedAdd.page===page&&state.page===page&&
+      publishedCatalog.request===catalogTicket&&usedPictos.request===usedTicket&&
+      officialComposer[kind]===before&&!officialComposer.busy&&!canOpenAdmin();
+    singleApprovedAdd.page=page;singleApprovedAdd.busy=true;singleApprovedAdd.error="";
+    singleApprovedAdd.message=state.language==="fr"?
+      "Vérification de l’approbation du pictogramme…":"Checking pictogram approval…";
+    render();
+    void(async()=>{
+      try{
+        // Un pictogramme présent dans l'interface n'est PAS une autorisation
+        // persistante. Même contrôle Auth/RLS que l'export officiel du PDF.
+        const [fresh]=await loadApprovedSelection(await supabaseClient(),uid,[id]);
+        if(!stillCurrent())return;
+        officialComposer[kind]=selectApprovedItem(before,fresh,kind);
+        markDraftChanged(kind);officialComposer.error="";
+        singleApprovedAdd.message=state.language==="fr"?
+          (kind==="routine"?"Pictogramme ajouté à votre routine.":"Pictogramme ajouté à votre tableau.") :
+          (kind==="routine"?"Pictogram added to your routine.":"Pictogram added to your board.");
+      }catch(error){
+        if(stillCurrent()){
+          singleApprovedAdd.error=String(error?.message||error);
+          singleApprovedAdd.message="";
+        }
+      }finally{
+        if(authStatus.user?.id===uid&&singleApprovedAdd.request===token){
+          singleApprovedAdd.busy=false;render();
+        }
+      }
+    })();return;
+  }
+  if((a==="approved-remove"||a==="approved-move")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy&&!editableDrafts.deletingKind&&!editableDrafts.copyKind){
      const kind=el.dataset.kind,index=Number(el.dataset.index);
      if(!["routine","board"].includes(kind))return;
      officialComposer[kind]=a==="approved-remove"?removeApprovedItem(officialComposer[kind],index):
@@ -2120,7 +2173,7 @@ root.addEventListener("click",function(event){
      return;
    }
    if(a==="used-toggle"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      !usedPictos.loading&&!usedPictos.error&&!usedPictos.adding&&!officialComposer.busy){
+      !usedPictos.loading&&!usedPictos.error&&!usedPictos.adding&&!singleApprovedAdd.busy&&!officialComposer.busy){
      try{
        usedPictos.selected=toggleUsedChoice(usedPictos.selected,el.dataset.id,usedPictos.items);
        usedPictos.notice="";
@@ -2131,7 +2184,7 @@ root.addEventListener("click",function(event){
      usedPictos.selected=new Map();usedPictos.notice="";render();return;
    }
    if(a==="used-add-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-       !usedPictos.loading&&!usedPictos.error&&!usedPictos.adding&&!officialComposer.busy&&
+       !usedPictos.loading&&!usedPictos.error&&!usedPictos.adding&&!singleApprovedAdd.busy&&!officialComposer.busy&&
        !editableDrafts.deletingKind&&!editableDrafts.copyKind){
      const kind=el.dataset.kind;
      if(!["routine","board"].includes(kind))return;
