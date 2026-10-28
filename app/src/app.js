@@ -2181,17 +2181,23 @@ root.addEventListener("click",function(event){
           // Ne jamais prétendre que le fichier a été imprimé ou téléchargé.
           const filename=(doc.title||"pictau").replace(/[^\p{L}\p{N} _-]/gu,"").slice(0,80)||"pictau";
           const anchor=document.createElement("a");anchor.href=url;anchor.download=filename+".pdf";
+          let clickRejected=false;
           try{document.body.appendChild(anchor);anchor.click();}
+          catch{clickRejected=true;}
           finally{anchor.remove();}
-          if(isReprint){
-            // Lien activable par l'utilisateur si le clic automatique post-réseau
-            // est bloqué (iOS, Android, bloqueur de téléchargement).
-            clientFiles.reprintRetry={uid,id:doc.id,url,filename:filename+".pdf"};
-          }else setTimeout(()=>URL.revokeObjectURL(url),60000);
-          clientFiles.message=isReprint?(state.language==="fr"?
-            "Ouverture du lecteur PDF bloquée. Téléchargement du PDF original demandé : ouvrez-le pour l’imprimer à 100 %.":
-            "PDF viewer was blocked. Original PDF download requested: open it to print at 100%."):
-            (state.language==="fr"?"Téléchargement du PDF original demandé.":"Original PDF download requested.");
+          // Si le navigateur refuse le clic (ou l'ignore sans exception), le
+          // même original SHA-vérifié reste accessible par un GESTE direct.
+          // Ce lien est conservé pour « Réimprimer » ET « Télécharger PDF ».
+          clientFiles.reprintRetry={uid,id:doc.id,url,filename:filename+".pdf"};
+          clientFiles.message=clickRejected?(state.language==="fr"?
+            "Téléchargement automatique refusé. Utilisez le lien « Télécharger le PDF original » ci-dessous.":
+            "Automatic download was blocked. Use the Download original PDF link below."):
+            isReprint?(state.language==="fr"?
+              "Ouverture du lecteur PDF bloquée. Téléchargement du PDF original demandé : ouvrez-le pour l’imprimer à 100 %.":
+              "PDF viewer was blocked. Original PDF download requested: open it to print at 100%."):
+              (state.language==="fr"?
+                "Téléchargement du PDF original demandé. Si rien ne se passe, utilisez le lien ci-dessous.":
+                "Original PDF download requested. If nothing happens, use the link below.");
         }
       }catch(error){
         tab?.close();
