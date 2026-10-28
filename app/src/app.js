@@ -1476,6 +1476,8 @@ function renderClientHome(){
     +'<section class="pa-client-section" aria-labelledby="pa-creations-title"><div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'PRIVÉ ET ENREGISTRÉ':'PRIVATE AND SAVED')+'</span>'
     +'<h2 id="pa-creations-title">'+esc(fr?'Mes créations':'My creations')+'</h2></div>'
     +'<button class="pa-client-text-link" type="button" data-action="nav" data-page="files">'+esc(fr?'Tout retrouver':'View all')+icon("arrow")+'</button></div>'
+    +(clientFiles.error?'<p role="alert" class="pa-client-context">'+esc(clientFiles.error)+'</p>':'')
+    +(clientFiles.message?'<p role="status" class="pa-client-context">'+esc(clientFiles.message)+'</p>':'')
     +(clientFiles.loading?'<p role="status" class="pa-client-empty-text">'+esc(fr?'Chargement de vos fichiers…':'Loading your files…')+'</p>':
        hasFiles?'<div class="pa-client-creation-list">'+clientFiles.items.slice(0,3).map(doc=>
         '<article class="pa-client-creation">'
@@ -2158,17 +2160,26 @@ root.addEventListener("click",function(event){
         const result=await downloadMyDocument(client,uid,doc.id);
         if(authStatus.user?.id!==uid||epoch!==clientFiles.request){tab?.close();return;}
         const url=URL.createObjectURL(result.blob);
-        if(isReprint){
-          if(!tab){URL.revokeObjectURL(url);throw Error(state.language==="fr"?"Autorisez l’ouverture d’une fenêtre PDF.":"Please allow the PDF window.");}
-          tab.location.replace(url);
+        let readerOpened=false;
+        if(isReprint&&tab){
+          try{tab.location.replace(url);readerOpened=true;}
+          catch{try{tab.close();}catch{/* Le téléchargement reste possible. */}}
+        }
+        if(readerOpened){
           setTimeout(()=>URL.revokeObjectURL(url),5*60*1000);
           clientFiles.message=state.language==="fr"?"PDF original ouvert : utilisez Imprimer dans le lecteur PDF.":"Original PDF opened: use Print in the PDF viewer.";
         }else{
+          // Si iOS/Android ou un bloqueur refuse la fenêtre, conserver l'action
+          // Réimprimer : proposer le PDF ORIGINAL vérifié en téléchargement.
+          // Ne jamais prétendre que le fichier a été imprimé ou téléchargé.
           const filename=(doc.title||"pictau").replace(/[^\p{L}\p{N} _-]/gu,"").slice(0,80)||"pictau";
           const anchor=document.createElement("a");anchor.href=url;anchor.download=filename+".pdf";
-          document.body.appendChild(anchor);anchor.click();anchor.remove();
-          setTimeout(()=>URL.revokeObjectURL(url),60000);
-          clientFiles.message=state.language==="fr"?"Téléchargement du PDF original demandé.":"Original PDF download requested.";
+          try{document.body.appendChild(anchor);anchor.click();}
+          finally{anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+          clientFiles.message=isReprint?(state.language==="fr"?
+            "Ouverture du lecteur PDF bloquée. Téléchargement du PDF original demandé : ouvrez-le pour l’imprimer à 100 %.":
+            "PDF viewer was blocked. Original PDF download requested: open it to print at 100%."):
+            (state.language==="fr"?"Téléchargement du PDF original demandé.":"Original PDF download requested.");
         }
       }catch(error){
         tab?.close();
