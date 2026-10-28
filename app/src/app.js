@@ -19,7 +19,7 @@ import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
-import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,selectedUsedChoices} from "./used-pictograms.js";
+import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
@@ -1558,6 +1558,21 @@ function renderClientLibrary(){
 }
 function renderClientUsed(){
   const fr=state.language==="fr",u=usedPictos;
+  const selectedChoices=selectedUsedChoices(u.selected);
+  const selectedReview=selectedChoices.length?
+    '<section class="pa-used-selection-review" aria-labelledby="pa-used-selection-title">'
+      +'<div class="pa-used-selection-heading"><h2 id="pa-used-selection-title">'
+      +esc(fr?'Ma sélection':'My selection')+'</h2><span aria-live="polite">'
+      +selectedChoices.length+' / 16</span></div>'
+      +'<p class="pa-client-context">'+esc(fr?
+        "Vos choix restent visibles même après une recherche ou un changement de page. Retirez une image sans effacer les autres.":
+        "Your choices remain visible after filtering or changing pages. Remove one without clearing the others.")+'</p>'
+      +'<ul class="pa-used-selection-list">'+selectedChoices.map(item=>{
+        const name=fr?item.title_fr:(item.title_en||item.title_fr);
+        return '<li><button type="button" data-action="used-remove-choice" data-id="'+esc(item.id)+'"'
+          +' aria-label="'+esc(fr?'Retirer '+name+' de ma sélection':'Remove '+name+' from my selection')+'">'
+          +'<span>'+esc(name)+'</span>'+icon("x")+'</button></li>';
+      }).join("")+'</ul></section>':"";
   const pages=Math.max(1,Math.ceil(u.total/USED_PAGE_SIZE));
   const usedCards=u.items.map(entry=>{
     const item=approvedFromUsage(entry);
@@ -1597,6 +1612,7 @@ function renderClientUsed(){
     +'<select id="pa-used-theme" name="theme"><option value="all">'+esc(fr?"Toutes":"All")+'</option>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<option value="'+esc(key)+'"'+(u.theme===key?' selected':'')+'>'+esc(fr?frName:enName)+'</option>').join("")+'</select></div>'
     +'<button type="submit" class="btn btn-primary"'+(u.loading?' disabled':'')+'>'+esc(fr?"Filtrer":"Filter")+'</button></form>'
+    +selectedReview
     +(!u.loading&&!u.error&&(u.selected.size||u.items.some(row=>approvedFromUsage(row)))?
       '<div class="pa-composer-toolbar pa-used-bulk-toolbar"><strong aria-live="polite">'+esc(u.selected.size?
         (fr?u.selected.size+(u.selected.size===1?' pictogramme sélectionné':' pictogrammes sélectionnés'):
@@ -1604,10 +1620,12 @@ function renderClientUsed(){
         (fr?'Ajouter les images affichées':'Add visible pictograms'))+'</strong>'
       +'<button type="button" data-action="used-add-page" data-kind="routine"'
       +(officialComposer.routine.length>=10||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
-      +'>'+icon("plus")+esc(fr?"À ma routine (max. 10)":"To my routine (max 10)")+'</button>'
+      +'>'+icon("plus")+esc(fr?(u.selected.size?"Ajouter mes choix à la routine":"À ma routine (max. 10)"):
+        (u.selected.size?"Add my picks to routine":"To my routine (max 10)"))+'</button>'
       +'<button type="button" data-action="used-add-page" data-kind="board"'
       +(officialComposer.board.length>=16||officialComposer.busy||editableDrafts.deletingKind||editableDrafts.copyKind?' disabled':'')
-      +'>'+icon("plus")+esc(fr?"À mon tableau (max. 16)":"To my board (max 16)")+'</button>'
+      +'>'+icon("plus")+esc(fr?(u.selected.size?"Ajouter mes choix au tableau":"À mon tableau (max. 16)"):
+        (u.selected.size?"Add my picks to board":"To my board (max 16)"))+'</button>'
       +(u.selected.size?'<button type="button" data-action="used-clear">'+esc(fr?'Effacer la sélection':'Clear selection')+'</button>':'')
       +'</div>':'')
     +(u.notice?'<p role="status" aria-live="polite" class="pa-catalog-notice">'+esc(u.notice)+'</p>':'')
@@ -2089,6 +2107,17 @@ root.addEventListener("click",function(event){
      officialComposer[kind]=a==="approved-remove"?removeApprovedItem(officialComposer[kind],index):
        changeApprovedOrder(officialComposer[kind],index,Number(el.dataset.direction));
      markDraftChanged(kind);render();return;
+   }
+   if(a==="used-remove-choice"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      !officialComposer.busy&&!editableDrafts.deletingKind&&!editableDrafts.copyKind){
+     try{
+       usedPictos.selected=removeUsedChoice(usedPictos.selected,el.dataset.id);
+       usedPictos.notice="";
+     }catch(error){usedPictos.notice=String(error?.message||error);}
+     render();
+     requestAnimationFrame(()=>(root.querySelector('[data-action="used-remove-choice"]')||
+       root.querySelector("#pa-used-search"))?.focus());
+     return;
    }
    if(a==="used-toggle"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       !usedPictos.loading&&!usedPictos.error&&!officialComposer.busy){

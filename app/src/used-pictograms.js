@@ -42,6 +42,15 @@ export function toggleUsedChoice(current,id,visibleRows){
   }
   return next;
 }
+// Retirer un seul choix, même lorsqu'il est masqué par un filtre ou sur une autre page.
+// Aucun appel réseau ni modification de la composition déjà sauvegardée.
+export function removeUsedChoice(current,id){
+  if(!(current instanceof Map)||current.size>MAX_USED_CHOICES||!UUID.test(id||""))
+    throw Error("Sélection de pictogrammes invalide.");
+  const next=new Map(current);
+  next.delete(id);
+  return next;
+}
 export function selectedUsedChoices(current){
   if(!(current instanceof Map)||current.size>MAX_USED_CHOICES)
     throw Error("Sélection de pictogrammes invalide.");
