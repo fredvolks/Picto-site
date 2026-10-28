@@ -143,6 +143,7 @@ let pdfExportBusy=false;
 let clientNavigationEpoch=0;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
+let pdfRecoveryBusy=false,pdfRecoveryRequest=0,pdfRecoveryError="";
 const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
 function emptyComposerSettings(){
   return {routine:{title:null,widthCm:"3",paper:"letter",columns:"3"},
@@ -455,6 +456,7 @@ function selectClientPreviewPage(nextIndex){
 function resetClientFiles(){
  clearPdfReprintRetry();clearClientPreview();
  pendingGeneratedPdf=null; // effacer toute copie du compte précédent au changement de session
+ pdfRecoveryRequest++;pdfRecoveryBusy=false;pdfRecoveryError="";
  clientFiles.request++;clientFiles.items=[];clientFiles.total=0;clientFiles.page=0;
  clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.loading=false;clientFiles.busy=false;
  clientFiles.error="";clientFiles.message="";clientFiles.renameId=null;
@@ -846,7 +848,8 @@ function navButton(page,name,ico,compact){
   +icon(ico)+ '<span>'+esc(name)+'</span>'+(page==="routines"&&!compact?'<span class="side-count">'+state.routine.length+'</span>':"")+'</button>';}
 function renderUnarchivedPdf(){
   return renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user?.id,
-    busy:pdfExportBusy,language:state.language,escape:esc,icon});
+    busy:pdfExportBusy,retrying:pdfRecoveryBusy,error:pdfRecoveryError,
+    language:state.language,escape:esc,icon});
 }
 function shell(content){
   return '<a class="skip" href="#page-main">'+(state.language==="fr"?"Aller au contenu":"Skip to content")+'</a><div class="app-shell">'
@@ -1478,7 +1481,12 @@ function renderClientWorkspace(content){
     +'<button class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
     +'<button class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
     +'</div></header>'
-    +'<main class="pa-client-main" id="pa-client-main">'+content+'</main>'
+    +'<main class="pa-client-main" id="pa-client-main">'
+    +((pendingGeneratedPdf&&!["routines","boards"].includes(state.page))?renderPdfRecovery({
+      pending:pendingGeneratedPdf,uid:authStatus.user?.id,
+      busy:officialComposer.busy,retrying:pdfRecoveryBusy,error:pdfRecoveryError,
+      language:state.language,escape:esc,icon}):"")
+    +content+'</main>'
     +'<nav class="pa-client-mobile-nav" aria-label="'+esc(fr?'Navigation mobile client':'Client mobile navigation')+'">'
     +[items[0],["search",fr?"Recherche":"Search","search"],["create",fr?"Créer":"Create","plus"],items[2],items[5]].map(x=>action(x,"pa-client-mobile-link")).join("")+'</nav>'
     +(state.toast?'<div class="toast" role="status">'+esc(state.toast)+'</div>':'')+'</div>';
@@ -1773,7 +1781,8 @@ function render(){
      draftStatus:draftAutosaveLabel(state.page==="routines"?"routine":"board",
        draftAutosave.status(state.page==="routines"?"routine":"board")),
      allowCaptionEdit:captionFeature.loaded&&captionFeature.enabled,
-     pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,language:state.language,escape:esc,icon}),
+     pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,
+        retrying:pdfRecoveryBusy,error:pdfRecoveryError,language:state.language,escape:esc,icon}),
      escape:esc,icon
     }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,uid:authStatus.user?.id,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
@@ -2512,13 +2521,48 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
+  if(a==="retry-unarchived-pdf"){
+    const pending=pendingGeneratedPdf,uid=authStatus.user?.id;
+    if(!SITE_EMBEDDED||!uid||canOpenAdmin()||!pending||pending.uid!==uid||
+      pdfRecoveryBusy||pdfExportBusy||officialComposer.busy)return;
+    const token=++pdfRecoveryRequest;
+    pdfRecoveryBusy=true;pdfRecoveryError="";state.toast="";render();
+    void(async()=>{
+      try{
+        // Réutiliser STRICTEMENT le même Blob, le même titre et le même
+        // identifiant de brouillon. Ne pas régénérer une composition modifiée.
+        const client=await supabaseClient();
+        await archivePdf(client,uid,pending.blob,{
+          title:pending.title,documentType:pending.documentType,
+          pageCount:pending.pageCount,sourceDraftId:pending.sourceDraftId||null
+        });
+        if(authStatus.user?.id!==uid||token!==pdfRecoveryRequest||
+          pendingGeneratedPdf!==pending)return;
+        pendingGeneratedPdf=null;
+        clientFiles.message=state.language==="fr"?
+          "PDF original archivé après un nouvel essai. Retrouvez-le dans Mes créations.":
+          "Original PDF archived after retry. Find it in My creations.";
+        state.toast=clientFiles.message;
+        if(state.page==="files")void fetchClientFiles(client,uid);
+      }catch(error){
+        if(authStatus.user?.id===uid&&token===pdfRecoveryRequest&&
+          pendingGeneratedPdf===pending){
+          pdfRecoveryError=String(error?.message||error);
+        }
+      }finally{
+        if(authStatus.user?.id===uid&&token===pdfRecoveryRequest){
+          pdfRecoveryBusy=false;render();
+        }
+      }
+    })();return;
+  }
   if(a==="discard-unarchived-pdf"){
-    if(!pendingGeneratedPdf||pendingGeneratedPdf.uid!==authStatus.user?.id||pdfExportBusy)return;
+    if(!pendingGeneratedPdf||pendingGeneratedPdf.uid!==authStatus.user?.id||pdfExportBusy||pdfRecoveryBusy)return;
     const fr=state.language==="fr";
     if(window.confirm(fr
       ?"Cette copie n'est pas archivée. Avez-vous téléchargé le PDF ? L'écarter ici est irréversible."
       :"This copy is not archived. Have you downloaded the PDF? Discarding it here cannot be undone.")){
-      pendingGeneratedPdf=null;
+      pendingGeneratedPdf=null;pdfRecoveryError="";
       state.toast=fr?"Copie temporaire écartée. Aucun document serveur supprimé.":"Temporary copy discarded. No server document was deleted.";
       render();
     }
@@ -2526,7 +2570,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="download-unarchived-pdf"){
     const pending=pendingGeneratedPdf;
-    if(!pending||pending.uid!==authStatus.user?.id||pdfExportBusy)return;
+    if(!pending||pending.uid!==authStatus.user?.id||pdfExportBusy||pdfRecoveryBusy)return;
     let url=null;
     try{
       url=URL.createObjectURL(pending.blob);
@@ -2910,6 +2954,7 @@ root.addEventListener("submit",function(event){
           separatorMode:"simple",preset:{...DEFAULT_PRESET,color:"#111111",colored:false}
         });
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        pdfRecoveryError="";
         pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind,sourceDraftId:savedDraft.id};
         await archivePdf(client,uid,blob,{title,documentType:kind,pageCount,sourceDraftId:savedDraft.id});
         if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
