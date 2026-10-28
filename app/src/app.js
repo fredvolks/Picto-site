@@ -1590,7 +1590,8 @@ function renderClientUsed(){
       +'<button type="button" data-action="nav" data-page="routines">'+esc(fr?"Routine":"Routine")+' · '+officialComposer.routine.length+'</button>'
       +'<button type="button" data-action="nav" data-page="boards">'+esc(fr?"Tableau":"Board")+' · '+officialComposer.board.length+'</button></div>':'')
     +(u.loading?'<p role="status" class="pa-catalog-notice">'+esc(fr?"Chargement de vos pictogrammes…":"Loading used pictograms…")+'</p>':
-      u.error?'<p role="alert" class="pa-catalog-notice">'+esc(u.error)+'</p>':
+      u.error?'<div role="alert" class="pa-catalog-notice"><p>'+esc(u.error)+'</p>'
+         +'<button type="button" class="btn btn-light" data-action="used-refresh">'+esc(fr?"Réessayer":"Retry")+'</button></div>':
       !u.items.length?'<div class="pa-client-empty"><p>'+esc(fr?
         "Aucun pictogramme utilisé enregistré pour ces critères. Enregistrez une routine ou un tableau pour commencer. Les anciens PDF seuls ne permettent pas de retrouver automatiquement leurs images.":
         "No saved pictogram uses match. Save a routine or board to start. Old PDFs alone cannot restore their image list.")+'</p></div>':
@@ -1685,7 +1686,12 @@ function renderHostedEmpty(){
 function render(){
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
-  document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
+  const clientTitles={used:["Mes pictogrammes utilisés","My used pictograms"],
+    create:["Créer un support","Create a visual support"],account:["Mon compte","My account"]};
+  const clientTitle=clientTitles[state.page];
+  document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):
+    clientTitle?clientTitle[state.language==="fr"?0:1]:
+    T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
   root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
      kind:state.page==="routines"?"routine":"board",
      items:officialComposer[state.page==="routines"?"routine":"board"],
@@ -2063,6 +2069,9 @@ root.addEventListener("click",function(event){
       usedPictos.page=target;void fetchUsedPictos();
     }
     return;
+  }
+  if(a==="used-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading){
+    void fetchUsedPictos();return;
   }
   if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
   if(a==="catalog-page"&&SITE_EMBEDDED&&!canOpenAdmin()&&!publishedCatalog.loading){

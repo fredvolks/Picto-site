@@ -74,7 +74,8 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
   +'<h1 id="pa-composer-title">'+e(label(routine?"Créer une routine":"Créer un tableau de communication",routine?"Create a routine":"Create a communication board"))+'</h1>'
   +'<p class="pa-client-context">'+e(label("Seuls les pictogrammes publiés peuvent être utilisés. Le PDF original est sauvegardé dans Mes créations.","Only published pictograms can be used. The original PDF is saved in My creations."))+'</p>'
   +'<div class="pa-composer-toolbar"><strong>'+items.length+' / '+(routine?10:16)+'</strong>'
-  +'<button type="button" data-action="nav" data-page="library">'+icon("plus")+e(label("Ajouter des pictogrammes","Add pictograms"))+'</button></div>'
+  +'<button type="button" data-action="nav" data-page="library">'+icon("plus")+e(label("Ajouter des pictogrammes","Add pictograms"))+'</button>'
+  +'<button type="button" data-action="nav" data-page="used">'+icon("library")+e(label("Déjà utilisés","Previously used"))+'</button></div>'
   +(items.length?'<p '+(allowCaptionEdit?'id="official-caption-help"':'')+' class="pa-client-context">'
     +e(allowCaptionEdit?
       label("Modifiez le texte au besoin; effacez-le pour retrouver le libellé officiel.","Edit a caption if needed; clear it to restore the original label."):
