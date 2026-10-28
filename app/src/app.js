@@ -24,6 +24,9 @@ import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
 // The public Pages build changes this to true. It must never expose the mock admin UI.
 const PUBLIC_DEMO = false;
+// Le site GitHub Pages officiel conserve l’unique accueil commercial à sa racine.
+// Dans /app/, entrer directement dans la bibliothèque sans dupliquer cet accueil.
+const SITE_EMBEDDED = Boolean(document.querySelector('meta[name="pictau-site-app"]'));
 // Sauvegarde verrouillée : la politique SQL proposée est encore EN REVUE.
 const DRAFT_METADATA_WRITES_ENABLED = false;
 import {DEFAULT_PRESET, THEMES, clampWidth, scaleMetrics, labelFor, searchCatalog, addToRoutine, moveRoutine, routineFitsPaper, validatePreset} from "./core.js";
@@ -494,7 +497,7 @@ async function initializeGoogle(){
 const initial = load("pictau-preset", DEFAULT_PRESET);
 const preset=restoreVersionedPreset(initial,DEFAULT_PRESET,validatePreset);
 const state = {
-  page:"home", language:load("pictau-language","fr")==="en"?"en":"fr",
+  page:SITE_EMBEDDED?"library":"home", language:load("pictau-language","fr")==="en"?"en":"fr",
   search:"", theme:"all", sort:"recent", showFavorites:false, detailId:null,
   recentlyViewed:sanitizedDemoIds(load("pictau-demo-recent",[]),samples.map(x=>x.id),8),
   favorites:Array.isArray(load("pictau-demo-favorites",[]))?[...new Set(load("pictau-demo-favorites",[]).filter(id=>samples.some(item=>item.id===id)))].slice(0,samples.length):[],
@@ -514,7 +517,9 @@ function selectedItems(){return state.routine.map(id=>samples.find(x=>x.id===id)
 function boardItems(){return state.board.map(id=>samples.find(x=>x.id===id)).filter(Boolean);}
 function saveDemoBoard(){store("pictau-board",state.board);store("pictau-board-title",state.boardTitle);store("pictau-board-cols",state.boardCols);}
 function brand(){return '<span class="brand-mark" aria-hidden="true">P</span><span><span class="brand-text">Pict-<span class="brand-hand">a</span>u</span><span class="brand-caption">VISUAL ROUTINES</span></span>';}
-function navButton(page,name,ico,compact){return '<button class="'+(compact?"mobile-link":"side-link")+(state.page===page?" active":"")+'" type="button" data-action="nav" data-page="'+page+'" '+(state.page===page?'aria-current="page"':"")+'>'
+function navButton(page,name,ico,compact){
+  if(page==="home"&&SITE_EMBEDDED)return '<a class="'+(compact?"mobile-link":"side-link")+'" href="../index.html">'+icon(ico)+'<span>'+esc(name)+'</span></a>';
+  return '<button class="'+(compact?"mobile-link":"side-link")+(state.page===page?" active":"")+'" type="button" data-action="nav" data-page="'+page+'" '+(state.page===page?'aria-current="page"':"")+'>'
   +icon(ico)+ '<span>'+esc(name)+'</span>'+(page==="routines"&&!compact?'<span class="side-count">'+state.routine.length+'</span>':"")+'</button>';}
 function renderUnarchivedPdf(){
   return renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user?.id,
@@ -522,7 +527,7 @@ function renderUnarchivedPdf(){
 }
 function shell(content){
   return '<a class="skip" href="#page-main">'+(state.language==="fr"?"Aller au contenu":"Skip to content")+'</a><div class="app-shell">'
-  +'<aside class="sidebar" aria-label="Navigation"><a class="brand" href="#home" data-action="nav" data-page="home">'+brand()+'</a>'
+  +'<aside class="sidebar" aria-label="Navigation"><a class="brand" href="'+(SITE_EMBEDDED?"../index.html":"#home")+'" '+(SITE_EMBEDDED?"":'data-action="nav" data-page="home"')+'>'+brand()+'</a>'
   +'<div><div class="side-label">MENU</div><nav class="side-links">'+navButton("home",state.language==="fr"?"Accueil":"Home","home",false)+navButton("library",T("library"),"library",false)+navButton("routines",T("routines"),"routine",false)+navButton("boards",T("boards"),"library",false)+navButton("files",T("files"),"database",false)+(canOpenAdmin()?navButton("admin",T("admin"),"settings",false):"")+'</nav></div>'
   +'<div class="sidebar-footer"><strong>'+T("demo")+'</strong><p>'+T("note")+'</p></div></aside>'
   +'<div class="workspace"><header class="topbar"><div class="topbar-heading"><div><div class="eyebrow">'+T("discovery")+'</div><h2 class="topbar-title">'+T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin")+'</h2></div></div>'
