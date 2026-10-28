@@ -20,6 +20,7 @@ import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS
 import {renderClientFiles} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {selectApprovedItem,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
+import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft} from "./client-drafts.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
@@ -140,6 +141,42 @@ function emptyComposerSettings(){
     board:{title:null,widthCm:"5",paper:"letter",columns:"3"}};
 }
 const officialComposer={routine:[],board:[],settings:emptyComposerSettings(),busy:false,error:"",request:0};
+const editableDrafts={items:[],loaded:false,loading:false,busy:false,error:"",message:"",request:0,
+  current:{routine:null,board:null},dirty:{routine:false,board:false}};
+function resetEditableDrafts(){
+  editableDrafts.request++;editableDrafts.items=[];editableDrafts.loaded=false;
+  editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.error="";editableDrafts.message="";
+  editableDrafts.current={routine:null,board:null};editableDrafts.dirty={routine:false,board:false};
+}
+async function fetchEditableDrafts(){
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+  const uid=authStatus.user.id,token=++editableDrafts.request;
+  editableDrafts.loading=true;editableDrafts.error="";render();
+  try{
+    const client=await supabaseClient();
+    const list=await listEditableDrafts(client,uid);
+    if(token!==editableDrafts.request||authStatus.user?.id!==uid)return;
+    editableDrafts.items=list;editableDrafts.loaded=true;
+  }catch(error){
+    if(token!==editableDrafts.request||authStatus.user?.id!==uid)return;
+    editableDrafts.error=String(error?.message||error);
+  }finally{
+    if(token===editableDrafts.request&&authStatus.user?.id===uid){
+      editableDrafts.loading=false;render();
+    }
+  }
+}
+function composerSource(kind){
+  return {kind,items:officialComposer[kind].map(x=>({...x})),
+    settings:{...officialComposer.settings[kind]}};
+}
+function markDraftChanged(kind){
+  if(["routine","board"].includes(kind)){
+    editableDrafts.dirty[kind]=true;
+    const status=root.querySelector(".pa-composer-draft-status");
+    if(status)status.textContent=state.language==="fr"?"Modifications non enregistrées":"Unsaved changes";
+  }
+}
 function resetOfficialComposer(){
   officialComposer.request++;officialComposer.routine=[];officialComposer.board=[];
   officialComposer.settings=emptyComposerSettings();
@@ -151,6 +188,7 @@ function recordComposerFormValue(target){
   const field=target.name;
   if(!["title","widthCm","paper","columns"].includes(field))return false;
   officialComposer.settings[kind][field]=String(target.value).slice(0,120);
+  markDraftChanged(kind);
   return true;
 }
 function recordComposerCaption(target){
@@ -160,6 +198,7 @@ function recordComposerCaption(target){
   if(!["routine","board"].includes(kind)||!Number.isInteger(index))return true;
   try{
     officialComposer[kind]=setApprovedItemLabel(officialComposer[kind],index,target.value);
+    markDraftChanged(kind);
     target.setCustomValidity("");
     const caption=approvedItemCaption(officialComposer[kind][index],state.language);
     const card=target.closest(".pa-composer-item");
@@ -509,7 +548,7 @@ async function openAdminPreview(assetId){
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
 function resetPrivateBank(){
-  resetOfficialComposer();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
+  resetOfficialComposer();resetEditableDrafts();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -1360,7 +1399,20 @@ function renderClientCreate(){
    +'<div class="pa-client-create-grid">'+items.map(([page,title,copy])=>'<button type="button" data-action="nav" data-page="'+page+'" class="pa-client-create-card">'
    +icon(page==="routines"?"routine":"library")+'<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
    +'<p class="pa-client-context">'+esc(fr?'Vous possédez déjà un PDF ? Enregistrez-le dans Mes créations pour le retrouver et le réimprimer.':'Already have a PDF? Save it in My creations to find and reprint it later.')+'</p>'
-   +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button></section>';
+   +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button>'
+   +'<section class="pa-editable-drafts" aria-labelledby="pa-editable-drafts-title">'
+   +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'ENREGISTRÉS DANS VOTRE COMPTE':'SAVED TO YOUR ACCOUNT')+'</span>'
+   +'<h2 id="pa-editable-drafts-title">'+esc(fr?'Mes brouillons modifiables':'My editable drafts')+'</h2></div>'
+   +'<button type="button" class="btn btn-light" data-action="draft-refresh"'+(editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Actualiser':'Refresh')+'</button></div>'
+   +(editableDrafts.loading?'<p role="status">'+esc(fr?'Chargement des brouillons…':'Loading drafts…')+'</p>':
+     editableDrafts.error?'<p role="alert">'+esc(editableDrafts.error)+'</p>':
+     !editableDrafts.items.length?'<p class="pa-client-context">'+esc(fr?'Aucun brouillon sauvegardé. Créez une routine ou un tableau, puis choisissez « Enregistrer le brouillon ».':'No drafts saved. Create a routine or board, then choose Save editable draft.')+'</p>':
+     '<ul class="pa-drafts-list">'+editableDrafts.items.map(doc=>'<li class="pa-drafts-row"><div><strong>'+esc(doc.title)+'</strong>'
+       +'<small>'+esc(doc.kind==="routine"?(fr?'Routine':'Routine'):(fr?'Tableau':'Board'))+' · '+esc(fr?'Version ':'Version ')+doc.revision+'</small></div>'
+       +'<div class="pa-drafts-actions"><button type="button" data-action="draft-open" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Modifier':'Edit')+'</button>'
+       +'<button type="button" data-action="draft-delete" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Supprimer':'Delete')+'</button></div></li>').join("")+'</ul>')
+   +(editableDrafts.message?'<p role="status">'+esc(editableDrafts.message)+'</p>':'')
+   +'</section></section>';
 }
 function renderClientAccount(){
   const fr=state.language==="fr";
@@ -1426,6 +1478,8 @@ function render(){
      language:state.language,imageUrls:publishedCatalog.imageUrls,
      settings:officialComposer.settings[state.page==="routines"?"routine":"board"],
      busy:officialComposer.busy,error:officialComposer.error,
+     draftBusy:editableDrafts.busy,draftDirty:editableDrafts.dirty[state.page==="routines"?"routine":"board"],
+     draftSaved:Boolean(editableDrafts.current[state.page==="routines"?"routine":"board"]),
      pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,language:state.language,escape:esc,icon}),
      escape:esc,icon
     }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
@@ -1537,7 +1591,91 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();}
+  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();}
+  if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
+    void fetchEditableDrafts();return;
+  }
+  if(a==="draft-save"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy&&!officialComposer.busy){
+    const kind=el.dataset.kind;
+    if(!["routine","board"].includes(kind))return;
+    const fields=root.querySelector('form[data-form="approved-export"][data-kind="'+kind+'"]');
+    if(fields&&!fields.reportValidity())return;
+    const uid=authStatus.user.id,request=++editableDrafts.request,current=editableDrafts.current[kind];
+    editableDrafts.busy=true;editableDrafts.error="";officialComposer.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        const saved=await saveEditableDraft(client,uid,composerSource(kind),current||{});
+        if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
+        editableDrafts.current[kind]={id:saved.id,revision:saved.revision};
+        editableDrafts.dirty[kind]=false;
+        editableDrafts.message=state.language==="fr"?"Brouillon enregistré dans votre compte.":"Draft saved to your account.";
+      }catch(error){
+        if(authStatus.user?.id===uid&&request===editableDrafts.request)
+          officialComposer.error=String(error?.message||error);
+      }finally{
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          editableDrafts.busy=false;render();
+        }
+      }
+    })();return;
+  }
+  if(a==="draft-open"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
+    const id=el.dataset.id,row=editableDrafts.items.find(x=>x.id===id);
+    if(!row)return;
+    if((editableDrafts.dirty.routine||editableDrafts.dirty.board)&&
+      !window.confirm(state.language==="fr"?
+        "Des changements ne sont pas enregistrés. Ouvrir ce brouillon sans les conserver ?":
+        "You have unsaved changes. Open another draft without saving them?"))return;
+    const uid=authStatus.user.id,request=++editableDrafts.request;
+    editableDrafts.busy=true;editableDrafts.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient(),doc=await loadEditableDraft(client,uid,id);
+        if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
+        officialComposer[doc.kind]=doc.content.items.map(item=>({...item}));
+        officialComposer.settings[doc.kind]={...doc.content.settings};
+        editableDrafts.current[doc.kind]={id:doc.id,revision:doc.revision};
+        editableDrafts.dirty[doc.kind]=false;officialComposer.error="";
+        state.page=doc.kind==="routine"?"routines":"boards";
+      }catch(error){
+        if(authStatus.user?.id===uid&&request===editableDrafts.request)
+          editableDrafts.error=String(error?.message||error);
+      }finally{
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          editableDrafts.busy=false;render();
+        }
+      }
+    })();return;
+  }
+  if(a==="draft-delete"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
+    const doc=editableDrafts.items.find(x=>x.id===el.dataset.id);
+    if(!doc)return;
+    if(!window.confirm(state.language==="fr"?
+      "Supprimer le brouillon « "+doc.title+" » ? Les PDF déjà imprimés resteront intacts.":
+      "Delete draft “"+doc.title+"”? Previously printed PDFs will remain unchanged."))return;
+    const uid=authStatus.user.id,request=++editableDrafts.request;
+    editableDrafts.busy=true;editableDrafts.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        await deleteEditableDraft(client,uid,doc.id,doc.revision);
+        if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
+        editableDrafts.items=editableDrafts.items.filter(item=>item.id!==doc.id);
+        if(editableDrafts.current[doc.kind]?.id===doc.id){
+          editableDrafts.current[doc.kind]=null;editableDrafts.dirty[doc.kind]=true;
+        }
+        editableDrafts.message=state.language==="fr"?"Brouillon supprimé, PDF préservés.":"Draft deleted, PDFs preserved.";
+      }catch(error){
+        if(authStatus.user?.id===uid&&request===editableDrafts.request)
+          editableDrafts.error=String(error?.message||error);
+      }finally{
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          editableDrafts.busy=false;render();
+        }
+      }
+    })();return;
+  }
   if(a==="client-search"){
     if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
     return;
@@ -1553,7 +1691,7 @@ root.addEventListener("click",function(event){
   if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy){
      const kind=el.dataset.kind,row=publishedCatalog.items.find(x=>x.id===el.dataset.id);
      if(!row||!["routine","board"].includes(kind))return;
-     try{officialComposer[kind]=selectApprovedItem(officialComposer[kind],row,kind);officialComposer.error="";render();}
+     try{officialComposer[kind]=selectApprovedItem(officialComposer[kind],row,kind);markDraftChanged(kind);officialComposer.error="";render();}
      catch(error){officialComposer.error=String(error.message||error);render();}
      return;
    }
@@ -1562,7 +1700,7 @@ root.addEventListener("click",function(event){
      if(!["routine","board"].includes(kind))return;
      officialComposer[kind]=a==="approved-remove"?removeApprovedItem(officialComposer[kind],index):
        changeApprovedOrder(officialComposer[kind],index,Number(el.dataset.direction));
-     render();return;
+     markDraftChanged(kind);render();return;
    }
    if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
   if(a==="catalog-page"&&SITE_EMBEDDED&&!canOpenAdmin()&&!publishedCatalog.loading){
@@ -2083,6 +2221,15 @@ root.addEventListener("submit",function(event){
           items.push({fr:label||row.title_fr,en:label||(row.title_en||row.title_fr),pngBlob});
         }
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        // Une version éditable est enregistrée AVANT le PDF figé.
+        // Un conflit de version stoppe l'export sans écraser un autre appareil.
+        const savedDraft=await saveEditableDraft(client,uid,{
+          kind,items:snapshot,settings:{...officialComposer.settings[kind],title,
+            widthCm:String(widthCm),paper,columns:String(columns)}
+        },editableDrafts.current[kind]||{});
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        editableDrafts.current[kind]={id:savedDraft.id,revision:savedDraft.revision};
+        editableDrafts.dirty[kind]=false;
         const {blob,pageCount}=await createPreparedPdf({
           items,kind,widthCm,paper,columns,language:state.language,title,
           separatorMode:"simple",preset:{...DEFAULT_PRESET,color:"#111111",colored:false}
@@ -2094,6 +2241,8 @@ root.addEventListener("submit",function(event){
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
         officialComposer[kind]=[];
         officialComposer.settings[kind]=emptyComposerSettings()[kind];
+        editableDrafts.current[kind]=null;editableDrafts.dirty[kind]=false;
+        editableDrafts.loaded=false;
         state.page="files";
         clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
         clientFiles.message=state.language==="fr"?"PDF original créé et archivé dans votre compte.":"Original PDF created and saved in your account.";

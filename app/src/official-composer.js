@@ -42,7 +42,7 @@ export function canPrepareApproved({kind,items,widthCm,paper,columns=3}){
   return n*widthCm*10+gaps<=maxWidth+1e-6;
 }
 
-export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",escape:e,icon}){
+export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",draftBusy=false,draftDirty=false,draftSaved=false,escape:e,icon}){
  const fr=language==="fr",routine=kind==="routine";
  const label=(a,b)=>fr?a:b;
  const defaultName=label(routine?"Ma routine":"Mon tableau",routine?"My routine":"My board");
@@ -78,6 +78,13 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
     '<p class="pa-catalog-notice">'+e(label("Aucune image choisie. Ouvrez la bibliothèque pour commencer.","No images selected. Open the library to start."))+'</p>')
   +pending
   +(error?'<p role="alert" class="pa-catalog-notice">'+e(error)+'</p>':'')
+  +'<div class="pa-composer-draft-actions"><button type="button" class="btn btn-light" data-action="draft-save" data-kind="'+kind+'"'
+  +(busy||draftBusy?' disabled':'')+'>'+icon("save","btn-icon")+e(label(draftBusy?"Enregistrement…":"Enregistrer le brouillon",draftBusy?"Saving…":"Save editable draft"))+'</button>'
+  +'<button type="button" class="btn btn-light" data-action="nav" data-page="create">'+e(label("Retrouver mes brouillons","My saved drafts"))+'</button>'
+  +'<span role="status" class="pa-composer-draft-status">'+e(label(
+    draftBusy?"Sauvegarde en cours":draftDirty?"Modifications non enregistrées":draftSaved?"Brouillon enregistré dans votre compte":"Pas encore enregistré",
+    draftBusy?"Saving":draftDirty?"Unsaved changes":draftSaved?"Draft saved in your account":"Not saved yet"
+  ))+'</span></div>'
   +'<form data-form="approved-export" data-kind="'+kind+'" class="pa-composer-form">'
   +'<div class="control"><label for="official-name">'+e(label("Nom du document","Document name"))+'</label><input id="official-name" name="title" value="'+e(name)+'" maxlength="120" required></div>'
   +'<div class="control"><label for="official-width">'+e(label("Largeur des cases en cm","Cell width in cm"))+'</label><input id="official-width" name="widthCm" type="number" min="2" max="10" step="0.5" value="'+e(width)+'" required></div>'
