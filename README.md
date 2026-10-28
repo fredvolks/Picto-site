@@ -13,7 +13,7 @@ Site commercial bilingue **FR/EN** : https://fredvolks.github.io/Picto-site/
 
 ## Gouvernance
 
-Le **seul prompt maître officiel du projet** est `docs/MASTER_PROMPT_PICTAU.md` dans le dépôt **privé** `fredvolks/pictogram`, branche `setup/prompt-maitre-projet-picto`. Le document local `docs/MASTER_PROMPT.md` de ce dépôt public est une **copie historique non canonique** et n'est pas modifié pour y ajouter de nouvelles décisions. Toutes les décisions futures appartiennent au fichier privé unique.
+Le **seul prompt maître officiel du projet** est `docs/MASTER_PROMPT_PICTAU.md` dans le dépôt **privé** `fredvolks/pictogram`, branche `setup/prompt-maitre-projet-picto`. La copie locale historique `docs/MASTER_PROMPT.md` a été fusionnée puis supprimée pour éviter les maîtres concurrents (historique récupérable dans Git). Les décisions futures vont **uniquement** dans [ce prompt maître privé](https://github.com/fredvolks/pictogram/blob/setup/prompt-maitre-projet-picto/docs/MASTER_PROMPT_PICTAU.md).
 
 La vitrine demeure séparée de l'application Web, du Super Admin et de Supabase. Aucun secret, accès de démonstration ni module privé n'est intégré ici.
 
