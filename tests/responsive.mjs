@@ -60,11 +60,11 @@ async function waitFor(predicate,timeout=9000){
   throw new Error("UI did not load: "+predicate);
 }
 try{
-  chrome=spawn(chromeBinary(),["--headless=new","--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--no-first-run","--no-default-browser-check","--user-data-dir="+profile,"--remote-debugging-port=0","about:blank"],{stdio:["ignore","ignore","pipe"]});
+  chrome=spawn(chromeBinary(),["--headless=new","--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-background-networking","--disable-extensions","--no-first-run","--no-default-browser-check","--user-data-dir="+profile,"--remote-debugging-port=0","about:blank"],{stdio:["ignore","ignore","pipe"],env:{...process.env,DBUS_SESSION_BUS_ADDRESS:""}});
   chrome.stderr.on("data",chunk=>{chromeErrors += String(chunk).slice(-2500);});
   chrome.on("error",err=>{chromeErrors += "\n"+String(err);});
   let endpoint;
-  for(let attempt=0;attempt<120;attempt++){
+  for(let attempt=0;attempt<300;attempt++){
     try{
       const portFile=await readFile(join(profile,"DevToolsActivePort"),"utf8");
       const devtoolsPort=Number(portFile.split("\n")[0]);
