@@ -185,3 +185,28 @@ a:focus-visible,button:focus-visible{outline:3px solid #2b7297;outline-offset:3p
 /* Le texte des trois bénéfices reste centré même si une étiquette s'étale sur deux lignes. */
 .benefit>div{width:100%;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center}
 .benefit strong,.benefit small{width:100%;text-align:center}
+
+/* Revue des captures réelles : pictogrammes dans le héros mobile sans faux appareil.
+   Les trois SVG proviennent du même code que l'aperçu ordinateur (pas de doublon). */
+@media screen and (min-width:681px){
+ .benefit strong{font-size:clamp(16px,1.48vw,19px)}
+ .benefit small{font-size:clamp(12px,.92vw,13px)}
+}
+@media screen and (max-width:680px) and (min-height:621px){
+ .hero{gap:5px}
+ .hero-copy{flex:0 0 auto;padding-bottom:7px}
+ .hero-visual{display:flex;flex:0 0 auto;width:100%;min-height:0;height:auto;padding:0 20px 11px;overflow:visible}
+ .hero-visual::before,.laptop-base,.laptop-caption,.phone,.visual-caption{display:none!important}
+ .laptop{width:min(85%,290px);margin:0;padding:0;filter:none}
+ .laptop-screen{width:100%;aspect-ratio:auto;border:0;border-radius:0;background:transparent;overflow:visible}
+ .laptop-interface{height:auto;background:transparent}
+ .laptop-pictos{padding:0;gap:9px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center}
+ .laptop-picto{width:100%;min-height:0;aspect-ratio:1;overflow:hidden}
+ .laptop-picto .pictau-label{font-size:clamp(9px,2.8vw,13px);border-top-width:1.5px}
+}
+@media screen and (max-width:680px){
+ .benefit small{font-size:11px}
+}
+@media screen and (max-width:370px) and (max-height:620px){
+ .hero-visual{display:none!important}
+}
