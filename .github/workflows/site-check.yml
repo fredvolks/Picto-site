@@ -14,11 +14,11 @@ jobs:
       - run: node --check src/site.js
       - run: node --test tests/site.test.mjs
       - name: Captures et contrôle géométrique des pages (FR et EN)
-        run: node tests/responsive.mjs
+        run: node tests/browser.mjs
       - name: Captures écran unique
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pictau-ux-one-screen
-          path: artifacts/site-ux/
+          path: artifacts/vitrine/*.png
           if-no-files-found: warn
