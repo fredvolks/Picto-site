@@ -125,6 +125,7 @@ try{
       assert.match(state.price,lang==="fr"?/Tarif à confirmer/:/Pricing to be confirmed/,tag+" no fake price");
       assert.ok(state.scrollW<=width+2,tag+" horizontal scrolling: "+JSON.stringify(state));
       assert.ok(state.scrollH<=height+2,tag+" vertical scrolling: "+JSON.stringify(state));
+      if(state.titleOverflow>2)console.error("TITLE_DIAGNOSTIC "+tag+" "+JSON.stringify(state));
       assert.ok(state.titleOverflow<=2,tag+" title clipped");
       for(const [sel,b] of Object.entries(state.bounds)){
         assert.equal(b.visible,true,tag+" "+sel+" visible");
