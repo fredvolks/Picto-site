@@ -1402,7 +1402,7 @@ function renderClientCreate(){
    +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button>'
    +'<section class="pa-editable-drafts" aria-labelledby="pa-editable-drafts-title">'
    +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'ENREGISTRÉS DANS VOTRE COMPTE':'SAVED TO YOUR ACCOUNT')+'</span>'
-   +'<h2 id="pa-editable-drafts-title">'+esc(fr?'Mes brouillons modifiables':'My editable drafts')+'</h2></div>'
+   +'<h2 id="pa-editable-drafts-title">'+esc(fr?'Mes brouillons':'My drafts')+'</h2></div>'
    +'<button type="button" class="btn btn-light" data-action="draft-refresh"'+(editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Actualiser':'Refresh')+'</button></div>'
    +(editableDrafts.loading?'<p role="status">'+esc(fr?'Chargement des brouillons…':'Loading drafts…')+'</p>':
      editableDrafts.error?'<p role="alert">'+esc(editableDrafts.error)+'</p>':
