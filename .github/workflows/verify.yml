@@ -1,0 +1,39 @@
+name: Pict-au — vitrine, responsive et accessibilité
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    name: Vitrine FR/EN — Chrome et 10 formats
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Récupérer la vitrine officielle
+        uses: actions/checkout@v4
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vérifier la syntaxe
+        run: |
+          node --check src/site.js
+          node --check tests/site.test.mjs
+          node --check tests/browser.mjs
+      - name: Vérifier les exigences du prompt maître
+        run: node --test tests/*.test.mjs
+      - name: Captures réelles et contrôles UI dans Chrome
+        run: node tests/browser.mjs
+      - name: Conserver les captures en cas de succès ou d'échec
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pictau-vitrine-ux-fr-en
+          path: artifacts/vitrine/*.png
+          if-no-files-found: warn
+          retention-days: 14
