@@ -75,3 +75,25 @@ export async function listUsedPictograms(client,uid,filters={}){
   await authenticated(client,uid);
   return {items:r.data,total:r.count,page:f.page};
 }
+
+// Quand le catalogue officiel évolue sur un autre appareil (dépublication,
+// changement de filtre), le feuillet courant peut cesser d'exister. Ne jamais
+// conclure que le compte ne possède aucun usage si le compte exact est > 0.
+export function lastUsedPictogramsPage(total){
+  if(!Number.isSafeInteger(total)||total<0)throw Error("Historique indisponible.");
+  return Math.max(0,Math.ceil(total/USED_PAGE_SIZE)-1);
+}
+export async function listUsedPictogramsAvailablePage(client,uid,filters={}){
+  let page=filters.page??0;
+  if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
+  // Chaque lecture passe par les mêmes vérifications Auth/RLS et validation de
+  // l'identité du propriétaire. Un catalogue fluctuant ne cause jamais de boucle.
+  for(let attempt=0;attempt<3;attempt++){
+    const result=await listUsedPictograms(client,uid,{...filters,page});
+    const last=lastUsedPictogramsPage(result.total);
+    if(page<=last)return {...result,page};
+    if(result.total===0)return {...result,page:0};
+    page=last;
+  }
+  throw Error("L’historique a changé. Actualisez vos pictogrammes utilisés.");
+}

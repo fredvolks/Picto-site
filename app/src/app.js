@@ -19,7 +19,7 @@ import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
-import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices} from "./used-pictograms.js";
+import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
@@ -323,11 +323,11 @@ async function fetchUsedPictos(){
   usedPictos.loading=true;usedPictos.error="";usedPictos.notice="";render();
   try{
     const client=await supabaseClient();
-    const result=await listUsedPictograms(client,uid,{
+    const result=await listUsedPictogramsAvailablePage(client,uid,{
       query:usedPictos.query,theme:usedPictos.theme,sort:usedPictos.sort,page:usedPictos.page
     });
     if(ticket!==usedPictos.request||authStatus.user?.id!==uid)return;
-    usedPictos.items=result.items;usedPictos.total=result.total;
+    usedPictos.page=result.page;usedPictos.items=result.items;usedPictos.total=result.total;
   }catch(error){
     if(ticket!==usedPictos.request||authStatus.user?.id!==uid)return;
     usedPictos.error=String(error?.message||error);usedPictos.items=[];usedPictos.total=0;
