@@ -1,15 +1,15 @@
-# PROMPT MAÎTRE — PICT-AU · VITRINE PUBLIQUE
+# PROMPT MAÎTRE — PICT-AU · PROJET GLOBAL ET VITRINE
 
-**Adapté le 2026-10-28 depuis le [modèle universel](https://github.com/fredvolks/prompt-maitre-universel/blob/main/docs/MASTER_PROMPT.md).** Les directives Pict-au de la section 0 sont des décisions produit validées; les autres sections conservent les six rôles, règles de sécurité et pratiques de vérification du modèle.
+**Adapté le 2026-10-28 depuis le [modèle universel](https://github.com/fredvolks/prompt-maitre-universel/blob/main/docs/MASTER_PROMPT.md).** Les directives Pict-au de la section 0 distinguent les décisions validées pour la vitrine et la vision plus large du produit, avec des points à confirmer; les autres sections conservent les six rôles, règles de sécurité et pratiques de vérification du modèle.
 
 ## 0. IDENTITÉ DU PROJET — PICT-AU (VALIDÉE)
 
-- **Nom :** Pict-au — vitrine officielle publique.
-- **Description :** site commercial vitrine d'une plateforme québécoise de pictogrammes et de supports visuels personnalisables. La vitrine explique le service et son unique abonnement, sans exposer une démo ni l'application privée.
+- **Nom :** Pict-au — plateforme de pictogrammes, vitrine commerciale et interfaces privées.
+- **Description :** plateforme québécoise de pictogrammes et supports visuels personnalisables, comportant une vitrine commerciale publique, une application utilisateur privée et un espace Super Admin protégé. La vitrine explique le service et son unique abonnement, sans exposer une démo ni l'application privée.
 - **Public cible :** personnes autistes, proches, parents, enseignants et intervenants. Respecter la diversité des profils et éviter d'infantiliser les utilisateurs.
 - **Plateformes :** site web entièrement responsive sur ordinateur (PC/Mac), tablette et téléphone (Android/iOS).
-- **Dépôt GitHub :** https://github.com/fredvolks/Picto-site
-- **Backend et base de données :** vitrine publique statique, ne pas y exposer de secret, de base Supabase, de connexion fictive ni d'outil privé. Toute intégration réelle d'authentification doit être validée et isolée du site vitrine.
+- **Dépôts GitHub :** vitrine https://github.com/fredvolks/Picto-site ; dépôt https://github.com/fredvolks/pictogram identifié, mais rôle et contenu applicatif à vérifier.
+- **Backend et base de données :** vitrine publique statique, et application privée distincte dont l'architecture doit être vérifiée. Supabase et OAuth Google ont été discutés, sans preuve de leur état fonctionnel dans ce fichier; ne jamais exposer de secret, de base privilégiée ou de connexion fictive dans la vitrine.
 - **Hébergement public existant :** https://fredvolks.github.io/Picto-site/
 - **Modèle commercial :** exactement **un seul forfait d'abonnement**; son prix, sa fréquence et ses modalités ne sont pas encore fixés. Ne rien inventer.
 - **Style visuel :** **fond blanc dominant**, minimaliste, sobre, accueillant, reposant, professionnel et très lisible. Petites touches de bleu #609DBA et de jaune #FFD16B du logo; bleu très pâle #EAF4F9 uniquement avec parcimonie; texte #171717.
@@ -33,6 +33,35 @@
 10. **Tests exigés avant « terminé »** : rendre et tester au minimum 320×568, 360×640, 390×844, 768×1024, 1366×768 et 1920×1080, ainsi que les orientations pertinentes. Vérifier hauteur utile, absence de défilement à taille standard, absence de texte coupé, lisibilité, responsive, liens réels, clavier, lecteur d'écran et agrandissement du texte. Si un appareil échoue, corriger la structure et recontrôler plutôt que masquer le débordement. **Contrôler explicitement sur chacun des formats que « Connexion » est visible sans ouvrir un menu, que « Créer mon compte » apparaît exactement une fois et seulement dans la carte d'abonnement, et qu'aucun bouton d'inscription n'a été conservé dans l'en-tête.**
 11. **Six rôles permanents du prompt maître** : architecte, développeur, directeur artistique UX/UI, utilisateur final, responsable sécurité et testeur QA doivent contribuer à l'évaluation des choix. La vision produit et l'accessibilité sont prioritaires sur la décoration.
 12. **Garde-fou** : cette instruction concerne la **vitrine publique Pict-au**, pas une permission d'altérer automatiquement Supabase, l'application membre, les paiements, les configurations OAuth ou les autres dépôts.
+
+### 0.2 VISION GLOBALE PICT-AU — PLATEFORME, ESPACE UTILISATEUR ET SUPER ADMIN
+
+**Important : Pict-au n'est pas seulement une page de vente.** La vitrine publique est une partie du produit; la plateforme applicative et son panneau Super Admin sont des espaces distincts. Cette synthèse reprend les décisions et besoins connus dans les échanges du projet; les modalités non confirmées sont explicitement indiquées « À VALIDER ». Ne jamais présenter cette section comme une preuve que les fonctions sont déjà développées.
+
+**Architecture et dépôts à identifier avant de coder :**
+- **Vitrine publique** : dépôt `fredvolks/Picto-site`, page commerciale FR/EN, fond blanc, un seul forfait, non déroulante aux tailles ordinaires. Aucune démo ni fonctionnalité applicative fictive. Cette exigence d'une seule vue s'applique **à l'accueil public uniquement**, pas aux écrans métier complexes.
+- **Application web connectée** : interface privée destinée aux personnes abonnées pour rechercher, organiser, créer et personnaliser des pictogrammes et supports visuels. Le dépôt `fredvolks/pictogram` existe, mais son rôle et son état technique exact doivent être **vérifiés** avant d'y apporter des changements. Ne pas en déduire qu'une application y est opérationnelle.
+- **Administration / Super Admin** : espace distinct derrière authentification et autorisations serveur, jamais une démo ou une section du site public. Conserver le style de tableau de bord Super Admin montré par le propriétaire dans ses références visuelles **si les images sont disponibles**; sinon signaler qu'il faut récupérer la référence, plutôt que prétendre la reproduire de mémoire.
+- **Authentification et données** : Supabase et une connexion Google OAuth ont été abordés dans le projet. Vérifier **l'état réel** du projet Supabase dédié, des redirections OAuth, des rôles et des règles RLS; ne pas traiter une URL de callback ou une configuration discutée comme une preuve de flux fonctionnel. Ne pas intégrer les secrets, modifier les paiements ou déployer des changements de sécurité sans contrôles.
+
+**Exigences utilisateur discutées :**
+1. **Bibliothèque de pictogrammes** : proposer une barre de recherche simple, un classement par catégories, des repères compréhensibles et une majorité de visuels **noir et blanc**.
+2. **Catégories demandées** : école, alimentation/nourriture, autonomie, loisirs, socialisation, consignes, étapes, hygiène, verbes d'action, sensoriel, objets significatifs, lieux et transports. Prévoir une taxonomie claire sans doublons de catégories; valider les libellés exacts et les sous-catégories avant migration.
+3. **Exemples de contenus évoqués** : bonjour, pause, se déshabiller, gourde d'eau, berline, jouets de manipulation sensorielle (fidget), balles sensorielles, lézard lesté, fantômes, pouf/coussin poire, bac sensoriel, couverture lestée, doudou, toutou, restaurant, église, parc, glissade d'eau et centre d'achat. Ces exemples orientent le catalogue; ils ne prouvent pas que les images correspondantes existent déjà.
+4. **Personnalisation** : permettre à l'utilisateur d'ajouter ou modifier des pictogrammes, adapter leur format et organiser ses supports, selon les droits et fonctionnalités effectivement développés.
+5. **Tableaux de communication** : prévoir la création et la personnalisation de tableaux de communication à partir des pictogrammes. Les règles d'impression/export, gabarits et capacités exactes restent **À VALIDER**.
+6. **Routines et supports visuels** : le positionnement Pict-au inclut des routines et supports visuels personnalisables. Détailler les parcours, formats et comportements avec les critères d'acceptation avant implémentation.
+7. **Abonnement** : **un seul forfait public**, pas de version gratuite inventée ni de comparaison de forfaits. La périodicité mensuelle/annuelle, le prix, les limites et la facturation sont **À VALIDER**. Des personnalisations plus complexes à **faible coût** ont été discutées, mais ce service ne constitue pas automatiquement un deuxième forfait; modalités à valider.
+
+**Back-office / Super Admin — périmètre à spécifier sans inventer de fonctions déjà validées :**
+- Point de départ confirmé : **un écran Super Admin est souhaité**, avec une référence graphique transmise dans la conversation du projet; le propriétaire veut une interface claire et professionnelle.
+- Rubriques à **proposer et faire valider** selon le fonctionnement du vrai produit : vue d'ensemble, gestion des utilisateurs et accès, contrôle des rôles, administration du catalogue et des catégories, demandes de personnalisation, gestion du forfait et paramètres, suivi des incidents et journal d'audit.
+- Toute lecture ou mutation sensible exige une autorisation robuste **côté serveur**, des journaux proportionnés et des tests de séparation des droits. Une simple route ou un bouton masqué ne sécurise pas un accès Super Admin.
+- Ne pas utiliser la contrainte « un écran sans scroll » de l'accueil marketing pour les tableaux de données, formulaires et écrans Super Admin; l'accessibilité, la complétude et l'ergonomie métier priment.
+
+**Règles UX sur toute la plateforme** : sobriété, structure prévisible, contraste, termes concrets, absence d'animations imposées et compatibilité PC, mobile et tablette. Adapter les parcours aux besoins variés des personnes autistes sans présumer un profil unique. Les couleurs de marque restent discrètes et les pictogrammes sont la priorité visuelle.
+
+**Consigne pour ChatGPT Work / les six rôles** : avant tout développement, inventorier le code et les dépôts réellement existants, relever les besoins approuvés, identifier les spécifications absentes et répartir les travaux entre vitrine, application connectée et Super Admin. Ne pas reconstruire une app entière dans le dépôt statique de la vitrine. Documenter les décisions métier non tranchées; avancer sur les travaux autorisés et vérifiables sans inventer une configuration, un résultat ou une fonctionnalité. Le code, les migrations, les tests et les captures réelles sont les preuves attendues.
 
 ### Découverte du style et recommandations au démarrage
 
