@@ -61,6 +61,26 @@ export async function listPublishedCatalog(client,uid,filters={}){
   await verified(client,uid);
   return {items,total:r.count,page:f.page};
 }
+// Si des pictogrammes sont dépubliés entre deux visites, le dernier feuillet
+// visible peut ne plus exister. Le catalogue canonique reste la seule source
+// sous Auth/RLS; les sélections et les supports ne sont jamais modifiés ici.
+export function lastPublishedCatalogPage(total){
+  if(!Number.isSafeInteger(total)||total<0)throw Error("Catalogue indisponible.");
+  return Math.max(0,Math.ceil(total/CATALOG_PAGE_SIZE)-1);
+}
+export async function listPublishedCatalogAvailablePage(client,uid,filters={}){
+  let page=filters.page??0;
+  if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
+  // Borne stricte : une dépublication continue ne doit jamais causer de boucle.
+  for(let attempt=0;attempt<3;attempt++){
+    const result=await listPublishedCatalog(client,uid,{...filters,page});
+    const last=lastPublishedCatalogPage(result.total);
+    if(page<=last)return {...result,page};
+    if(result.total===0)return {...result,page:0};
+    page=last;
+  }
+  throw Error("Le catalogue a changé. Actualisez les pictogrammes.");
+}
 // Relecture autorisée juste avant export : une sélection retirée ne devient jamais imprimable.
 export async function loadApprovedSelection(client,uid,ids){
   if(!Array.isArray(ids)||!ids.length||ids.length>16||

@@ -18,7 +18,7 @@ import {submitPictogramRequest,listMyPictogramRequests,listAdminPictogramRequest
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
-import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
+import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
@@ -369,7 +369,7 @@ async function fetchPublishedCatalog(){
   publishedCatalog.loading=true;publishedCatalog.error="";render();
   try{
     const client=await supabaseClient();
-    const result=await listPublishedCatalog(client,uid,{
+    const result=await listPublishedCatalogAvailablePage(client,uid,{
       query:state.search,theme:state.clientCategory||"all",page:publishedCatalog.page
     });
     if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
