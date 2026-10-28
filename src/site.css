@@ -68,7 +68,7 @@ a:focus-visible,button:focus-visible{outline:3px solid #526b55;outline-offset:3p
  .site{grid-template-rows:51px minmax(0,1fr)}
  .header{padding:0 13px}.home-logo-symbol{width:30px;height:30px;font-size:17px}.home-logo-word{font-size:21px}
  .navlinks{display:none}.home-lang button{min-width:38px;min-height:29px}
- .viewport-content{padding:0 9px 9px;grid-template-rows:minmax(0,1fr) 75px 164px;gap:7px}
+ .viewport-content{padding:0 9px 9px;grid-template-rows:minmax(0,1fr) 78px 204px;gap:7px}
  .hero{grid-template-columns:1fr;border-radius:15px}
  .hero-copy{padding:11px 16px}
  .home-art{display:none}
@@ -79,30 +79,30 @@ a:focus-visible,button:focus-visible{outline:3px solid #526b55;outline-offset:3p
  .benefits{gap:4px;padding:5px 7px;border-radius:12px}
  .benefit{flex-direction:column;justify-content:center;text-align:center;gap:5px}
  .benefit-icon{width:26px;height:26px;flex:0 0 26px}.benefit-icon svg{width:15px;height:15px}
- .benefit strong{font-size:10px}.benefit small{font-size:9px;margin-top:2px}
- .plan{border-radius:13px;padding:10px 13px;grid-template-columns:minmax(0,1fr) auto;gap:7px}
- .plan-eyebrow{font-size:8px;letter-spacing:.8px}.plan-title{font-size:18px;margin:4px 0}.plan-description{display:none}
- .price{font-size:18px}
- .availability{font-size:8px;padding:7px 8px}
+ .benefit strong{font-size:11px}.benefit small{font-size:9px;margin-top:2px}
+ .plan{border-radius:13px;padding:14px 15px;grid-template-columns:minmax(0,1fr) auto;gap:9px}
+ .plan-eyebrow{font-size:9px;letter-spacing:.8px}.plan-title{font-size:20px;margin:5px 0}.plan-description{display:none}
+ .price{font-size:19px}
+ .availability{font-size:10px;padding:8px 9px}
  .plan-features{grid-column:1/-1;display:grid;grid-template-columns:1fr;gap:3px}
- .plan-features li{font-size:10px;line-height:1.2}
+ .plan-features li{font-size:11px;line-height:1.35}
 }
 @media(max-width:380px){
- .viewport-content{grid-template-rows:minmax(0,1fr) 65px 158px;gap:6px;padding-bottom:7px}
+ .viewport-content{grid-template-rows:minmax(0,1fr) 73px 194px;gap:6px;padding-bottom:7px}
  .hero-copy{padding:8px 13px}.kicker{font-size:8px;margin-bottom:7px}
  .hero-title{font-size:clamp(26px,7.65vw,29px);margin-bottom:8px}
  .intro{font-size:11px;line-height:1.35;margin-bottom:9px}
- .benefit-icon{width:22px;height:22px;flex-basis:22px}.benefit strong{font-size:9px}.benefit small{font-size:8px}
- .plan{padding:8px 11px}.plan-title{font-size:17px}.price{font-size:16px}.plan-features li{font-size:9px}
+ .benefit-icon{width:24px;height:24px;flex-basis:24px}.benefit strong{font-size:10px}.benefit small{font-size:8px}
+ .plan{padding:11px 13px}.plan-title{font-size:18px}.price{font-size:17px}.plan-features li{font-size:10px}
 }
 @media(max-height:610px) and (max-width:680px){
  .site{grid-template-rows:46px minmax(0,1fr)}
- .viewport-content{grid-template-rows:minmax(0,1fr) 56px 148px;gap:5px;padding-bottom:5px}
+ .viewport-content{grid-template-rows:minmax(0,1fr) 58px 176px;gap:5px;padding-bottom:5px}
  .hero-copy{padding:7px 12px}.kicker{margin-bottom:5px}
  .hero-title{font-size:25px;margin-bottom:5px}.intro{font-size:10px;line-height:1.25;margin-bottom:6px}
  .hero-cta{min-height:31px;padding:6px 11px}
  .benefit-icon{width:21px;height:21px;flex-basis:21px}.benefit small{display:none}
- .plan{padding:6px 9px;gap:5px}.plan-title{font-size:16px;margin:2px 0}.price{font-size:16px}.plan-features li{font-size:9px}
+ .plan{padding:9px 12px;gap:6px}.plan-title{font-size:17px;margin:3px 0}.price{font-size:17px}.plan-features li{font-size:10px}
 }
 @media(max-width:680px) and (orientation:landscape){
  .site{grid-template-rows:42px minmax(0,1fr)}
