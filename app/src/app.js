@@ -2029,10 +2029,14 @@ root.addEventListener("click",function(event){
     const uid=authStatus.user.id,request=++editableDrafts.request;
     editableDrafts.busy=true;editableDrafts.error="";render();
     void(async()=>{
+      let stale=false;
       try{
         const client=await supabaseClient(),doc=await loadEditableDraft(client,uid,id);
         if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
-        if(doc.kind!==row.kind)throw Error("Le type de brouillon a changé. Rechargez la liste.");
+        if(doc.kind!==row.kind){
+          const error=Error("Le type de brouillon a changé. Rechargez la liste.");
+          error.code="DRAFT_ROW_CHANGED";throw error;
+        }
         if(!opening.complete())throw Error("Cette composition a changé pendant son chargement. Réessayez.");
         officialComposer[doc.kind]=doc.content.items.map(item=>({...item}));
         officialComposer.settings[doc.kind]={...doc.content.settings};
@@ -2041,12 +2045,20 @@ root.addEventListener("click",function(event){
         editableDrafts.dirty[doc.kind]=false;officialComposer.error="";
         state.page=doc.kind==="routine"?"routines":"boards";
       }catch(error){
-        if(authStatus.user?.id===uid&&request===editableDrafts.request)
-          editableDrafts.error=String(error?.message||error);
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          stale=["DRAFT_NOT_FOUND","DRAFT_ROW_CHANGED"].includes(error?.code);
+          if(stale){
+            editableDrafts.error="";
+            editableDrafts.message=state.language==="fr"?
+              "Ce brouillon a changé ou a été retiré sur un autre appareil. Liste actualisée; votre éditeur est préservé.":
+              "This draft changed or was removed on another device. List refreshed; your editor is preserved.";
+          }else editableDrafts.error=String(error?.message||error);
+        }
       }finally{
         opening.cancel();
         if(authStatus.user?.id===uid&&request===editableDrafts.request){
           editableDrafts.busy=false;render();
+          if(stale)void fetchEditableDrafts();
         }
       }
     })();return;
@@ -2072,7 +2084,7 @@ root.addEventListener("click",function(event){
     if(active)editableDrafts.deletingKind=doc.kind;
     editableDrafts.busy=true;editableDrafts.error="";render();
     void(async()=>{
-      let deleted=false;
+      let deleted=false,stale=false;
       try{
         const client=await supabaseClient();
         await deleteEditableDraft(client,uid,doc.id,revision);
@@ -2102,14 +2114,21 @@ root.addEventListener("click",function(event){
           "Brouillon supprimé. Les PDF originaux sont préservés.":
           "Draft deleted. Original PDFs remain unchanged.";
       }catch(error){
-        if(authStatus.user?.id===uid&&request===editableDrafts.request)
-          editableDrafts.error=String(error?.message||error);
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          stale=error?.code==="DRAFT_REVISION_CONFLICT";
+          if(stale){
+            editableDrafts.error="";
+            editableDrafts.message=state.language==="fr"?
+              "Ce brouillon a changé sur un autre appareil. Liste actualisée; ouvrez la version actuelle avant de la supprimer. Vos modifications locales et les PDF restent intacts.":
+              "This draft changed on another device. List refreshed; open the latest version before deleting it. Your local edits and PDFs remain unchanged.";
+          }else editableDrafts.error=String(error?.message||error);
+        }
       }finally{
         deletion.cancel();
         if(authStatus.user?.id===uid&&request===editableDrafts.request){
           editableDrafts.deletingKind=null;
           editableDrafts.busy=false;render();
-          if(deleted)void fetchEditableDrafts();
+          if(deleted||stale)void fetchEditableDrafts();
         }
       }
     })();return;

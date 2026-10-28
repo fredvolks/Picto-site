@@ -101,7 +101,12 @@ export async function loadEditableDraft(client,uid,id){
   const q=await client.from(EDITABLE_DRAFTS_TABLE).select(COLUMNS).eq("owner_id",uid)
     .eq("id",id).maybeSingle();
   if(q.error)throw q.error;
-  if(!q.data)throw Error("Brouillon introuvable ou privé.");
+  if(!q.data){
+    // Ne pas révéler si l'ID existe chez un autre propriétaire.
+    const error=Error("Brouillon introuvable ou privé.");
+    error.code="DRAFT_NOT_FOUND";
+    throw error;
+  }
   await authorized(client,uid);
   return validateRow(q.data,uid);
 }
@@ -136,7 +141,13 @@ export async function deleteEditableDraft(client,uid,id,revision){
   const q=await client.from(EDITABLE_DRAFTS_TABLE).delete()
     .eq("owner_id",uid).eq("id",id).eq("revision",revision).select("id").maybeSingle();
   if(q.error)throw q.error;
-  if(q.data?.id!==id)throw Error("Le brouillon a changé. Rechargez la liste.");
+  if(q.data?.id!==id){
+    // Un CAS raté (modification OU suppression distante) ne doit pas aboutir
+    // à une seconde suppression sur une révision ancienne.
+    const error=Error("Le brouillon a changé. Rechargez la liste.");
+    error.code="DRAFT_REVISION_CONFLICT";
+    throw error;
+  }
   await authorized(client,uid);
   return true;
 }
