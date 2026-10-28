@@ -27,4 +27,6 @@ Les tests propres au dépôt public s’exécutent dans `.github/workflows/verif
 
 ## Prompt maître et gouvernance
 
+**[Commencer le travail depuis le point d'entrée privé unique](https://github.com/fredvolks/pictogram/blob/release/github-pages-site/docs/WORK_START.md).** Le [renvoi local](docs/WORK_START.md) ne duplique pas la routine. Les décisions et l'état restent dans le dépôt privé; il n'y a pas de second maître ou suivi dans ce dépôt public.
+
 Le **seul prompt maître Pict-au** est `docs/MASTER_PROMPT_PICTAU.md` dans le dépôt privé `fredvolks/pictogram`, branche active `release/github-pages-site` : https://github.com/fredvolks/pictogram/blob/release/github-pages-site/docs/MASTER_PROMPT_PICTAU.md. `docs/WORK_CONTINUATION.md` contient la passation factuelle. Les six rôles de revue, les normes pictogrammes, la direction mobile premium et le déploiement progressif sont définis là-bas. **Ne pas créer d’autre prompt maître, de deuxième site ou de projet Vercel pour Pict-au.**
