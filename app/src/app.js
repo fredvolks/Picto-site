@@ -18,7 +18,8 @@ import {submitPictogramRequest,listMyPictogramRequests,listAdminPictogramRequest
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles} from "./client-files-ui.js";
-import {listPublishedCatalog,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
+import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
+import {selectApprovedItem,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
@@ -134,6 +135,11 @@ let pdfExportBusy=false;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
+const officialComposer={routine:[],board:[],busy:false,error:"",request:0};
+function resetOfficialComposer(){
+  officialComposer.request++;officialComposer.routine=[];officialComposer.board=[];
+  officialComposer.busy=false;officialComposer.error="";
+}
 const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
   imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:""};
 function clearPublishedCatalog(){
@@ -155,7 +161,8 @@ async function fetchPublishedCatalog(){
       query:state.search,theme:state.clientCategory||"all",page:publishedCatalog.page
     });
     if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
-    for(const [id,url] of publishedCatalog.imageUrls)if(!result.items.some(row=>row.id===id)){
+    const held=new Set([...officialComposer.routine,...officialComposer.board].map(row=>row.id));
+    for(const [id,url] of publishedCatalog.imageUrls)if(!held.has(id)&&!result.items.some(row=>row.id===id)){
       URL.revokeObjectURL(url);publishedCatalog.imageUrls.delete(id);
     }
     publishedCatalog.items=result.items;publishedCatalog.total=result.total;
@@ -172,19 +179,19 @@ let catalogImageObserver=null;
 function observePublishedArtwork(){
   if(catalogImageObserver)catalogImageObserver.disconnect();
   catalogImageObserver=null;
-  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||state.page!=="library")return;
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!["library","routines","boards"].includes(state.page))return;
   const nodes=[...root.querySelectorAll("img[data-catalog-id]")];
   if(!nodes.length)return;
   const uid=authStatus.user.id;
   const load=async img=>{
-    const id=img.dataset.catalogId,row=publishedCatalog.items.find(x=>x.id===id);
+    const id=img.dataset.catalogId,row=[...publishedCatalog.items,...officialComposer.routine,...officialComposer.board].find(x=>x.id===id);
     if(!row||publishedCatalog.loadingImages.has(id))return;
     if(publishedCatalog.imageUrls.has(id)){img.src=publishedCatalog.imageUrls.get(id);return;}
     publishedCatalog.loadingImages.add(id);
     try{
       const client=await supabaseClient();
       const blob=await downloadPublishedArtwork(client,uid,row);
-      if(authStatus.user?.id!==uid||!publishedCatalog.items.some(x=>x.id===id))return;
+      if(authStatus.user?.id!==uid||![...publishedCatalog.items,...officialComposer.routine,...officialComposer.board].some(x=>x.id===id))return;
       const url=URL.createObjectURL(blob);
       publishedCatalog.imageUrls.set(id,url);
       for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id)match.src=url;
@@ -468,7 +475,7 @@ async function openAdminPreview(assetId){
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
 function resetPrivateBank(){
-  clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
+  resetOfficialComposer();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -1273,7 +1280,9 @@ function renderClientLibrary(){
       +'<div class="pa-catalog-art-caption">'+esc(name)+'</div></div>'
       +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
         CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
-      )+'</span></article>';
+      )+'</span><div class="pa-catalog-add">'
+      +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'+(officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?'Routine':'Routine')+'</button>'
+      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button></div></article>';
   }).join("");
   const feedback=f.loading?'<p class="pa-catalog-notice" role="status">'+esc(fr?'Chargement de la bibliothèque officielle…':'Loading official library…')+'</p>':
     f.error?'<div class="pa-catalog-notice" role="alert"><p>'+esc(fr?'La bibliothèque est momentanément indisponible.':'The library is temporarily unavailable.')+'</p>'
@@ -1296,7 +1305,11 @@ function renderClientLibrary(){
     +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="80"'
     +' value="'+esc(state.search)+'" placeholder="'+esc(fr?'Ex. : toilette, manger, école…':'E.g. bathroom, eat, school…')+'">'
     +'<button class="pa-catalog-search-button" type="submit">'+esc(fr?'Rechercher':'Search')+'</button></div></form>'
-    +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
+    +(officialComposer.routine.length||officialComposer.board.length?
+       '<div class="pa-composer-toolbar"><strong>'+esc(fr?'Votre sélection':'Your selection')+'</strong>'
+       +'<button data-action="nav" data-page="routines" type="button">'+esc(fr?'Routine':'Routine')+' · '+officialComposer.routine.length+'</button>'
+       +'<button data-action="nav" data-page="boards" type="button">'+esc(fr?'Tableau':'Board')+' · '+officialComposer.board.length+'</button></div>':'')
+     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'">'
       +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>';
@@ -1373,7 +1386,13 @@ function render(){
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
-  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderHostedEmpty():renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
+  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
+     kind:state.page==="routines"?"routine":"board",
+     items:officialComposer[state.page==="routines"?"routine":"board"],
+     language:state.language,imageUrls:publishedCatalog.imageUrls,busy:officialComposer.busy,error:officialComposer.error,
+     pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,language:state.language,escape:esc,icon}),
+     escape:esc,icon
+    }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
   updateArtFeedback();
   observeBankThumbnails();
@@ -1495,7 +1514,21 @@ root.addEventListener("click",function(event){
     }
     return;
   }
-  if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
+  if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy){
+     const kind=el.dataset.kind,row=publishedCatalog.items.find(x=>x.id===el.dataset.id);
+     if(!row||!["routine","board"].includes(kind))return;
+     try{officialComposer[kind]=selectApprovedItem(officialComposer[kind],row,kind);officialComposer.error="";render();}
+     catch(error){officialComposer.error=String(error.message||error);render();}
+     return;
+   }
+   if((a==="approved-remove"||a==="approved-move")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy){
+     const kind=el.dataset.kind,index=Number(el.dataset.index);
+     if(!["routine","board"].includes(kind))return;
+     officialComposer[kind]=a==="approved-remove"?removeApprovedItem(officialComposer[kind],index):
+       changeApprovedOrder(officialComposer[kind],index,Number(el.dataset.direction));
+     render();return;
+   }
+   if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
   if(a==="catalog-page"&&SITE_EMBEDDED&&!canOpenAdmin()&&!publishedCatalog.loading){
     const target=publishedCatalog.page+Number(el.dataset.direction);
     if(!Number.isSafeInteger(target)||target<0||target>=Math.ceil(publishedCatalog.total/CATALOG_PAGE_SIZE))return;
@@ -1977,6 +2010,57 @@ root.addEventListener("submit",function(event){
         await refreshPrivateBank(client,uid);
       }catch(error){if(authStatus.user?.id===uid)publishedCatalog.publishError=String(error?.message||error);}
       finally{publishedCatalog.publishing=false;render();}
+    })();return;
+  }
+  const officialForm=event.target.closest('form[data-form="approved-export"]');
+  if(officialForm){
+    event.preventDefault();
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||pendingGeneratedPdf)return;
+    const kind=officialForm.dataset.kind;
+    if(!["routine","board"].includes(kind))return;
+    const data=new FormData(officialForm),title=String(data.get("title")||""),
+      widthCm=Number(data.get("widthCm")),paper=String(data.get("paper")||"letter"),
+      columns=kind==="board"?Number(data.get("columns")):3,
+      snapshot=officialComposer[kind].map(x=>({...x})),uid=authStatus.user.id,
+      epoch=++officialComposer.request;
+    if(!canPrepareApproved({kind,items:snapshot,widthCm,paper,columns})){
+      officialComposer.error=state.language==="fr"?
+        "Dimensions incompatibles avec la page imprimable. Réduisez la largeur ou le nombre de cases.":
+        "Cells do not fit the printable page. Reduce the width or number of images.";
+      render();return;
+    }
+    officialComposer.busy=true;officialComposer.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        const rows=await loadApprovedSelection(client,uid,snapshot.map(x=>x.id));
+        const items=[];
+        for(const row of rows){
+          const pngBlob=await downloadPublishedArtwork(client,uid,row);
+          items.push({fr:row.title_fr,en:row.title_en||row.title_fr,pngBlob});
+        }
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        const {blob,pageCount}=await createPreparedPdf({
+          items,kind,widthCm,paper,columns,language:state.language,title,
+          separatorMode:"simple",preset:{...DEFAULT_PRESET,color:"#111111",colored:false}
+        });
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind};
+        await archivePdf(client,uid,blob,{title,documentType:kind,pageCount});
+        if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        officialComposer[kind]=[];state.page="files";
+        clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
+        clientFiles.message=state.language==="fr"?"PDF original créé et archivé dans votre compte.":"Original PDF created and saved in your account.";
+        await fetchClientFiles(client,uid);
+      }catch(error){
+        if(authStatus.user?.id===uid&&epoch===officialComposer.request)
+          officialComposer.error=String(error?.message||error);
+      }finally{
+        if(authStatus.user?.id===uid&&epoch===officialComposer.request){
+          officialComposer.busy=false;render();
+        }
+      }
     })();return;
   }
   const uploadForm=event.target.closest('form[data-form="archive-pdf"]');

@@ -21,6 +21,11 @@ function measuredLabel(item,language){
   return v.trim();
 }
 function safeImage(item){
+  if(item?.pngBlob instanceof Blob){
+    if(item.pngBlob.type!=="image/png"||item.pngBlob.size<33||item.pngBlob.size>6*1024*1024||item.image!==undefined)
+      throw Error("Source PNG approuvée invalide.");
+    return item.pngBlob;
+  }
   const s=item?.image;
   if(typeof s!=="string"||!/^<svg[\s>]/i.test(s)||!/<\/svg>\s*$/i.test(s)||
     /<script|<foreignObject|<image|(?:href|src)\s*=|<!doctype|<!entity/iu.test(s))
@@ -122,11 +127,17 @@ export function assembleJpegPdf(pages){
   chunks.push(toBytes(xref+"trailer\n<< /Size "+objectData.length+" /Root 1 0 R >>\nstartxref\n"+start+"\n%%EOF\n"));
   return new Blob(chunks,{type:"application/pdf"});
 }
-async function loadArtwork(svg){
+async function loadArtwork(source){
+  if(source instanceof Blob){
+    const magic=new Uint8Array(await source.slice(0,8).arrayBuffer());
+    if([137,80,78,71,13,10,26,10].some((b,i)=>magic[i]!==b))
+      throw Error("Signature du pictogramme PNG invalide.");
+  }
+  const png=source instanceof Blob;
   // Les exemples Pict-au ont leur dessin dans le viewBox, avec une marge
   // transparente. Le même principe « encre visible » que l'aperçu s'applique.
   // Aucun SVG n'est inséré dans le DOM : le décodage en Image reste inerte.
-  const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml"}));
+  const url=URL.createObjectURL(png?source:new Blob([source],{type:"image/svg+xml"}));
   let img;
   try{
     img=new Image();
@@ -135,7 +146,7 @@ async function loadArtwork(svg){
     else await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;});
     if(!img.naturalWidth||!img.naturalHeight)throw Error("Illustration PDF non décodable.");
   }finally{URL.revokeObjectURL(url);}
-  const size=600;
+  const size=png?1200:600;
   const raster=document.createElement("canvas");
   raster.width=size;raster.height=size;
   const ctx=raster.getContext("2d",{willReadFrequently:true});
@@ -210,7 +221,7 @@ async function canvasPage(plan,rows,pageIndex,artwork,dpi){
       ctx.fillRect(x-plan.edgeMm,y-plan.edgeMm,plan.totalWidthMm,plan.heightMm+plan.edgeMm*2);
     }
     for(const item of row){
-      renderCell(ctx,item,artwork.get(item.image),x,y,plan);
+      renderCell(ctx,item,artwork.get(safeImage(item)),x,y,plan);
       x+=plan.widthMm+plan.gapMm;
     }
     y+=plan.heightMm+plan.edgeMm*2+GAP_BOARD_MM;
@@ -227,7 +238,8 @@ export async function createPreparedPdf(options){
   if(document.fonts?.ready)await document.fonts.ready;
   const artwork=new Map();
   for(const item of options.items){
-    if(!artwork.has(item.image))artwork.set(item.image,await loadArtwork(item.image));
+    const source=safeImage(item);
+    if(!artwork.has(source))artwork.set(source,await loadArtwork(source));
   }
   const pageJpegs=[];
   for(let i=0;i<plan.pages.length;i++){

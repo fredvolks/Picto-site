@@ -1278,3 +1278,48 @@
 }
 @media screen and (max-width:350px){.pa-catalog-grid{gap:7px}.pa-catalog-card{padding:7px}.pa-catalog-art-caption{padding:3px}}
 @media print{.pa-catalog-search-button,.pa-catalog-pages,.admin-publish-control{display:none!important}}
+
+/* Sélection d'illustrations officielles et compositeur Pict-au, mobile first. */
+@media screen {
+  .pa-catalog-add{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:12px}
+  .pa-catalog-add button,.pa-composer-toolbar button{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:9px 10px;min-height:44px;background:#fff;color:#111;
+    border:1px solid #d5d5d5;border-radius:11px;font-size:12px;font-weight:750;cursor:pointer}
+  .pa-catalog-add button:hover,.pa-composer-toolbar button:hover{border-color:#111}
+  .pa-catalog-add button:disabled,.pa-composer-toolbar button:disabled{opacity:.4;cursor:not-allowed}
+  .pa-catalog-add svg,.pa-composer-toolbar svg{width:16px;height:16px;flex:none}
+  .pa-composer-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+    padding:14px 0;margin:15px 0;border-top:1px solid #e5e5e5;border-bottom:1px solid #e5e5e5}
+  .pa-composer-toolbar strong{font-size:15px;font-weight:800;margin-right:auto}
+  .pa-composer-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;
+    padding:0;margin:16px 0 24px;list-style:none}
+  .pa-composer-item{min-width:0;border:1px solid #e5e5e5;border-radius:15px;background:#fff;padding:10px}
+  .pa-composer-item .pa-catalog-art{max-width:240px;margin:auto}
+  .pa-composer-item-name{display:block;min-height:34px;font-weight:700;text-align:center;
+    font-size:13px;padding:9px 3px;overflow-wrap:anywhere}
+  .pa-composer-item-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .pa-composer-item-actions button{display:grid;place-items:center;min-width:0;min-height:44px;
+    border:1px solid #dedede;border-radius:9px;background:#f7f7f7;color:#111}
+  .pa-composer-item-actions button:disabled{opacity:.35}
+  .pa-composer-item-actions svg{width:19px;height:19px}
+  .pa-composer-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;
+    align-items:end;margin:20px 0 15px;border:1px solid #e5e5e5;border-radius:18px;background:#fff;padding:20px}
+  .pa-composer-form .control{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .pa-composer-form label{font-size:13px;font-weight:750;color:#222}
+  .pa-composer-form input,.pa-composer-form select{min-height:46px;width:100%;
+    min-width:0;padding:10px 12px;border:1px solid #ccc;border-radius:11px;background:#fff;color:#111;font-size:15px}
+  .pa-composer-form>.btn{grid-column:1/-1;justify-self:start;min-height:48px}
+  .pa-composer .pdf-recovery{margin-bottom:16px}
+}
+@media screen and (max-width:840px){.pa-composer-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media screen and (max-width:599px){
+  .pa-catalog-add{grid-template-columns:1fr;margin-top:8px}
+  .pa-catalog-add button{min-height:42px}
+  .pa-composer-items{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .pa-composer-form{grid-template-columns:1fr;padding:15px;gap:13px}
+  .pa-composer-form>.btn{justify-self:stretch;white-space:normal}
+  .pa-composer-toolbar button{flex:1;min-width:0;white-space:normal}
+}
+@media screen and (max-width:349px){.pa-composer-items{gap:6px}.pa-composer-item{padding:6px}}
+@media print{.pa-composer,.pa-catalog-add{display:none!important}}

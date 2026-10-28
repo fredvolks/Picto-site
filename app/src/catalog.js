@@ -61,6 +61,23 @@ export async function listPublishedCatalog(client,uid,filters={}){
   await verified(client,uid);
   return {items,total:r.count,page:f.page};
 }
+// Relecture autorisée juste avant export : une sélection retirée ne devient jamais imprimable.
+export async function loadApprovedSelection(client,uid,ids){
+  if(!Array.isArray(ids)||!ids.length||ids.length>16||
+    ids.some(id=>typeof id!=="string"||!UUID.test(id)))
+    throw Error("Sélection de pictogrammes invalide.");
+  const unique=[...new Set(ids)];
+  await verified(client,uid);
+  const query=await client.from("pictau_catalog_items").select(FIELDS).in("id",unique);
+  if(query.error)throw query.error;
+  if(!Array.isArray(query.data)||query.data.length!==unique.length||query.data.some(r=>!validRow(r)))
+    throw Error("Un pictogramme n'est plus approuvé. Actualisez votre sélection.");
+  const byId=new Map(query.data.map(r=>[r.id,r]));
+  if(byId.size!==unique.length||ids.some(id=>!byId.has(id)))
+    throw Error("Un pictogramme a été retiré. Actualisez votre sélection.");
+  await verified(client,uid);
+  return ids.map(id=>byId.get(id));
+}
 export async function downloadPublishedArtwork(client,uid,row){
   if(!validRow(row))throw Error("Fiche publiée invalide.");
   await verified(client,uid);
