@@ -13,6 +13,15 @@ jobs:
           node-version: "22"
       - run: node --check src/site.js
       - run: node --test tests/site.test.mjs
+      - name: Vérifier UX écran unique sur 6 tailles et 3 vues
+        run: node tests/responsive.mjs
+      - name: Conserver les 18 captures UX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pictau-site-ux
+          path: artifacts/site-ux/
+          if-no-files-found: warn
       - name: Vérifier les seuls fichiers servis
         run: |
           test -f index.html

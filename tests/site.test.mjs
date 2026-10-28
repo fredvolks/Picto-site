@@ -29,3 +29,10 @@ test("bilingue et responsive",()=>{
   assert.match(js,/document\.documentElement\.lang/);
   for(const name of ["fonctionnalites","avantages","forfait"])assert.ok(html.includes('id="'+name+'"'));
 });
+
+test("le site dispose de 3 vues non déroulantes",()=>{
+  assert.match(html,/data-view="home"/);
+  assert.match(html,/class="mobile-dock"/);
+  assert.match(js,/function changeView/);
+  assert.match(js,/data-view-link/);
+});
