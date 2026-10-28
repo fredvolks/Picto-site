@@ -285,3 +285,43 @@ a:focus-visible,button:focus-visible{outline:3px solid #31749b;outline-offset:3p
   .plan-title{font-size:17px}
   .plan-features li{font-size:11px;line-height:1.18}
 }
+
+
+/* Duo d'appareils illustratifs Pict-au : visuels originaux, jamais une démo. */
+.hero-visual{isolation:isolate}
+.laptop{width:min(91%,620px);margin-right:7%;flex:none}
+.phone{
+  position:absolute;z-index:3;right:3.8%;bottom:15%;
+  width:clamp(75px,18.5%,145px);aspect-ratio:0.52;
+  padding:7px 5px 11px;border:3px solid #242d33;border-radius:18px;
+  background:#20282d;box-shadow:0 13px 19px rgba(25,40,52,.16),0 3px 5px rgba(25,40,52,.10);
+  transform:rotate(5deg);
+  display:flex;align-items:center;justify-content:center;
+}
+.phone-camera{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:28%;height:3px;border-radius:7px;background:#526068;z-index:3}
+.phone-display{height:100%;width:100%;min-height:0;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.phone-brand{display:flex;justify-content:space-between;align-items:center;min-height:17%;padding:0 8%;border-bottom:1px solid #e7eef1;color:#243947;font-weight:800;font-size:clamp(7px,.7vw,10px)}
+.phone-brand i{display:block;width:7px;height:7px;border:2px solid #a1b8c5;border-radius:50%}
+.phone-heading{display:flex;flex-direction:column;gap:4px;padding:10% 9% 9%}
+.phone-heading span{height:3px;background:#d9e7ee;border-radius:3px;width:78%}
+.phone-heading span+span{width:54%}
+.phone-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7%;padding:0 8%;height:38%}
+.phone-picto{display:flex;flex-direction:column;border:1.5px solid #26343b;min-width:0;min-height:0;color:#111}
+.phone-picto svg{display:block;flex:1;width:100%;min-height:0;padding:8%}
+.phone-picto span{font-family:"Patrick Hand",cursive;border-top:1px solid #26343b;text-align:center;line-height:1.15;font-size:clamp(6px,.65vw,9px)}
+.phone-line{height:3px;width:67%;background:#e0eaf0;border-radius:3px;margin:9% 0 0 9%}
+.phone-line-short{width:45%;margin-top:5%}
+.phone-home{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:21%;height:2px;border-radius:3px;background:#87939c}
+.hero-title,.intro,.kicker{flex-shrink:0}
+@media(max-width:1100px) and (min-width:681px){
+  .laptop{width:min(89%,510px);margin-right:8%}
+  .phone{right:2%;bottom:16%;width:clamp(76px,19%,115px)}
+}
+@media(max-width:680px){.phone{display:none}}
+/* Le contenu sur petits mobiles prime sur l'illustration et sur les marges.
+   Laisser le texte se mesurer à sa hauteur entière (pas de rétrécissement flex). */
+@media(max-width:370px) and (min-height:521px){
+  .hero-title{font-size:25px;line-height:1.12;letter-spacing:-.045em;margin-bottom:7px}
+  .hero-copy{padding:8px 13px}
+  .kicker{margin-bottom:7px}
+}
