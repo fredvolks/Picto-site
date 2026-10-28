@@ -5,93 +5,75 @@ import {readFileSync} from "node:fs";
 const html=readFileSync("index.html","utf8");
 const css=readFileSync("src/site.css","utf8");
 const js=readFileSync("src/site.js","utf8");
+const plan=readFileSync("forfait.html","utf8");
 const read=path=>readFileSync(path,"utf8");
 
-test("la vitrine est un site commercial unique, pas une application de démonstration",()=>{
-  for(const id of ['id="accueil"','id="fonctionnalites"','id="forfait"'])
-    assert.ok(html.includes(id),"Section introuvable: "+id);
-  assert.equal((html.match(/class="plan"/g)||[]).length,1);
-  assert.equal((html.match(/class="hero"/g)||[]).length,1);
-  assert.doesNotMatch(html,/super admin|google-login|checkout|data-view=|mobile-dock/i);
-  assert.doesNotMatch(html,/<form\b/i,"Aucun faux formulaire d'inscription");
-  assert.doesNotMatch(html,/home-device|home-phone/i,"Pas de simulateur d'application");
+test("La page d'accueil a un seul bouton d'inscription, vers la page du forfait",()=>{
+ assert.equal((html.match(/class="signup-button"/g)||[]).length,1);
+ assert.match(html,/class="signup-button" href="\.\/forfait\.html"/);
+ assert.doesNotMatch(html,/class="plan"|id="forfait"|Tarif à confirmer|Inscriptions à venir/);
+ assert.doesNotMatch(html,/checkout|Stripe|paiement sécurisé|<form\b/i);
+ assert.equal((html.match(/>Créer mon compte</g)||[]).length,1);
 });
-test("un seul bouton Créer mon compte, situé uniquement dans le forfait",()=>{
-  const plan=html.slice(html.indexOf('id="forfait"'),html.indexOf("</section>",html.indexOf('id="forfait"')));
-  assert.equal((html.match(/class="signup-button"/g)||[]).length,1);
-  assert.match(plan,/class="signup-button"[^>]*disabled/);
-  assert.match(plan,/Créer mon compte/);
-  assert.doesNotMatch(html.slice(0,html.indexOf('id="forfait"')),/Créer mon compte/);
-  assert.match(plan,/id="signup-status"/);
+test("La page distincte de forfait est honnête et bilingue, sans paiement fictif",()=>{
+ assert.match(plan,/class="plan-page"/);
+ assert.match(plan,/Tarif à confirmer/);
+ assert.match(plan,/Les inscriptions et les paiements ne sont pas encore ouverts/);
+ assert.match(plan,/href="\.\/index\.html"/);
+ assert.doesNotMatch(plan,/<form\b|type="submit"|checkout|Stripe|\$\/mois/i);
+ assert.equal((plan.match(/class="plan-page-status"/g)||[]).length,1);
 });
-test("Connexion visible sans menu sur tous les appareils, sans faux OAuth",()=>{
-  assert.equal((html.match(/class="login-link"/g)||[]).length,1);
-  assert.match(html,/<a class="login-link" href="\.\/connexion\.html">/);
-  assert.doesNotMatch(html,/menu-toggle|hamburger|google-login|supabase/i);
-  assert.match(css,/\.login-link\{/);
-  assert.match(css,/@media\(max-width:680px\)/);
-  assert.doesNotMatch(css,/\.login-link\s*\{[^}]*display\s*:\s*none/);
-  const login=read("connexion.html");
-  assert.match(login,/n.est pas encore ouvert/);
-  assert.doesNotMatch(login,/<input\b/);
+test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
+ assert.equal((html.match(/class="login-link"/g)||[]).length,1);
+ assert.match(html,/<a class="login-link" href="\.\/connexion\.html">/);
+ assert.doesNotMatch(html,/hamburger|menu-toggle|google-login|supabase/i);
+ assert.doesNotMatch(css,/\.login-link\s*\{[^}]*display\s*:\s*none/);
+ assert.match(read("connexion.html"),/n.est pas encore ouvert/);
 });
-test("FR/EN, sélecteur de langue persistant et les pages de service",()=>{
-  assert.match(html,/data-fr="Connexion" data-en="Sign in"/);
-  assert.match(js,/localStorage\.setItem\("pictau-language"/);
-  for(const path of ["contact.html","conditions.html","confidentialite.html","connexion.html"]){
-    const text=read(path);
-    assert.match(html,new RegExp('href="\\./'+path+'"'));
-    assert.match(text,/data-fr=/);
-    assert.match(text,/data-en=/);
-    assert.match(text,/href="\.\/index\.html"/);
-  }
+test("Pictogrammes issus des illustrations de l'app : trait séparateur noir et étiquettes centrées",()=>{
+ assert.equal((html.match(/class="pictau-picto /g)||[]).length,5);
+ assert.equal((html.match(/class="pictau-art"/g)||[]).length,5);
+ assert.equal((html.match(/class="pictau-label"/g)||[]).length,5);
+ for(const id of ["toilette","collation","lire","ecole","pause"])
+   assert.match(html,new RegExp('data-example="'+id+'"'));
+ assert.match(css,/\.pictau-label\{[^}]*border-top:2px solid #111/s);
+ assert.match(css,/\.pictau-picto\{[^}]*border:2px solid #111/s);
+ assert.match(css,/\.pictau-label\{[^}]*align-items:center;justify-content:center/s);
+ assert.doesNotMatch(html,/laptop-lines|phone-lines|phone-heading|laptop-subheading/);
+ assert.doesNotMatch(css,/\.laptop-lines\b|\.phone-line\b/);
 });
-test("responsive et accessibilité : page unique et défilement autorisé si nécessaire",()=>{
-  assert.match(css,/100dvh/);
-  assert.match(css,/overflow-y:auto/);
-  assert.match(css,/\.viewport-content\{/);
-  assert.doesNotMatch(css,/html,body\{[^}]*overflow:hidden/);
-  assert.match(css,/@media\(max-height:520px\)/);
-  for(const breakpoint of ["max-width:370px","max-width:680px","max-width:1100px"])
-    assert.ok(css.includes(breakpoint));
-  assert.match(css,/\.hero-visual\{display:none\}/);
-  assert.match(html,/class="skip"/);
-  assert.match(html,/aria-describedby="signup-status"/);
+test("Bénéfices de taille réelle et alignés au centre",()=>{
+ assert.equal((html.match(/class="benefit"/g)||[]).length,3);
+ for(const label of ["Trouver","Personnaliser","Imprimer"])assert.match(html,new RegExp(">"+label+"<"));
+ assert.match(css,/\.benefit\{[^}]*align-items:center;justify-content:center/s);
+ assert.match(css,/\.benefit strong\{[^}]*font-size:clamp\(14px/);
 });
-
-test("Direction artistique : portable illustratif Pict-au, pas de capture réelle inventée",()=>{
-  assert.match(html,/class="hero-visual"/);
-  assert.equal((html.match(/class="laptop-picto"/g)||[]).length,3);
-  assert.equal((html.match(/class="laptop-screen"/g)||[]).length,1);
-  assert.match(html,/Illustration conceptuelle/);
-  assert.doesNotMatch(html,/capture réelle|fonctionnement garanti|site de démonstration/i);
-  assert.doesNotMatch(css,/url\(https?:\/\//i,"Pas de photographie ni image tiers distante dans le héros");
-  assert.ok(css.includes("--blue:#609dba"));
-  assert.ok(css.includes("--yellow:#ffd16b"));
+test("Deux appareils illustratifs sans paysage, photo ni fausse disponibilité",()=>{
+ assert.equal((html.match(/class="laptop"/g)||[]).length,1);
+ assert.equal((html.match(/class="phone"/g)||[]).length,1);
+ assert.match(html,/Illustrations d.exemple de l.application Pict-au/);
+ assert.match(html,/class="hero-visual" aria-hidden="true"/);
+ assert.doesNotMatch(html,/paysage|maison|produit à acheter|<img\b/i);
+ assert.ok(css.includes("--blue:#609dba"));
+ assert.ok(css.includes("--yellow:#ffd16b"));
 });
-test("Trio compact sans faux prix, et aucun second appel à l'inscription",()=>{
-  for(const label of ["Trouver","Personnaliser","Imprimer"])assert.ok(html.includes(">"+label+"<"));
-  assert.equal((html.match(/class="benefit"/g)||[]).length,3);
-  assert.equal((html.match(/class="plan"/g)||[]).length,1);
-  assert.equal((html.match(/>Créer mon compte</g)||[]).length,1);
-  assert.match(html,/Tarif à confirmer/);
-  assert.match(html,/Inscriptions à venir/);
-  assert.doesNotMatch(html,/9,99|Stripe|\$\/mois|paiement sécurisé/i);
+test("Langues FR/EN et pages d'information existantes préservées",()=>{
+ assert.match(js,/localStorage\.setItem\("pictau-language"/);
+ for(const item of ["contact.html","conditions.html","confidentialite.html","connexion.html","forfait.html"]){
+  assert.match(read(item),/data-fr=/);
+  assert.match(read(item),/data-en=/);
+  assert.match(read(item),/href="\.\/index\.html"/);
+ }
+ for(const dest of ["contact.html","conditions.html","confidentialite.html"])
+  assert.ok(html.includes('href="./'+dest+'"'));
 });
-
-test("Le visuel conceptuel comprend un ordinateur et un téléphone complémentaires",()=>{
-  assert.equal((html.match(/class="laptop-screen"/g)||[]).length,1);
-  assert.equal((html.match(/class="phone-display"/g)||[]).length,1);
-  assert.equal((html.match(/class="phone-picto"/g)||[]).length,2);
-  assert.match(html,/class="hero-visual" aria-hidden="true"/);
-  assert.match(css,/@media\(max-width:680px\)\{\.phone\{display:none\}\}/);
-  assert.doesNotMatch(html,/vraie capture de l.application|démo interactive/);
-});
-
-test("Libellés d'illustration bilingues, sans dupliquer les écrans",()=>{
-  for(const english of ["snack","read","hello","bathroom","school"]){
-    assert.ok(html.includes('data-en="'+english+'"'));
-  }
-  assert.equal((html.match(/class="phone"/g)||[]).length,1);
-  assert.equal((html.match(/class="laptop"/g)||[]).length,1);
+test("Responsive de 320px jusqu'au PC : accessibilité et défilement à zoom élevé",()=>{
+ assert.match(css,/100dvh/);
+ assert.match(css,/overflow-y:auto/);
+ assert.match(css,/@media\(max-width:370px\)/);
+ assert.match(css,/@media\(max-width:680px\)/);
+ assert.match(css,/@media\(max-width:1100px\)/);
+ assert.match(css,/@media\(max-height:520px\)/);
+ assert.match(html,/class="skip"/);
+ assert.match(css,/prefers-reduced-motion:reduce/);
 });
