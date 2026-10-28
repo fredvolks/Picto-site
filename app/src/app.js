@@ -1033,7 +1033,8 @@ function renderHostedAccess(){
    +'<span class="hosted-access-eyebrow">'+esc(fr?'ESPACE PICT-AU':'YOUR PICT-AU SPACE')+'</span>'
    +'<h1 id="hosted-access-title">'+esc(fr?'Accéder à mon espace':'Access my space')+'</h1>'
    +'<p>'+esc(fr?'Connectez-vous pour retrouver vos fichiers et vos demandes. Aucune démonstration n’est ajoutée à votre compte.':'Sign in to access your files and requests. No sample content is added to your account.')+'</p>'
-   +(wait?'<p class="hosted-access-status" role="status">'+esc(fr?'Vérification de la session…':'Checking your session…')+'</p>':'<div class="hosted-access-action">'+googleButton()+'</div>')
+   +(wait?'<p class="hosted-access-status" role="status">'+esc(fr?'Vérification de la session…':'Checking your session…')+'</p>':'')
+   +'<div class="hosted-access-action">'+googleButton()+'</div>'
    +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'')
    +'<a href="../index.html" class="hosted-access-back">'+esc(fr?'← Retour à l’accueil Pict-au':'← Back to Pict-au home')+'</a>'
    +'</div></main></section>';
