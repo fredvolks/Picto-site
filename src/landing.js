@@ -50,14 +50,14 @@ function homeBrand(){
 function mockCard(pic,lang,escape){
   return '<div class="home-mock-picto"><div class="home-mock-art">'+pic.image+'</div><span>'+escape(lang==="en"?pic.en:pic.fr)+'</span></div>';
 }
-export function renderLanding({lang,samples,icon,escape}){
+export function renderLanding({lang,samples,icon,escape,authHtml=""}){
   const t=wording[lang]||wording.fr,choices=samples.slice(0,4);
   const cta=(page,label,style)=>'<button type="button" class="home-btn '+style+'" data-action="nav" data-page="'+page+'">'+label+(style==="primary"?icon("arrow","home-button-arrow"):"")+'</button>';
   const language='<div class="home-lang" role="group" aria-label="Language"><button type="button" data-action="lang" data-lang="fr" aria-pressed="'+(lang==="fr")+'" class="'+(lang==="fr"?"active":"")+'">FR</button><button type="button" data-action="lang" data-lang="en" aria-pressed="'+(lang==="en")+'" class="'+(lang==="en"?"active":"")+'">EN</button></div>';
   return '<a class="skip" href="#page-main">'+(lang==="en"?"Skip to content":"Aller au contenu")+'</a><div class="home-site">'
   +'<header class="home-header"><button type="button" class="home-logo" data-action="nav" data-page="home" aria-label="Pict-au">'+homeBrand()+'</button>'
   +'<nav class="home-header-links" aria-label="Navigation"><a href="#fonctionnalites">'+t.navFeatures+'</a><a href="#avantages">'+t.navWhy+'</a><a href="#forfait">'+t.navPlan+'</a></nav>'
-  +'<div class="home-header-right">'+language+cta("library",t.navApp,"primary home-open")+'</div></header>'
+  +'<div class="home-header-right">'+language+authHtml+cta("library",t.navApp,"primary home-open")+'</div></header>'
   +'<main id="page-main"><section class="home-hero" aria-labelledby="landing-title">'
   +'<div class="home-hero-copy"><div class="home-kicker"><span></span>'+t.tag+'</div><h1 id="landing-title">'+t.hero+'</h1><p>'+t.copy+'</p>'
   +'<div class="home-hero-actions">'+cta("library",t.explore,"primary")+cta("routines",t.routine,"secondary")+'</div>'

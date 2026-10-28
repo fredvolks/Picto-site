@@ -1,16 +1,20 @@
-# Pict-au — site public de démonstration
+# Pict-au — démo publique et connexion Google
 
-Site d'accueil **principalement noir et blanc**, inspiré de la référence visuelle choisie par le propriétaire (sans reproduire les illustrations ni le logo de la référence).
+Accueil responsive avec un seul forfait, pictogrammes fictifs de démonstration et routines visuelles. **Le prix de l'abonnement n'est pas fixé; aucun paiement n'est actif.**
 
-- Accueil marketing responsive avec maquette ordinateur + téléphone, avantages, fonctionnalités et **un seul forfait**.
-- **Tarif à confirmer** ; aucun paiement, aucun abonnement actif.
-- Bibliothèque d'illustrations fictives, recherche bilingue, routines visuelles de démonstration.
-- **Aucun véritable super admin, secret, connexion utilisateur ni données privées exposés ici.** Le dépôt privé de développement reste `fredvolks/pictogram`.
+## Connexion Google
 
-## GitHub Pages
+- Bouton « Continuer avec Google » dans la page d'accueil et dans la bibliothèque, via Supabase Auth PKCE.
+- La clé présente dans `src/google-auth.js` est une clé **publiable** Supabase, sans secret Google ni service_role.
+- Pour que le retour fonctionne, autoriser `https://fredvolks.github.io/Picto-site/` dans **Supabase Authentication → URL Configuration → Redirect URLs**.
+- Le client Google doit autoriser `https://hwgarcmyhmmovbxdngwc.supabase.co/auth/v1/callback` comme URI de redirection.
+- Vérifier une connexion réelle avec Google et la déconnexion avant de qualifier l'authentification de validée.
+- Les utilisateurs qui se connectent n'obtiennent **jamais** automatiquement des droits super admin ; le super admin réel reste hors de ce dépôt public.
 
-Dans **Settings → Pages**, choisir la branche `main` et `/(root)` si nécessaire. URL attendue après déploiement : https://fredvolks.github.io/Picto-site/ . Vérifier le lien réel dans GitHub Pages avant toute annonce officielle.
+## Hébergement
 
-## Mise à jour
+GitHub Pages, branche `main`, `/(root)`. Adresse attendue après déploiement : https://fredvolks.github.io/Picto-site/
 
-Copie des seuls fichiers de l'interface issus de la branche de développement. Aucun synchronisme automatique avec le dépôt privé n'est configuré.
+## Sécurité et limites
+
+Ce dépôt ne comporte pas de vraie interface de publication administrateur. Les images utilisées dans la démo ne sont pas celles de la bibliothèque privée Supabase. Aucun abonnement n'est activé.

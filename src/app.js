@@ -1,5 +1,6 @@
 import {samples} from "./data.js";
 import {renderLanding} from "./landing.js";
+import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser} from "./google-auth.js";
 
 // The public Pages build changes this to true. It must never expose the mock admin UI.
 const PUBLIC_DEMO = true;
@@ -81,6 +82,8 @@ const iconPaths = {
   home:'<path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-7h6v7"/>',
   library:'<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
   routine:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+  database:'<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 2 3.6 4 8 4s8-2 8-4V6M4 12c0 2 3.6 4 8 4s8-2 8-4"/>',
+  upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/>',
   settings:'<path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/>',
   search:'<circle cx="10.8" cy="10.8" r="6.4"/><path d="m16 16 5 5"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
@@ -98,6 +101,34 @@ function icon(name,extraClass) {
   return '<svg class="'+(extraClass||"nav-icon")+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(iconPaths[name]||iconPaths.info)+'</svg>';
 }
 const root = document.querySelector("#app");
+const authStatus={user:null,working:false,error:""};
+function googleButton(){
+  const fr=state.language==="fr";
+  if(authStatus.user){
+    const email=esc(authStatus.user.email||"");
+    return '<div class="login-identity"><span class="login-username" title="'+email+'">'+email+'</span><button type="button" class="login-control login-signout" data-action="google-logout">'+(fr?"Déconnexion":"Sign out")+'</button></div>';
+  }
+  return '<button class="login-control login-google" type="button" data-action="google-login"'+(authStatus.working?" disabled":"")+'><span class="google-letter" aria-hidden="true">G</span>'+(authStatus.working?(fr?"Connexion…":"Signing in…"):(fr?"Continuer avec Google":"Continue with Google"))+'</button>';
+}
+async function refreshGoogleUser(client){
+  try{authStatus.user=await currentVerifiedUser(client);authStatus.error="";}
+  catch(error){authStatus.user=null;authStatus.error=String(error.message||error);}
+  render();
+}
+async function initializeGoogle(){
+  try{
+    const client=await supabaseClient();
+    client.auth.onAuthStateChange((event)=>{
+      if(event==="SIGNED_OUT"){authStatus.user=null;render();}
+      else if(["INITIAL_SESSION","SIGNED_IN","TOKEN_REFRESHED","USER_UPDATED"].includes(event)){
+        // Ne pas appeler getUser directement dans le callback de changement de session.
+        setTimeout(()=>{void refreshGoogleUser(client);},0);
+      }
+    });
+    await refreshGoogleUser(client);
+  }catch(error){authStatus.error="Connexion Google indisponible.";render();}
+}
+
 const initial = load("pictau-preset", DEFAULT_PRESET);
 const preset = validatePreset(initial) ? initial : {...DEFAULT_PRESET};
 const state = {
@@ -105,7 +136,7 @@ const state = {
   search:"", theme:"all", sort:"recent",
   routine:Array.isArray(load("pictau-routine",[])) ? load("pictau-routine",[]).filter(x=>samples.some(s=>s.id===x)).slice(0,10):[],
   widthCm:5, paper:"letter", separatorMode:"simple",
-  currentPreset:{...preset}, savedPreset:{...preset}, adminItem:"toilette", toast:""
+  currentPreset:{...preset}, savedPreset:{...preset}, adminItem:"toilette", adminTab:"overview", toast:""
 };
 function load(key,fallback){try{const value=JSON.parse(localStorage.getItem(key));return value==null?fallback:value;}catch{return fallback;}}
 function store(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch{}}
@@ -123,7 +154,7 @@ function shell(content){
   +'<div class="sidebar-footer"><strong>'+T("demo")+'</strong><p>'+T("note")+'</p></div></aside>'
   +'<div class="workspace"><header class="topbar"><div class="topbar-heading"><div><div class="eyebrow">'+T("discovery")+'</div><h2 class="topbar-title">'+T(state.page==="library"?"library":state.page==="routines"?"routines":"admin")+'</h2></div></div>'
   +'<a class="mobile-brand" href="#library" data-action="nav" data-page="library">'+brand()+'</a>'
-  +'<div class="topbar-actions"><div class="lang-switch" role="group" aria-label="Language"><button type="button" class="lang-btn'+(state.language==="fr"?" active":"")+'" data-action="lang" data-lang="fr" aria-pressed="'+(state.language==="fr")+'">FR</button><button type="button" class="lang-btn'+(state.language==="en"?" active":"")+'" data-action="lang" data-lang="en" aria-pressed="'+(state.language==="en")+'">EN</button></div><span class="avatar" title="Démo">D</span></div></header>'
+  +'<div class="topbar-actions"><div class="lang-switch" role="group" aria-label="Language"><button type="button" class="lang-btn'+(state.language==="fr"?" active":"")+'" data-action="lang" data-lang="fr" aria-pressed="'+(state.language==="fr")+'">FR</button><button type="button" class="lang-btn'+(state.language==="en"?" active":"")+'" data-action="lang" data-lang="en" aria-pressed="'+(state.language==="en")+'">EN</button></div>'+googleButton()+'</div></header>'
   +'<main id="page-main" class="main">'+content+'<footer class="page-bottom">'+T("note")+'</footer></main></div></div>'
   +'<nav class="mobile-nav'+(PUBLIC_DEMO?' public':'')+'" aria-label="Navigation mobile">'+navButton("home",state.language==="fr"?"Accueil":"Home","home",true)+navButton("library",T("library"),"library",true)+navButton("routines",T("routines"),"routine",true)+(PUBLIC_DEMO?'':navButton("admin",T("admin"),"settings",true))+'</nav>'
   +(state.toast?'<div class="toast" role="status">'+esc(state.toast)+'</div>':"");
@@ -191,7 +222,7 @@ function adminPreview(){
   const content=customPicto(item,p,size,false);
   return '<div class="picto-wrapper"><div class="color-shell'+(p.colored?"":" no-color")+'" style="--bordercolor:'+p.color+';--colorwidth:2mm">'+content.replace('class="picto" style="','class="picto" style="width:5cm;height:'+(p.shape==="portrait"?'6.75':'5')+'cm;')+'</div></div>';
 }
-function renderAdmin(){
+function renderAdminTemplate(){
   const p=state.currentPreset;
   return '<div class="page-intro"><div><div class="admin-title"><h1>'+T("adminTitle")+'</h1><span class="label-tag">'+T("demo")+'</span></div><p>'+T("adminCopy")+'</p></div></div>'
   +'<div class="page-two-col"><section class="panel"><h2 class="panel-title">'+T("adminPreview")+'</h2><div id="admin-stage" class="admin-stage">'+adminPreview()+'</div><p class="admin-preview-caption">'+T("example")+' · 5 cm · '+T("changes")+'</p>'
@@ -209,6 +240,60 @@ function renderAdmin(){
   +'<div class="admin-actions" style="margin-top:22px"><button class="btn btn-primary" data-action="save">'+icon("check","btn-icon")+T("save")+'</button><button class="btn btn-quiet" data-action="restore">'+T("restore")+'</button></div>'
   +'</section></div>';
 }
+function renderAdmin(){
+  const fr=state.language==="fr";
+  const sectionNames=fr?{
+    overview:"Vue d'ensemble",bank:"Banque",tools:"Outils",templates:"Gabarits",
+    heading:"Espace de gestion",description:"Un endroit simple pour organiser les pictogrammes et préparer les supports visuels.",
+    status:"MAQUETTE PRIVÉE",sample:"Illustrations de démonstration",samples:"Images de test",privateBank:"Banque privée Supabase",
+    privateInfo:"Le stockage privé et les comptes super admin existent dans Supabase. Cette maquette ne lit pas encore la banque en direct.",
+    bankTitle:"Votre banque de pictogrammes",bankSub:"Classez les pictogrammes par thème et vérifiez les importations avant publication.",
+    sampleTitle:"Exemples de pictogrammes",toolsTitle:"Vos outils",toolsSub:"Des outils pratiques pour préparer des pictogrammes.",
+    toolChrome:"Extension Chrome — importer et rogner",toolChromeSub:"Détectez des images sur une page Web, rognez-les et importez-les comme brouillons dans la banque privée avec votre compte super admin.",
+    openExtension:"Voir l'extension",toolLibrary:"Gestion des brouillons",toolLibrarySub:"La consultation, la révision et la publication dans le vrai super admin seront ajoutées dans la prochaine étape.",
+    toolGabarit:"Personnaliser les gabarits",toolGabaritSub:"Ajustez la bande de texte, les bordures et les proportions des cases.",
+    edit:"Ouvrir les gabarits",soon:"À connecter",noReal:"Aucun actif réel n'est chargé dans cette maquette",
+    mustBePrivate:"L'accès à la banque réelle sera réservé aux comptes super admin authentifiés."
+  }:{
+    overview:"Overview",bank:"Library",tools:"Tools",templates:"Templates",
+    heading:"Management workspace",description:"A simple place to organize pictograms and prepare visual materials.",
+    status:"PRIVATE MOCKUP",sample:"Sample illustrations",samples:"Sample images",privateBank:"Private Supabase bank",
+    privateInfo:"Private storage and super admin accounts exist in Supabase. This mockup does not yet load the database.",
+    bankTitle:"Your pictogram library",bankSub:"Organize pictograms and review imports before publishing.",
+    sampleTitle:"Sample pictograms",toolsTitle:"Your tools",toolsSub:"Helpful tools for preparing pictograms.",
+    toolChrome:"Chrome extension — import and crop",toolChromeSub:"Detect and crop images from websites and import them as private drafts with your super admin account.",
+    openExtension:"View extension",toolLibrary:"Draft management",toolLibrarySub:"Reviewing and publishing through the actual super admin will be added in a later step.",
+    toolGabarit:"Customize templates",toolGabaritSub:"Adjust label bands, borders and cell proportions.",
+    edit:"Open templates",soon:"Not connected yet",noReal:"No actual imported assets are loaded in this mockup",
+    mustBePrivate:"The real library will only be available to authenticated super admins."
+  };
+  const tab=(name,title,ico)=>'<button class="admin-tab'+(state.adminTab===name?' active':'')+'" type="button" data-action="admin-tab" data-tab="'+name+'" aria-pressed="'+(state.adminTab===name)+'">'+icon(ico)+esc(title)+'</button>';
+  const preview=samples.slice(0,6).map(pic=>'<div class="admin-bank-card">'+customPicto(pic,state.currentPreset,5,true)+'<strong>'+esc(labelFor(pic,state.language))+'</strong><small>'+esc(fr?"Exemple · Non publié":"Sample · Not published")+'</small></div>').join("");
+  const info='<div class="admin-surface-note">'+icon("info","btn-icon")+' '+esc(sectionNames.privateInfo)+'</div>';
+  let body="";
+  if(state.adminTab==="overview"){
+    body='<div class="admin-overview-grid"><article class="admin-stat"><span>'+esc(sectionNames.samples)+'</span><strong>'+samples.length+'</strong><small>'+esc(sectionNames.sample)+'</small></article>'
+      +'<article class="admin-stat"><span>'+esc(sectionNames.privateBank)+'</span><strong>'+icon("database","admin-big-icon")+'</strong><small>'+esc(sectionNames.soon)+'</small></article>'
+      +'<article class="admin-stat"><span>'+esc(sectionNames.tools)+'</span><strong>'+icon("settings","admin-big-icon")+'</strong><small>'+esc(sectionNames.toolChrome)+'</small></article></div>'
+      +'<div class="admin-dual-panels"><section class="admin-surface"><div class="admin-surface-head"><h2>'+esc(sectionNames.sampleTitle)+'</h2><button class="admin-action-link" data-action="admin-tab" data-tab="bank">'+esc(sectionNames.bankTitle)+' →</button></div><div class="admin-bank-grid">'+preview+'</div></section>'
+      +'<section class="admin-surface"><h2>'+esc(sectionNames.toolsTitle)+'</h2><p>'+esc(sectionNames.toolsSub)+'</p>'
+      +'<button class="admin-feature-action" data-action="admin-tab" data-tab="tools">'+icon("upload")+esc(sectionNames.toolChrome)+' '+icon("arrow","btn-icon")+'</button>'
+      +'<button class="admin-feature-action" data-action="admin-tab" data-tab="templates">'+icon("settings")+esc(sectionNames.toolGabarit)+' '+icon("arrow","btn-icon")+'</button></section></div>'+info;
+  }else if(state.adminTab==="bank"){
+    body='<section class="admin-surface"><div class="admin-surface-head"><div><h2>'+esc(sectionNames.bankTitle)+'</h2><p>'+esc(sectionNames.bankSub)+'</p></div><span class="admin-chip">'+esc(sectionNames.sample)+'</span></div>'
+      +'<div class="admin-bank-grid">'+preview+'</div></section>'+info;
+  }else if(state.adminTab==="tools"){
+    body='<section class="admin-surface"><h2>'+esc(sectionNames.toolsTitle)+'</h2><p>'+esc(sectionNames.toolsSub)+'</p><div class="admin-tool-grid">'
+      +'<article class="admin-tool"><span class="admin-tool-icon">'+icon("upload")+'</span><h3>'+esc(sectionNames.toolChrome)+'</h3><p>'+esc(sectionNames.toolChromeSub)+'</p>'
+      +'<a class="btn btn-primary" href="https://github.com/fredvolks/pictogram/tree/setup/prompt-maitre-projet-picto/chrome-extension" target="_blank" rel="noopener noreferrer">'+esc(sectionNames.openExtension)+' ↗</a></article>'
+      +'<article class="admin-tool"><span class="admin-tool-icon">'+icon("library")+'</span><h3>'+esc(sectionNames.toolLibrary)+'</h3><p>'+esc(sectionNames.toolLibrarySub)+'</p><span class="admin-chip">'+esc(sectionNames.soon)+'</span></article>'
+      +'<article class="admin-tool"><span class="admin-tool-icon">'+icon("settings")+'</span><h3>'+esc(sectionNames.toolGabarit)+'</h3><p>'+esc(sectionNames.toolGabaritSub)+'</p><button class="btn btn-light" data-action="admin-tab" data-tab="templates">'+esc(sectionNames.edit)+'</button></article></div></section>'+info;
+  }else body=renderAdminTemplate();
+  return '<div class="admin-ui"><div class="admin-ui-title"><div><div class="eyebrow">'+esc(sectionNames.status)+'</div><h1>'+esc(sectionNames.heading)+'</h1><p>'+esc(sectionNames.description)+'</p></div></div>'
+    +'<nav class="admin-tabs" aria-label="'+esc(fr?"Sections administrateur":"Admin sections")+'">'+tab("overview",sectionNames.overview,"home")+tab("bank",sectionNames.bank,"library")+tab("tools",sectionNames.tools,"settings")+tab("templates",sectionNames.templates,"routine")+'</nav>'
+    +body+'</div>';
+}
+
 function adminRange(key,label,value,min,max,step,unit){
   return '<div class="control full-span"><div class="range-header"><label for="admin-'+key+'">'+label+'</label><output id="out-'+key+'">'+fmt(value)+' '+unit+'</output></div><input id="admin-'+key+'" data-input="admin-range" data-key="'+key+'" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+value+'"></div>';
 }
@@ -216,7 +301,7 @@ function render(){
   if(PUBLIC_DEMO && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":"admin"));
-  root.innerHTML=state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc}):shell(state.page==="routines"?renderRoutine():state.page==="admin"?renderAdmin():renderLibrary());
+  root.innerHTML=state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="admin"?renderAdmin():renderLibrary());
 }
 function syncRoutine(){store("pictau-routine",state.routine);}
 function notify(message){state.toast=message;render();}
@@ -239,12 +324,15 @@ root.addEventListener("click",function(event){
   if(el.tagName==="A")event.preventDefault();
   const a=el.dataset.action;
   if(a==="nav"){if(PUBLIC_DEMO && el.dataset.page==="admin")return;state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});}
+  if(a==="google-login"){authStatus.working=true;render();void loginGoogle(window.location.href).catch(err=>{authStatus.working=false;authStatus.error=String(err.message||err);notify(state.language==="fr"?"Connexion Google impossible : "+authStatus.error:"Google sign-in failed: "+authStatus.error);});return;}
+  if(a==="google-logout"){authStatus.working=true;render();void logoutGoogle().then(()=>{authStatus.user=null;authStatus.working=false;render();}).catch(err=>{authStatus.working=false;notify(String(err.message||err));});return;}
   if(a==="lang"){state.language=el.dataset.lang;store("pictau-language",state.language);state.toast="";render();}
   if(a==="add"){if(state.routine.length>=10){notify(T("full"));return;}state.routine=addToRoutine(state.routine,el.dataset.id);syncRoutine();notify(T("added"));}
   if(a==="remove"){state.routine.splice(Number(el.dataset.index),1);syncRoutine();render();}
   if(a==="move"){state.routine=moveRoutine(state.routine,Number(el.dataset.index),Number(el.dataset.direction));syncRoutine();render();}
   if(a==="clear"){state.search="";state.theme="all";render();}
   if(a==="print"){if(state.routine.length>=2&&routineFitsPaper(state.routine,state.widthCm,state.paper))window.print();}
+  if(a==="admin-tab"){state.adminTab=el.dataset.tab;state.toast="";render();}
   if(a==="save"){if(!validatePreset(state.currentPreset)){notify(T("unavailable"));return;}state.savedPreset={...state.currentPreset};store("pictau-preset",state.savedPreset);notify(T("saved"));}
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
@@ -274,3 +362,4 @@ root.addEventListener("change",function(event){
   render();
 });
 render();
+void initializeGoogle();

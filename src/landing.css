@@ -156,3 +156,7 @@
  .home-footer{display:block;padding:19px 20px}
  .home-footer p{margin:12px 0 6px}
 }
+
+.home-header-right .login-google{border-color:#d7dcd5;background:#fff}
+.home-header-right .login-signout{background:#f6f7f4}
+@media(max-width:600px){.home-header-right .login-google{padding:7px 8px;font-size:10px;min-height:36px}.home-header-right .login-identity{max-width:145px}.home-header-right .login-username{max-width:70px}}

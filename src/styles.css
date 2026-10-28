@@ -31,3 +31,52 @@
 .btn-light{color:#354038}.count-badge{background:#eef1ed;color:#45564a}
 .tag.active{background:#28332a;border-color:#28332a}
 .sample-card:hover{box-shadow:0 12px 26px #0000000c}
+
+
+/* Super admin — maquette locale seulement, jamais dans le build public. */
+.admin-ui{color:#242924;max-width:1340px;margin:auto}
+.admin-ui-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 24px}
+.admin-ui-title h1{font-size:clamp(28px,3vw,36px);letter-spacing:-1.4px;margin:8px 0}
+.admin-ui-title p{font-size:13px;color:#788278;line-height:1.65;margin:0}
+.admin-tabs{display:flex;flex-wrap:wrap;gap:9px;border-bottom:1px solid #e3e7e1;padding-bottom:16px;margin-bottom:22px}
+.admin-tab{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e3e7e1;border-radius:11px;padding:11px 15px;color:#626a61;font-size:12px;font-weight:800}
+.admin-tab svg{height:18px;width:18px}.admin-tab.active{color:#fff;background:#252d26;border-color:#252d26}
+.admin-overview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:22px}
+.admin-stat{background:#fff;border:1px solid #e6eae4;border-radius:15px;padding:22px;min-height:130px;display:flex;flex-direction:column}
+.admin-stat>span{font-size:11px;color:#798278;font-weight:700}
+.admin-stat>strong{font-size:29px;letter-spacing:-1px;margin:13px 0 5px}
+.admin-stat>small{color:#939b90;font-size:11px}.admin-big-icon{width:27px;height:27px;color:#2c352c}
+.admin-dual-panels{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(265px,.7fr);gap:18px}
+.admin-surface{background:#fff;border:1px solid #e4e9e3;border-radius:17px;padding:22px;min-width:0;margin-bottom:18px}
+.admin-surface h2{font-size:18px;letter-spacing:-.6px;margin:0 0 7px;color:#293029}
+.admin-surface>p,.admin-surface-head p{color:#859084;line-height:1.6;font-size:12px;margin:0 0 20px}
+.admin-surface-head{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
+.admin-action-link{border:0;background:transparent;font-weight:800;color:#424e40;font-size:12px}
+.admin-bank-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.admin-bank-card{border:1px solid #ebeeeb;border-radius:13px;padding:12px;text-align:center;min-width:0}
+.admin-bank-card .color-shell{width:100%;max-width:128px}
+.admin-bank-card .picto-thumbnail{max-width:100%;aspect-ratio:1}
+.admin-bank-card strong{display:block;margin-top:9px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-bank-card small{display:block;color:#98a098;font-size:10px;margin-top:4px}
+.admin-feature-action{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #ecefec;background:#fff;padding:13px 11px;border-radius:11px;font-weight:700;color:#354036;font-size:12px;margin-top:10px}
+.admin-feature-action:hover{background:#f6f8f5}.admin-feature-action svg{width:18px;height:18px;flex:0 0 auto}.admin-feature-action .btn-icon{margin-left:auto}
+.admin-chip{display:inline-flex;color:#687567;background:#f1f4ef;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:800;white-space:nowrap}
+.admin-surface-note{font-size:12px;padding:14px 16px;background:#f6f8f4;color:#667364;border-radius:11px;display:flex;align-items:start;gap:9px;line-height:1.5}
+.admin-surface-note svg{flex:none;margin-top:2px}
+.admin-tool-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.admin-tool{border:1px solid #e7eae5;border-radius:14px;padding:20px;display:flex;flex-direction:column;align-items:start}
+.admin-tool-icon{width:45px;height:45px;background:#f1f3ef;display:grid;place-items:center;border-radius:12px}
+.admin-tool-icon svg{width:22px;height:22px}
+.admin-tool h3{font-size:15px;letter-spacing:-.4px;margin:20px 0 8px}
+.admin-tool p{font-size:12px;line-height:1.7;color:#859085;margin:0 0 20px;flex:1}
+.admin-tool .btn{white-space:normal;text-align:center}
+@media(max-width:1100px){.admin-dual-panels{grid-template-columns:1fr}.admin-tool-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.admin-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.admin-tab{font-size:11px;padding:10px}.admin-overview-grid{grid-template-columns:1fr;gap:10px}.admin-stat{min-height:100px;padding:14px}.admin-stat>strong{margin:7px 0 1px}.admin-surface{padding:16px}.admin-bank-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-tool-grid{grid-template-columns:1fr}.admin-ui-title{margin:0 0 18px}}
+
+.login-control{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:1px solid #d5ddd5;background:#fff;color:#232923;min-height:40px;padding:8px 11px;font-weight:800;font-size:11px;white-space:nowrap}
+.login-google:hover:not(:disabled){background:#f2f4f1}
+.google-letter{display:grid;place-items:center;width:18px;height:18px;font-weight:900;font-size:16px;color:#3a6650}
+.login-identity{display:flex;align-items:center;gap:7px;min-width:0}
+.login-username{color:#596459;max-width:134px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.login-signout{min-height:35px;padding:7px 9px}
+@media(max-width:520px){.topbar-actions{gap:7px}.topbar-actions .login-google{font-size:10px;padding:7px 8px;min-height:38px}.topbar-actions .login-username{max-width:80px;font-size:10px}.topbar-actions .login-signout{font-size:10px;padding:7px 8px}}
