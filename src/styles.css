@@ -17,3 +17,17 @@
 .brand-caption{display:block}
 .mobile-brand{text-decoration:none;color:inherit;min-width:0}
 @media(max-width:520px){.page-intro .count-badge{max-width:120px;white-space:normal;text-align:center}}
+
+/* Retour accueil depuis les écrans app */
+.mobile-nav{grid-template-columns:repeat(4,minmax(0,1fr))}
+.mobile-nav.public{grid-template-columns:repeat(3,minmax(0,1fr))}
+.side-link.active{color:#1d211e;background:#f0f2ee}
+.side-link:hover{color:#252d26;background:#f4f5f2}
+.brand-mark{background:#242b25;box-shadow:none}
+.topbar{background:#fff}.lang-switch{background:#eff1ed}.lang-btn.active{color:#232923}
+.hero{background:linear-gradient(110deg,#f3f5f1,#e8ece7);border-color:#e4e9e4}
+.hero h2{color:#242a24}.hero-label{color:#667969}.hero p{color:#748274}
+.btn-primary{background:#28302a;box-shadow:none}.btn-primary:hover:not(:disabled){background:#111711}
+.btn-light{color:#354038}.count-badge{background:#eef1ed;color:#45564a}
+.tag.active{background:#28332a;border-color:#28332a}
+.sample-card:hover{box-shadow:0 12px 26px #0000000c}

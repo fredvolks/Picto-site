@@ -1,4 +1,5 @@
 import {samples} from "./data.js";
+import {renderLanding} from "./landing.js";
 
 // The public Pages build changes this to true. It must never expose the mock admin UI.
 const PUBLIC_DEMO = true;
@@ -77,6 +78,7 @@ const themeNames = {
   en:{all:"All themes",hygiene:"Hygiene",autonomie:"Independence",alimentation:"Food",ecole:"School",loisirs:"Leisure",transport:"Transport",sensoriel:"Sensory"}
 };
 const iconPaths = {
+  home:'<path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-7h6v7"/>',
   library:'<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
   routine:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
   settings:'<path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/>',
@@ -99,7 +101,7 @@ const root = document.querySelector("#app");
 const initial = load("pictau-preset", DEFAULT_PRESET);
 const preset = validatePreset(initial) ? initial : {...DEFAULT_PRESET};
 const state = {
-  page:"library", language:load("pictau-language","fr")==="en"?"en":"fr",
+  page:"home", language:load("pictau-language","fr")==="en"?"en":"fr",
   search:"", theme:"all", sort:"recent",
   routine:Array.isArray(load("pictau-routine",[])) ? load("pictau-routine",[]).filter(x=>samples.some(s=>s.id===x)).slice(0,10):[],
   widthCm:5, paper:"letter", separatorMode:"simple",
@@ -116,14 +118,14 @@ function navButton(page,name,ico,compact){return '<button class="'+(compact?"mob
   +icon(ico)+ '<span>'+esc(name)+'</span>'+(page==="routines"&&!compact?'<span class="side-count">'+state.routine.length+'</span>':"")+'</button>';}
 function shell(content){
   return '<a class="skip" href="#page-main">'+(state.language==="fr"?"Aller au contenu":"Skip to content")+'</a><div class="app-shell">'
-  +'<aside class="sidebar" aria-label="Navigation"><a class="brand" href="#library" data-action="nav" data-page="library">'+brand()+'</a>'
-  +'<div><div class="side-label">MENU</div><nav class="side-links">'+navButton("library",T("library"),"library",false)+navButton("routines",T("routines"),"routine",false)+(PUBLIC_DEMO?'':navButton("admin",T("admin"),"settings",false))+'</nav></div>'
+  +'<aside class="sidebar" aria-label="Navigation"><a class="brand" href="#home" data-action="nav" data-page="home">'+brand()+'</a>'
+  +'<div><div class="side-label">MENU</div><nav class="side-links">'+navButton("home",state.language==="fr"?"Accueil":"Home","home",false)+navButton("library",T("library"),"library",false)+navButton("routines",T("routines"),"routine",false)+(PUBLIC_DEMO?'':navButton("admin",T("admin"),"settings",false))+'</nav></div>'
   +'<div class="sidebar-footer"><strong>'+T("demo")+'</strong><p>'+T("note")+'</p></div></aside>'
   +'<div class="workspace"><header class="topbar"><div class="topbar-heading"><div><div class="eyebrow">'+T("discovery")+'</div><h2 class="topbar-title">'+T(state.page==="library"?"library":state.page==="routines"?"routines":"admin")+'</h2></div></div>'
   +'<a class="mobile-brand" href="#library" data-action="nav" data-page="library">'+brand()+'</a>'
   +'<div class="topbar-actions"><div class="lang-switch" role="group" aria-label="Language"><button type="button" class="lang-btn'+(state.language==="fr"?" active":"")+'" data-action="lang" data-lang="fr" aria-pressed="'+(state.language==="fr")+'">FR</button><button type="button" class="lang-btn'+(state.language==="en"?" active":"")+'" data-action="lang" data-lang="en" aria-pressed="'+(state.language==="en")+'">EN</button></div><span class="avatar" title="Démo">D</span></div></header>'
   +'<main id="page-main" class="main">'+content+'<footer class="page-bottom">'+T("note")+'</footer></main></div></div>'
-  +'<nav class="mobile-nav'+(PUBLIC_DEMO?' public':'')+'" aria-label="Navigation mobile">'+navButton("library",T("library"),"library",true)+navButton("routines",T("routines"),"routine",true)+(PUBLIC_DEMO?'':navButton("admin",T("admin"),"settings",true))+'</nav>'
+  +'<nav class="mobile-nav'+(PUBLIC_DEMO?' public':'')+'" aria-label="Navigation mobile">'+navButton("home",state.language==="fr"?"Accueil":"Home","home",true)+navButton("library",T("library"),"library",true)+navButton("routines",T("routines"),"routine",true)+(PUBLIC_DEMO?'':navButton("admin",T("admin"),"settings",true))+'</nav>'
   +(state.toast?'<div class="toast" role="status">'+esc(state.toast)+'</div>':"");
 }
 function customPicto(item,p,cm,thumb){
@@ -213,8 +215,8 @@ function adminRange(key,label,value,min,max,step,unit){
 function render(){
   if(PUBLIC_DEMO && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
-  document.title="Pict-au — "+T(state.page==="library"?"library":state.page==="routines"?"routines":"admin");
-  root.innerHTML=shell(state.page==="routines"?renderRoutine():state.page==="admin"?renderAdmin():renderLibrary());
+  document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":"admin"));
+  root.innerHTML=state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc}):shell(state.page==="routines"?renderRoutine():state.page==="admin"?renderAdmin():renderLibrary());
 }
 function syncRoutine(){store("pictau-routine",state.routine);}
 function notify(message){state.toast=message;render();}

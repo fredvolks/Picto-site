@@ -1,20 +1,16 @@
 # Pict-au — site public de démonstration
 
-Cette version sert de vitrine de test responsive pour téléphone, tablette et ordinateur.
+Site d'accueil **principalement noir et blanc**, inspiré de la référence visuelle choisie par le propriétaire (sans reproduire les illustrations ni le logo de la référence).
 
-- Bibliothèque de **12 pictogrammes fictifs** (pas d'images maîtresses approuvées)
-- Recherche FR/EN et thèmes
-- Création de routines visuelles (démonstration locale)
-- **Aucun compte client, paiement, ou véritable super admin** dans ce dépôt public
+- Accueil marketing responsive avec maquette ordinateur + téléphone, avantages, fonctionnalités et **un seul forfait**.
+- **Tarif à confirmer** ; aucun paiement, aucun abonnement actif.
+- Bibliothèque d'illustrations fictives, recherche bilingue, routines visuelles de démonstration.
+- **Aucun véritable super admin, secret, connexion utilisateur ni données privées exposés ici.** Le dépôt privé de développement reste `fredvolks/pictogram`.
 
-**Le code de développement, la documentation du prompt maître et la future banque privée** restent dans le dépôt privé `fredvolks/pictogram`. Ne jamais y recopier des données d'utilisateurs ou des secrets.
+## GitHub Pages
 
-## Activer GitHub Pages
-
-Aller dans **Settings → Pages → Build and deployment**, choisir **Deploy from a branch**, puis **main** et **/(root)**, puis Save.
-
-Une fois Pages activé et le déploiement réussi, l'URL attendue sera `https://fredvolks.github.io/Picto-site/`; vérifier l'URL réelle dans l'onglet Settings → Pages avant de la partager.
+Dans **Settings → Pages**, choisir la branche `main` et `/(root)` si nécessaire. URL attendue après déploiement : https://fredvolks.github.io/Picto-site/ . Vérifier le lien réel dans GitHub Pages avant toute annonce officielle.
 
 ## Mise à jour
 
-Les fichiers de démonstration ont été copiés et vérifiés depuis la branche `gh-pages` du dépôt privé. Un mécanisme de synchronisation automatique entre les dépôts pourra être développé plus tard, après revue des droits et secrets nécessaires.
+Copie des seuls fichiers de l'interface issus de la branche de développement. Aucun synchronisme automatique avec le dépôt privé n'est configuré.
