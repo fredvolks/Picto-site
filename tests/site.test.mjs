@@ -73,7 +73,7 @@ test("Trio compact sans faux prix, et aucun second appel à l'inscription",()=>{
   for(const label of ["Trouver","Personnaliser","Imprimer"])assert.ok(html.includes(">"+label+"<"));
   assert.equal((html.match(/class="benefit"/g)||[]).length,3);
   assert.equal((html.match(/class="plan"/g)||[]).length,1);
-  assert.equal((html.match(/Créer mon compte/g)||[]).length,1);
+  assert.equal((html.match(/>Créer mon compte</g)||[]).length,1);
   assert.match(html,/Tarif à confirmer/);
   assert.match(html,/Inscriptions à venir/);
   assert.doesNotMatch(html,/9,99|Stripe|\$\/mois|paiement sécurisé/i);
