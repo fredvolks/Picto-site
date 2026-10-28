@@ -1047,7 +1047,7 @@ function renderAdminHome(){
   return '<section class="admin-dashboard" aria-labelledby="admin-dashboard-title">'
     +'<span class="admin-dashboard-kicker">'+esc(fr?'TABLEAU DE BORD ADMINISTRATEUR':'ADMINISTRATOR DASHBOARD')+'</span>'
     +'<h1 id="admin-dashboard-title">'+esc(fr?'Accueil Super Admin':'Super Admin home')+'</h1>'
-    +'<p>'+esc(fr?'Gérez votre banque privée et vos demandes. Aucun écran client ni contenu fictif dans cet espace.':'Manage your private library and requests. No customer screens or sample content in this workspace.')+'</p>'
+    +'<p>'+esc(fr?'Gérez vos pictogrammes, vos demandes et vos gabarits en un seul endroit.':'Manage your pictograms, requests, and templates in one place.')+'</p>'
     +'<div class="admin-dashboard-summary"><div><span>'+esc(fr?'Fiches dans la banque privée':'Private bank records')+'</span><strong>'+privateBank.total+'</strong></div>'
     +'<div><span>'+esc(fr?'Statut':'Status')+'</span><strong>'+esc(fr?'Accès administrateur vérifié':'Administrator verified')+'</strong></div></div>'
     +'<div class="admin-dashboard-grid">'+links.map(([tab,title,copy,ico])=>
@@ -1072,7 +1072,7 @@ function renderAdminWorkspace(){
   return '<div class="admin-workspace">'
     +'<a href="#admin-main" class="skip">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
     +'<aside class="admin-sidebar" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'
-    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview">'+brand()+'</button>'
+    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview"><span class="admin-brand-mark">P</span><span class="admin-brand-identity"><strong>Pict-<span class="admin-brand-hand">a</span>u</strong><small>SUPER ADMIN</small></span></button>'
     +'<div class="admin-sidebar-caption">'+esc(fr?'ADMINISTRATION':'ADMINISTRATION')+'</div>'
     +'<nav class="admin-side-nav">'+tabs.map(tab=>button(tab)).join('')+'</nav>'
     +'<div class="admin-sidebar-status">'+esc(fr?'Espace administrateur sécurisé':'Secure administrator workspace')+'</div></aside>'
