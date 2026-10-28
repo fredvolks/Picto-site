@@ -3,6 +3,7 @@
 // visuellement et sur papier avant de remplacer le flux d'impression officiel.
 import {scaleMetrics,validatePreset} from "./core.js";
 import {computeArtworkBox,normalizeArtSettings} from "./artwork-layout.js";
+import {findInkBoundsRGBA} from "./png-ink.js";
 
 export const PDF_DPI=300;
 const PT_PER_MM=72/25.4;
@@ -127,6 +128,26 @@ export function assembleJpegPdf(pages){
   chunks.push(toBytes(xref+"trailer\n<< /Size "+objectData.length+" /Root 1 0 R >>\nstartxref\n"+start+"\n%%EOF\n"));
   return new Blob(chunks,{type:"application/pdf"});
 }
+// Les PNG approuvés peuvent être opaques et entourés de blanc : ce blanc
+// n'est pas de l'encre. Les SVG historiques utilisent leur alpha comme avant.
+export function findPrintableArtworkBounds(pixels,width,height,{png=false}={}){
+  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||
+    !pixels||pixels.length!==width*height*4)
+    throw Error("Pixels de composition invalides.");
+  if(png){
+    const ink=findInkBoundsRGBA(pixels,width,height);
+    if(!ink)throw Error("Le PNG ne contient aucun dessin sombre visible.");
+    return {left:ink.x,top:ink.y,right:ink.x+ink.width-1,bottom:ink.y+ink.height-1};
+  }
+  let left=width,top=height,right=-1,bottom=-1;
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++)
+    if(pixels[(y*width+x)*4+3]>24){
+      if(x<left)left=x;if(x>right)right=x;
+      if(y<top)top=y;if(y>bottom)bottom=y;
+    }
+  if(right<left||bottom<top)throw Error("Le pictogramme ne contient aucun dessin visible.");
+  return {left,top,right,bottom};
+}
 async function loadArtwork(source){
   if(source instanceof Blob){
     const magic=new Uint8Array(await source.slice(0,8).arrayBuffer());
@@ -147,27 +168,21 @@ async function loadArtwork(source){
     if(!img.naturalWidth||!img.naturalHeight)throw Error("Illustration PDF non décodable.");
   }finally{URL.revokeObjectURL(url);}
   const size=png?1200:600;
+  // Ne pas étirer une illustration rectangulaire en carré pendant la mesure.
+  const maxSide=Math.max(img.naturalWidth,img.naturalHeight);
+  const scanWidth=png?Math.max(1,Math.round(size*img.naturalWidth/maxSide)):size;
+  const scanHeight=png?Math.max(1,Math.round(size*img.naturalHeight/maxSide)):size;
   const raster=document.createElement("canvas");
-  raster.width=size;raster.height=size;
+  raster.width=scanWidth;raster.height=scanHeight;
   const ctx=raster.getContext("2d",{willReadFrequently:true});
   if(!ctx)throw Error("Impossible de mesurer le dessin vectoriel.");
-  ctx.clearRect(0,0,size,size);
-  ctx.drawImage(img,0,0,size,size);
-  const pixels=ctx.getImageData(0,0,size,size).data;
-  let left=size,top=size,right=-1,bottom=-1;
-  for(let y=0;y<size;y++){
-    for(let x=0;x<size;x++){
-      if(pixels[(y*size+x)*4+3]>24){
-        if(x<left)left=x;if(x>right)right=x;
-        if(y<top)top=y;if(y>bottom)bottom=y;
-      }
-    }
-  }
-  if(right<left||bottom<top)throw Error("Le pictogramme ne contient aucun dessin visible.");
-  // Trois unités de marge, cohérentes avec cropSvg() du moteur d'aperçu.
-  const margin=15;
+  ctx.clearRect(0,0,scanWidth,scanHeight);
+  ctx.drawImage(img,0,0,scanWidth,scanHeight);
+  const pixels=ctx.getImageData(0,0,scanWidth,scanHeight).data;
+  let {left,top,right,bottom}=findPrintableArtworkBounds(pixels,scanWidth,scanHeight,{png});
+  const margin=png?30:15;
   left=Math.max(0,left-margin);top=Math.max(0,top-margin);
-  right=Math.min(size-1,right+margin);bottom=Math.min(size-1,bottom+margin);
+  right=Math.min(scanWidth-1,right+margin);bottom=Math.min(scanHeight-1,bottom+margin);
   const width=right-left+1,height=bottom-top+1;
   const crop=document.createElement("canvas");
   crop.width=width;crop.height=height;
