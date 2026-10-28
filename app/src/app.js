@@ -22,7 +22,7 @@ import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishe
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
-import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
+import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
@@ -181,12 +181,12 @@ async function fetchCaptionFeature(){
     }
   }
 }
-const editableDrafts={items:[],loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
+const editableDrafts={items:[],total:0,page:0,loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
   openEpoch:{routine:0,board:0},current:{routine:null,board:null},dirty:{routine:false,board:false}};
 function resetEditableDrafts(){
   draftAutosave.reset();editableDrafts.sessionEpoch++;
   editableDrafts.openEpoch.routine++;editableDrafts.openEpoch.board++;
-  editableDrafts.request++;editableDrafts.items=[];editableDrafts.loaded=false;
+  editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.loaded=false;
   editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.deletingKind=null;editableDrafts.copyKind=null;editableDrafts.error="";editableDrafts.message="";
   editableDrafts.current={routine:null,board:null};editableDrafts.dirty={routine:false,board:false};
 }
@@ -196,9 +196,9 @@ async function fetchEditableDrafts(){
   editableDrafts.loading=true;editableDrafts.error="";render();
   try{
     const client=await supabaseClient();
-    const list=await listEditableDrafts(client,uid);
+    const result=await listEditableDraftsAvailablePage(client,uid,{page:editableDrafts.page});
     if(token!==editableDrafts.request||authStatus.user?.id!==uid)return;
-    editableDrafts.items=list;editableDrafts.loaded=true;
+    editableDrafts.items=result.items;editableDrafts.total=result.total;editableDrafts.page=result.page;editableDrafts.loaded=true;
   }catch(error){
     if(token!==editableDrafts.request||authStatus.user?.id!==uid)return;
     editableDrafts.error=String(error?.message||error);
@@ -1687,6 +1687,10 @@ function renderClientCreate(){
        +'<small>'+esc(doc.kind==="routine"?(fr?'Routine':'Routine'):(fr?'Tableau':'Board'))+' · '+esc(fr?'Version ':'Version ')+doc.revision+'</small></div>'
        +'<div class="pa-drafts-actions"><button type="button" data-action="draft-open" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Modifier':'Edit')+'</button>'
        +'<button type="button" data-action="draft-delete" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Supprimer':'Delete')+'</button></div></li>').join("")+'</ul>')
+   +(editableDrafts.loaded&&editableDrafts.total>MAX_EDITABLE_DRAFTS?'<nav class="pa-drafts-pages" aria-label="'+esc(fr?'Pages de Mes brouillons':'My drafts pages')+'">'
+     +'<button class="btn btn-light" type="button" data-action="draft-page" data-direction="-1"'+(editableDrafts.page===0||editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Précédent':'Previous')+'</button>'
+     +'<span role="status">'+esc(fr?'Page ':'Page ')+(editableDrafts.page+1)+' / '+Math.ceil(editableDrafts.total/MAX_EDITABLE_DRAFTS)+' · '+editableDrafts.total+' '+esc(fr?'brouillons':'drafts')+'</span>'
+     +'<button class="btn btn-light" type="button" data-action="draft-page" data-direction="1"'+(editableDrafts.page>=Math.ceil(editableDrafts.total/MAX_EDITABLE_DRAFTS)-1||editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Suivant':'Next')+'</button></nav>':'')
    +(editableDrafts.message?'<p role="status">'+esc(editableDrafts.message)+'</p>':'')
    +'</section></section>';
 }
@@ -1892,6 +1896,13 @@ root.addEventListener("click",function(event){
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
   if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;resetSingleApprovedAdd();if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
+  if(a==="draft-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.loading&&!editableDrafts.busy){
+    const direction=Number(el.dataset.direction),next=editableDrafts.page+direction;
+    if(![-1,1].includes(direction)||!Number.isSafeInteger(next)||next<0||
+      next>=Math.ceil(editableDrafts.total/MAX_EDITABLE_DRAFTS))return;
+    editableDrafts.page=next;
+    void fetchEditableDrafts();return;
+  }
   if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
     void fetchEditableDrafts();return;
   }
@@ -2061,11 +2072,14 @@ root.addEventListener("click",function(event){
     if(active)editableDrafts.deletingKind=doc.kind;
     editableDrafts.busy=true;editableDrafts.error="";render();
     void(async()=>{
+      let deleted=false;
       try{
         const client=await supabaseClient();
         await deleteEditableDraft(client,uid,doc.id,revision);
         if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
         editableDrafts.items=editableDrafts.items.filter(item=>item.id!==doc.id);
+        editableDrafts.total=Math.max(0,editableDrafts.total-1);
+        deleted=true;
         if(active&&editableDrafts.current[doc.kind]?.id===doc.id){
           const unchanged=deletion.complete();
           editableDrafts.openEpoch[doc.kind]++;
@@ -2095,6 +2109,7 @@ root.addEventListener("click",function(event){
         if(authStatus.user?.id===uid&&request===editableDrafts.request){
           editableDrafts.deletingKind=null;
           editableDrafts.busy=false;render();
+          if(deleted)void fetchEditableDrafts();
         }
       }
     })();return;

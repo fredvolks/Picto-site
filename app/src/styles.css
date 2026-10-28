@@ -1450,3 +1450,17 @@
   .pa-client-workspace .pa-client-creation-actions button{min-width:0;white-space:normal}
   .pa-client-workspace .pa-client-creation-actions [data-action="files-edit-source"]{grid-column:1/-1}
 }
+
+/* Mes brouillons — retrouver les créations anciennes, téléphone/tablette/PC. */
+@media screen{
+  .pa-drafts-pages{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+    gap:12px;margin:16px 0;color:#333}
+  .pa-drafts-pages .btn{min-height:44px;min-width:110px;max-width:100%}
+  .pa-drafts-pages span{font-size:14px;line-height:1.45;text-align:center;overflow-wrap:anywhere}
+}
+@media screen and (max-width:520px){
+  .pa-drafts-pages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .pa-drafts-pages span{grid-row:1;grid-column:1/-1}
+  .pa-drafts-pages .btn{min-width:0;width:100%}
+}
+@media print{.pa-drafts-pages{display:none!important}}
