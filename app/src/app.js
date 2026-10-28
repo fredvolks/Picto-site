@@ -411,6 +411,7 @@ async function refreshPrivateBank(client,userId){
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
     authStatus.roleReady=true;authStatus.roleError="";
+    if(SITE_EMBEDDED&&!result.authorized&&state.page==="home")void fetchClientFiles(client,userId);
     if(SITE_EMBEDDED&&result.authorized){state.page="admin";state.adminTab="overview";}
     else if(SITE_EMBEDDED&&state.page==="admin")state.page="home";
     privateBank.items=result.items;privateBank.total=result.total;privateBank.page=result.page;
@@ -503,7 +504,7 @@ const initial = load("pictau-preset", DEFAULT_PRESET);
 const preset=restoreVersionedPreset(initial,DEFAULT_PRESET,validatePreset);
 const state = {
   page:"home", language:load("pictau-language","fr")==="en"?"en":"fr",
-  search:"", theme:"all", sort:"recent", showFavorites:false, detailId:null,
+  search:"", clientCategory:"", theme:"all", sort:"recent", showFavorites:false, detailId:null,
   recentlyViewed:sanitizedDemoIds(load("pictau-demo-recent",[]),samples.map(x=>x.id),8),
   favorites:Array.isArray(load("pictau-demo-favorites",[]))?[...new Set(load("pictau-demo-favorites",[]).filter(id=>samples.some(item=>item.id===id)))].slice(0,samples.length):[],
   routine:Array.isArray(load("pictau-routine",[])) ? load("pictau-routine",[]).filter(x=>samples.some(s=>s.id===x)).slice(0,10):[],
@@ -1087,14 +1088,122 @@ function renderAdminWorkspace(){
     +'<nav class="admin-mobile-nav" aria-label="'+esc(fr?'Navigation Super Admin mobile':'Mobile Super Admin navigation')+'">'
     +tabs.map(tab=>button(tab,true)).join('')+'</nav></div>';
 }
-function renderClientHome(){
+// BOUTIQUE CLIENT : structure premium noire et blanche, contenus uniquement du vrai compte.
+const CLIENT_CATEGORIES=[
+  ["alimentation","Alimentation","Food"],["hygiene","Hygiène","Hygiene"],
+  ["autonomie","Autonomie","Independence"],["ecole","École","School"],
+  ["loisirs","Loisirs","Leisure"],["socialisation","Socialisation","Socialization"],
+  ["actions","Actions","Actions"],["consignes","Consignes","Instructions"],
+  ["emotions","Émotions","Emotions"],["sensoriel","Sensoriel","Sensory"],
+  ["lieux","Lieux","Places"],["transport","Transport","Transport"]
+];
+function clientNavItems(){
   const fr=state.language==="fr";
-  return '<section class="hosted-library-empty" aria-labelledby="client-home-title">'
-    +'<span class="hosted-access-eyebrow">'+esc(fr?'MON ESPACE':'MY SPACE')+'</span>'
-    +'<h1 id="client-home-title">'+esc(fr?'Accueil de mon espace':'My workspace home')+'</h1>'
-    +'<p>'+esc(fr?'Retrouvez vos fichiers enregistrés et vos demandes. Les pictogrammes officiels apparaîtront dans la bibliothèque après publication.':'Find your saved files and requests. Official pictograms will appear in the library after publication.')+'</p>'
-    +'<div class="client-home-actions"><button type="button" class="btn btn-primary" data-action="nav" data-page="files">'+icon("file-text","btn-icon")+esc(fr?'Mes fichiers':'My files')+'</button>'
-    +'<button type="button" class="btn btn-light" data-action="nav" data-page="library">'+icon("library","btn-icon")+esc(fr?'Bibliothèque':'Library')+'</button></div></section>';
+  return [
+    ["home",fr?"Accueil":"Home","home"],
+    ["library",fr?"Bibliothèque":"Library","library"],
+    ["files",fr?"Mes créations":"My creations","file-text"],
+    ["boards",fr?"Tableaux de communication":"Communication boards","routine"],
+    ["search",fr?"Rechercher":"Search","search"],
+    ["account",fr?"Mon compte":"My account","settings"]
+  ];
+}
+function renderClientWorkspace(content){
+  const fr=state.language==="fr";
+  const items=clientNavItems();
+  const action=(entry,cls)=>{
+    const [page,title,ico]=entry,active=page==="search"?false:state.page===page;
+    return '<button type="button" class="'+cls+(active?' active':'')+'" data-action="'+(page==="search"?"client-search":"nav")+'"'
+      +(page==="search"?'':' data-page="'+page+'"')+(active?' aria-current="page"':'')
+      +'>'+icon(ico)+'<span>'+esc(title)+'</span></button>';
+  };
+  return '<div class="pa-client-workspace">'
+    +'<a class="skip" href="#pa-client-main">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
+    +'<header class="pa-client-header"><button class="pa-client-brand" type="button" data-action="nav" data-page="home" aria-label="Pict-au, '+esc(fr?'accueil':'home')+'">Pict-<span>a</span>u</button>'
+    +'<nav class="pa-client-desktop-nav" aria-label="'+esc(fr?'Navigation de mon espace':'My space navigation')+'">'
+    +items.map(x=>action(x,"pa-client-nav-link")).join("")+'</nav>'
+    +'<div class="pa-client-tools"><div class="lang-switch" role="group" aria-label="Language">'
+    +'<button class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
+    +'<button class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
+    +'<button type="button" class="pa-client-profile" data-action="nav" data-page="account" title="'+esc(authStatus.user?.email||"")+'">'
+    +icon("settings")+'<span>'+esc(fr?'Mon compte':'My account')+'</span></button></div></header>'
+    +'<main class="pa-client-main" id="pa-client-main">'+content+'</main>'
+    +'<nav class="pa-client-mobile-nav" aria-label="'+esc(fr?'Navigation mobile client':'Client mobile navigation')+'">'
+    +items.filter(x=>x[0]!=="search").map(x=>action(x,"pa-client-mobile-link")).join("")+'</nav>'
+    +(state.toast?'<div class="toast" role="status">'+esc(state.toast)+'</div>':'')+'</div>';
+}
+function renderClientHome(){
+  const fr=state.language==="fr",hasFiles=clientFiles.items.length>0;
+  return '<div class="pa-client-home">'
+    +'<section class="pa-client-hero" aria-labelledby="client-home-title"><div class="pa-client-hero-copy">'
+    +'<span class="pa-client-overline">PICT-AU · '+esc(fr?'VOTRE ESPACE':'YOUR SPACE')+'</span>'
+    +'<h1 id="client-home-title">'+esc(fr?'Vos repères visuels, à votre façon.':'Visual support, made for you.')+'</h1>'
+    +'<p>'+esc(fr?'Retrouvez vos créations et explorez les catégories de pictogrammes. Un espace clair pour préparer vos supports.':'Find your creations and explore pictogram categories. A simple space for your visual supports.')+'</p>'
+    +'<div class="pa-client-hero-actions"><button type="button" class="btn btn-primary" data-action="nav" data-page="create">'+esc(fr?'Créer un support':'Create a visual support')+icon("arrow")+'</button>'
+    +'<button type="button" class="btn btn-light" data-action="nav" data-page="library">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</button></div></div>'
+    +'<div class="pa-client-hero-aside"><span class="pa-client-hero-icon">'+icon("library")+'</span><strong>'+esc(fr?'Des supports qui vous ressemblent.':'Supports that fit your needs.')+'</strong>'
+    +'<span>'+esc(fr?'Dessins et textes alignés, prêts à être imprimés après publication.':'Clear images and captions, once artwork is published.')+'</span></div></section>'
+    +'<section class="pa-client-section" aria-labelledby="pa-creations-title"><div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'PRIVÉ ET ENREGISTRÉ':'PRIVATE AND SAVED')+'</span>'
+    +'<h2 id="pa-creations-title">'+esc(fr?'Mes créations':'My creations')+'</h2></div>'
+    +'<button class="pa-client-text-link" type="button" data-action="nav" data-page="files">'+esc(fr?'Tout retrouver':'View all')+icon("arrow")+'</button></div>'
+    +(clientFiles.loading?'<p role="status" class="pa-client-empty-text">'+esc(fr?'Chargement de vos fichiers…':'Loading your files…')+'</p>':
+       hasFiles?'<div class="pa-client-creation-list">'+clientFiles.items.slice(0,3).map(doc=>
+        '<button type="button" class="pa-client-creation" data-action="nav" data-page="files">'
+        +icon("file-text")+'<span><strong>'+esc(doc.title||"PDF")+'</strong><small>'+esc(fr?'Document conservé dans votre compte':'Document saved in your account')+'</small></span>'+icon("arrow")+'</button>'
+        ).join("")+'</div>':
+        '<div class="pa-client-empty"><div>'+icon("file-text")+'<h3>'+esc(fr?'Aucune création enregistrée':'No saved creations yet')+'</h3><p>'+esc(fr?'Vos PDF apparaîtront ici dès leur enregistrement dans votre compte.':'Your PDFs will appear here when saved to your account.')+'</p></div>'
+        +'<button class="btn btn-light" type="button" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button></div>')
+    +'</section>'
+    +'<section class="pa-client-section" aria-labelledby="pa-categories-title"><div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'PARCOURIR':'BROWSE')+'</span>'
+    +'<h2 id="pa-categories-title">'+esc(fr?'Catégories':'Categories')+'</h2></div><span class="pa-client-section-meta">'+esc(fr?'Pictogrammes en préparation':'Artwork in preparation')+'</span></div>'
+    +'<div class="pa-client-categories">'+CLIENT_CATEGORIES.map(([key,frName,enName])=>
+       '<button type="button" class="pa-client-category" data-action="client-category" data-category="'+esc(key)+'">'
+       +'<span>'+esc(fr?frName:enName)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
+    +'<p class="pa-client-context">'+esc(fr?'Aucune illustration fictive : les vrais pictogrammes apparaîtront ici après leur approbation.':'No placeholder illustrations: approved artwork will appear here once published.')+'</p>'
+    +'</section></div>';
+}
+function renderClientLibrary(){
+  const fr=state.language==="fr";
+  const c=CLIENT_CATEGORIES.find(x=>x[0]===state.clientCategory);
+  return '<section class="pa-client-catalog" aria-labelledby="pa-catalog-title">'
+    +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'BIBLIOTHÈQUE':'LIBRARY')+'</span>'
+    +'<h1 id="pa-catalog-title">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</h1></div></div>'
+    +'<div class="pa-client-search-wrap"><label for="pa-client-search">'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</label>'
+    +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="100"'
+    +' value="'+esc(state.search)+'" placeholder="'+esc(fr?'Ex. : toilette, manger, école…':'E.g. bathroom, eat, school…')+'"></div></div>'
+    +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
+    +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="">'+esc(fr?'Toutes':'All')+'</button>'
+    +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'">'
+      +esc(fr?frName:enName)+'</button>').join("")+'</div>'
+    +'<div class="pa-client-empty pa-client-catalog-empty">'+icon("library")+'<div><h2>'+esc(fr?'Aucun pictogramme publié pour le moment':'No published pictograms yet')+'</h2>'
+    +'<p>'+esc(fr?'La banque officielle est en préparation. Les recherches et catégories sont prêtes, mais aucune image de test ne sera affichée comme un vrai pictogramme.':'The official library is being prepared. Search and categories are available, but test images will never be shown as real pictograms.')+'</p>'
+    +(c?'<p><strong>'+esc(fr?'Catégorie choisie : ':'Selected category: ')+esc(fr?c[1]:c[2])+'</strong></p>':'')
+    +(state.search?'<p><strong>'+esc(fr?'Recherche : ':'Search: ')+esc(state.search)+'</strong></p>':'')+'</div></div>'
+    +'</section>';
+}
+function renderClientCreate(){
+  const fr=state.language==="fr";
+  const items=[
+    ["routines",fr?"Routine visuelle":"Visual routine",fr?"Séquence d’étapes à imprimer":"Printable step-by-step sequence"],
+    ["boards",fr?"Tableau de communication":"Communication board",fr?"Cases organisées pour communiquer":"Organized communication cells"]
+  ];
+  return '<section class="pa-client-catalog pa-client-create"><span class="pa-client-overline">'+esc(fr?'CRÉATION':'CREATE')+'</span>'
+   +'<h1>'+esc(fr?'Quel support souhaitez-vous préparer ?':'What would you like to create?')+'</h1>'
+   +'<p class="pa-client-context">'+esc(fr?'Choisissez un format. Les étapes utilisant des images nécessitent des pictogrammes officiels publiés.':'Choose a format. Image-based steps require published official pictograms.')+'</p>'
+   +'<div class="pa-client-create-grid">'+items.map(([page,title,copy])=>'<button type="button" data-action="nav" data-page="'+page+'" class="pa-client-create-card">'
+   +icon(page==="routines"?"routine":"library")+'<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
+   +'<p class="pa-client-context">'+esc(fr?'Vous possédez déjà un PDF ? Enregistrez-le dans Mes créations pour le retrouver et le réimprimer.':'Already have a PDF? Save it in My creations to find and reprint it later.')+'</p>'
+   +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button></section>';
+}
+function renderClientAccount(){
+  const fr=state.language==="fr";
+  return '<section class="pa-client-account" aria-labelledby="pa-account-title"><span class="pa-client-overline">'+esc(fr?'MON COMPTE':'MY ACCOUNT')+'</span>'
+   +'<h1 id="pa-account-title">'+esc(fr?'Informations du compte':'Account information')+'</h1>'
+   +'<div class="pa-client-account-card"><span>'+esc(fr?'Courriel de connexion':'Account email')+'</span>'
+   +'<strong>'+esc(authStatus.user?.email||"—")+'</strong>'
+   +'<button type="button" class="btn btn-primary" data-action="google-logout">'+esc(fr?'Se déconnecter':'Sign out')+'</button></div>'
+   +'<p class="pa-client-context">'+esc(fr?'Vos créations enregistrées sont associées à votre compte et non à cet appareil.':'Saved creations are tied to your account, not this device.')+'</p>'
+   +'</section>';
 }
 function renderNewPassword(){
   const fr=state.language==="fr";
@@ -1121,18 +1230,7 @@ function renderHostedAccess(){
    +'<h1 id="hosted-access-title">'+esc(fr?'Accéder à mon espace':'Access my space')+'</h1>'
    +'<p>'+esc(fr?'Connectez-vous pour retrouver vos fichiers et vos demandes. Aucune démonstration n’est ajoutée à votre compte.':'Sign in to access your files and requests. No sample content is added to your account.')+'</p>'
    +(wait?'<p class="hosted-access-status" role="status">'+esc(fr?'Vérification de la session…':'Checking your session…')+'</p>':'')
-   +'<form data-form="email-login" class="hosted-email-form">'
-   +'<label for="auth-email">'+esc(fr?'Adresse courriel':'Email address')+'</label>'
-   +'<input id="auth-email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="nom@exemple.com" value="'+esc(authStatus.email)+'">'
-   +'<label for="auth-password">'+esc(fr?'Mot de passe':'Password')+'</label>'
-   +'<input id="auth-password" name="password" type="password" autocomplete="current-password" required>'
-   +'<button type="submit" class="btn btn-primary"'+(authStatus.emailBusy?' disabled':'')+'>'+esc(fr?'Se connecter par courriel':'Sign in with email')+'</button></form>'
-   +'<div class="hosted-email-links"><button type="button" data-action="email-link"'+(authStatus.emailBusy?' disabled':'')+'>'+esc(fr?'Recevoir un lien par courriel':'Get an email sign-in link')+'</button>'
-   +'<button type="button" data-action="email-reset"'+(authStatus.emailBusy?' disabled':'')+'>'+esc(fr?'Mot de passe oublié ?':'Forgot password?')+'</button></div>'
-   +'<div class="hosted-auth-divider"><span>'+esc(fr?'ou':'or')+'</span></div>'
    +'<div class="hosted-access-action">'+googleButton()+'</div>'
-   +(authStatus.emailMessage?'<p class="hosted-email-success" role="status">'+esc(authStatus.emailMessage)+'</p>':'')
-   +(authStatus.emailError?'<p class="hosted-access-error" role="alert">'+esc(authStatus.emailError)+'</p>':'')
    +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'')
    +'<a href="../index.html" class="hosted-access-back">'+esc(fr?'← Retour à l’accueil Pict-au':'← Back to Pict-au home')+'</a>'
    +'</div></main></section>';
@@ -1155,7 +1253,7 @@ function render(){
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
-  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():shell(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="home"?renderClientHome():renderHostedEmpty())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
+  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderHostedEmpty():renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
   updateArtFeedback();
   observeBankThumbnails();
@@ -1241,6 +1339,18 @@ root.addEventListener("click",function(event){
   if(el.tagName==="A")event.preventDefault();
   const a=el.dataset.action;
   if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();}
+  if(a==="client-search"){
+    if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
+    return;
+  }
+  if(a==="client-category"){
+    if(SITE_EMBEDDED&&!canOpenAdmin()){
+      const value=el.dataset.category||"";
+      state.clientCategory=CLIENT_CATEGORIES.some(x=>x[0]===value)?value:"";
+      state.page="library";render();window.scrollTo({top:0,behavior:"instant"});
+    }
+    return;
+  }
   if(a==="files-preview-close"){
     const docId=clientFiles.preview?.id;
     clearClientPreview();render();
@@ -1644,6 +1754,7 @@ root.addEventListener("input",function(event){
     }
     safeFocusAdminSearch();return;
   }
+  if(field==="client-search"){const value=event.target.value;const pos=event.target.selectionStart;state.search=value;render();const next=root.querySelector("#pa-client-search");if(next){next.focus();next.setSelectionRange(pos,pos);}return;}
   if(field==="search"){state.search=event.target.value;render();safeFocusSearch();return;}
   if(field==="admin-range"){const k=event.target.dataset.key;state.currentPreset[k]=Number(event.target.value);const o=document.querySelector("#out-"+k);if(o)o.textContent=fmt(state.currentPreset[k])+" "+(k==="fontPt"?"pt":k==="artPercent"?"%":"mm");adminLive();return;}
   if(event.target.dataset.field==="size"){state.widthCm=clampWidth(event.target.value);routineLive();}

@@ -927,3 +927,169 @@
   .hosted-access-panel{padding:25px 20px}
 }
 @media print{.admin-sidebar,.admin-topbar,.admin-mobile-nav{display:none!important}}
+
+
+/* 28 octobre 2026 — Boutique Pict-au : identité noir & blanc exclusive au client.
+   Aucune de ces règles n'affecte le gabarit imprimé ni le véritable back-office. */
+@media screen{
+.pa-client-workspace{--pa-ink:#111111;--pa-grey:#686868;--pa-soft:#f7f7f7;--pa-line:#e5e5e5;color:var(--pa-ink);background:#fff;min-height:100dvh;font-family:"DM Sans",system-ui,Arial,sans-serif}
+.pa-client-workspace,.pa-client-workspace *{box-sizing:border-box}
+.pa-client-header{position:sticky;z-index:30;top:0;background:#fff;border-bottom:1px solid var(--pa-line);min-height:82px;padding:14px clamp(20px,3.1vw,58px);display:flex;align-items:center;justify-content:space-between;gap:24px}
+.pa-client-brand{font:800 29px/1 "DM Sans",Arial,sans-serif;letter-spacing:-.07em;white-space:nowrap;background:none;border:0;color:var(--pa-ink);padding:3px;cursor:pointer}
+.pa-client-brand span{font-family:"Patrick Hand",cursive;font-size:1.23em;font-weight:400;letter-spacing:-.04em}
+.pa-client-desktop-nav{display:flex;align-items:center;gap:clamp(4px,.6vw,14px);flex-wrap:nowrap;min-width:0}
+.pa-client-nav-link{border:0;background:transparent;color:#5b5b5b;display:flex;align-items:center;gap:0;padding:12px clamp(7px,.9vw,17px);font-size:clamp(12px,.85vw,14px);font-weight:650;min-height:46px;white-space:nowrap;border-radius:10px;cursor:pointer}
+.pa-client-nav-link svg{display:none}
+.pa-client-nav-link.active{color:#111;background:#f5f5f5}
+.pa-client-nav-link:hover,.pa-client-profile:hover{background:#f7f7f7;color:#111}
+.pa-client-nav-link:focus-visible,.pa-client-mobile-link:focus-visible,.pa-client-profile:focus-visible,.pa-client-category:focus-visible,.pa-client-text-link:focus-visible,.pa-client-brand:focus-visible,.pa-client-create-card:focus-visible,.pa-client-creation:focus-visible{outline:3px solid #111;outline-offset:2px}
+.pa-client-tools{display:flex;align-items:center;gap:13px;flex:none}
+.pa-client-tools .lang-switch{background:#f7f7f7;border:1px solid #e5e5e5}
+.pa-client-tools .lang-btn{color:#666}
+.pa-client-tools .lang-btn.active{background:#111;color:#fff;border-color:#111}
+.pa-client-profile{border:1px solid #e5e5e5;border-radius:11px;background:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;min-height:43px;color:#333;font-size:13px;font-weight:650}
+.pa-client-profile svg{width:17px;height:17px}
+.pa-client-main{width:min(100%,1440px);margin:0 auto;padding:clamp(28px,3.5vw,58px) clamp(20px,4.2vw,68px) 80px}
+.pa-client-overline{display:block;font-size:10px;line-height:1.6;letter-spacing:.18em;font-weight:800;color:#777;margin-bottom:10px}
+.pa-client-hero{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(230px,.62fr);gap:20px;align-items:stretch;border:1px solid #e5e5e5;border-radius:25px;background:#f7f7f7;padding:clamp(26px,4.3vw,66px);margin:0 0 44px}
+.pa-client-hero-copy{max-width:725px}
+.pa-client-hero h1{font-size:clamp(31px,3.35vw,54px);font-weight:800;line-height:1.12;letter-spacing:-.053em;max-width:15ch;color:#111;margin:0 0 18px}
+.pa-client-hero p{font-size:clamp(14px,1.1vw,17px);line-height:1.65;color:#555;margin:0 0 28px;max-width:59ch}
+.pa-client-hero-actions,.client-home-actions{display:flex;flex-wrap:wrap;gap:11px}
+.pa-client-workspace .btn{min-height:46px;border-radius:11px;box-shadow:none;font-size:14px;font-weight:700;gap:8px}
+.pa-client-workspace .btn-primary{background:#111!important;color:#fff!important;border:1px solid #111!important}
+.pa-client-workspace .btn-primary:hover{background:#292929!important}
+.pa-client-workspace .btn-light{background:#fff!important;color:#111!important;border:1px solid #c6c6c6!important}
+.pa-client-workspace .btn-light:hover{border-color:#111!important;background:#f7f7f7!important}
+.pa-client-workspace .btn-icon,.pa-client-workspace .btn svg{width:18px;height:18px}
+.pa-client-hero-aside{border:1px solid #e2e2e2;border-radius:20px;padding:25px;background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:15px}
+.pa-client-hero-icon{width:56px;height:56px;border:1px solid #111;border-radius:16px;display:grid;place-items:center;color:#111}
+.pa-client-hero-icon svg{width:27px;height:27px}
+.pa-client-hero-aside strong{font-size:20px;line-height:1.25;letter-spacing:-.025em}
+.pa-client-hero-aside span:last-child{font-size:13px;line-height:1.6;color:#686868}
+.pa-client-section{margin:0 0 47px}
+.pa-client-section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 21px}
+.pa-client-section h2,.pa-client-catalog h1,.pa-client-account h1{font-size:clamp(25px,2.3vw,35px);line-height:1.2;letter-spacing:-.045em;color:#111;margin:0}
+.pa-client-section-meta{font-size:12px;color:#777;text-align:right}
+.pa-client-text-link{background:none;border:0;color:#111;font-size:13px;font-weight:750;display:inline-flex;gap:7px;align-items:center;padding:9px 0}
+.pa-client-text-link svg{width:17px;height:17px}
+.pa-client-empty{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:26px 28px;border:1px dashed #ccc;border-radius:18px;background:#fff}
+.pa-client-empty>div>svg{width:24px;height:24px;margin-bottom:14px;color:#333}
+.pa-client-empty h3{font-size:17px;line-height:1.3;margin:0 0 7px;color:#111}
+.pa-client-empty p,.pa-client-empty-text,.pa-client-context{color:#686868;font-size:14px;line-height:1.65;margin:0}
+.pa-client-creation-list{display:grid;gap:10px}
+.pa-client-creation{display:grid;grid-template-columns:25px minmax(0,1fr) 20px;gap:12px;align-items:center;border:1px solid #e5e5e5;background:#fff;border-radius:16px;padding:17px 19px;text-align:left;min-height:78px}
+.pa-client-creation:hover{border-color:#111}
+.pa-client-creation svg{width:20px;height:20px}
+.pa-client-creation span{display:flex;flex-direction:column;gap:5px;min-width:0}
+.pa-client-creation strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pa-client-creation small{color:#777;font-size:12px}
+.pa-client-categories{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.pa-client-category{display:flex;justify-content:space-between;align-items:center;text-align:left;gap:10px;min-height:80px;border:1px solid #e5e5e5;border-radius:16px;background:#fff;padding:19px;font-size:15px;font-weight:700;color:#111}
+.pa-client-category:hover,.pa-client-category:focus-visible{border-color:#111;background:#f9f9f9}
+.pa-client-category svg{width:17px;height:17px;color:#686868;flex:none}
+.pa-client-section .pa-client-context{margin-top:15px}
+.pa-client-catalog,.pa-client-account{max-width:1150px;margin:0 auto}
+.pa-client-catalog .pa-client-section-head{margin:0 0 30px}
+.pa-client-search-wrap{background:#f7f7f7;border:1px solid #e5e5e5;border-radius:18px;padding:18px;margin-bottom:17px}
+.pa-client-search-wrap>label{display:block;color:#111;font-size:13px;font-weight:750;margin-bottom:10px}
+.pa-client-search-field{display:flex;align-items:center;gap:12px;border:1px solid #d7d7d7;border-radius:12px;background:#fff;padding:0 16px;min-height:54px}
+.pa-client-search-field>svg{width:20px;height:20px;color:#686868;flex:none}
+.pa-client-search-field input{background:transparent;border:0;outline:none;min-height:50px;min-width:0;flex:1;font:500 15px "DM Sans",sans-serif;color:#111}
+.pa-client-search-field:focus-within{outline:2px solid #111;outline-offset:1px}
+.pa-client-category-filters{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 24px}
+.pa-client-category-filters button{border:1px solid #dedede;border-radius:50px;color:#444;background:#fff;padding:10px 15px;font-size:12px;font-weight:650;min-height:40px}
+.pa-client-category-filters button.active{color:#fff;background:#111;border-color:#111}
+.pa-client-catalog-empty{align-items:flex-start;justify-content:flex-start;background:#fafafa;border-style:solid;padding:36px}
+.pa-client-catalog-empty>svg{width:28px;height:28px;flex:none;color:#111}
+.pa-client-catalog-empty h2{font-size:22px;letter-spacing:-.02em;margin:0 0 12px}
+.pa-client-catalog-empty p{font-size:14px;color:#686868;line-height:1.7;margin:0 0 10px}
+.pa-client-create>h1{margin:0 0 14px}
+.pa-client-create>.pa-client-context{margin-bottom:23px}
+.pa-client-create-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 23px}
+.pa-client-create-card{display:grid;grid-template-columns:28px 1fr 20px;gap:9px 14px;align-items:center;text-align:left;padding:24px;border:1px solid #dedede;border-radius:18px;background:#fff;color:#111}
+.pa-client-create-card:hover{border-color:#111}
+.pa-client-create-card svg{width:24px;height:24px;flex:none}
+.pa-client-create-card strong{font-size:18px}
+.pa-client-create-card span{font-size:13px;line-height:1.5;color:#686868;grid-column:2}
+.pa-client-create-card svg:last-child{grid-column:3;grid-row:1/span 2;width:18px}
+.pa-client-account-card{display:flex;flex-direction:column;align-items:flex-start;gap:13px;border:1px solid #e5e5e5;border-radius:18px;padding:30px;margin:24px 0;max-width:650px}
+.pa-client-account-card span{font-size:12px;color:#686868}
+.pa-client-account-card strong{font-size:16px;overflow-wrap:anywhere}
+.pa-client-account-card .btn{margin-top:12px}
+.pa-client-workspace .files-page{background:transparent;max-width:1200px;margin:0 auto}
+.pa-client-workspace .files-page .panel,.pa-client-workspace .files-entry{background:#fff;border:1px solid #e5e5e5;border-radius:17px;box-shadow:none}
+.pa-client-workspace .files-heading h1{color:#111}
+.pa-client-workspace .files-page .client-detail-kicker{color:#686868}
+.pa-client-workspace .files-filters,.pa-client-workspace .files-upload-form{background:#fff}
+.pa-client-workspace .files-page input:focus-visible,.pa-client-workspace .files-page select:focus-visible{outline-color:#111}
+.pa-client-mobile-nav{display:none}
+}
+/* Sidebar Super Admin : palette neutre distincte sans décor coloré superflu. */
+@media screen{
+.admin-workspace{--admin-ink:#111;--admin-blue:#111;--admin-border:#e5e5e5;background:#f8f8f8;color:#111}
+.admin-sidebar{border-color:#e5e5e5}
+.admin-brand-mark{background:#111;color:#fff}
+.admin-brand-identity strong{color:#111}
+.admin-brand-identity small,.admin-sidebar-caption{color:#686868}
+.admin-side-link,.admin-mobile-link{color:#555}
+.admin-side-link.active,.admin-mobile-link.active{background:#f0f0f0;border-color:#ddd;color:#111}
+.admin-sidebar-status{background:#f7f7f7;color:#686868}
+.admin-topbar{border-color:#e5e5e5}
+.admin-topbar-intro span,.admin-dashboard-kicker{color:#686868}
+.admin-topbar-intro strong,.admin-dashboard h1{color:#111}
+.admin-dashboard>p{color:#686868}
+.admin-dashboard-summary>div,.admin-dashboard-card{border-color:#e5e5e5;box-shadow:none}
+.admin-dashboard-summary span,.admin-dashboard-card>span{color:#686868}
+.admin-dashboard-summary strong,.admin-dashboard-card{color:#111}
+.admin-dashboard-card:hover{border-color:#111}
+.admin-workspace .btn-primary{background:#111!important;border-color:#111!important;color:#fff!important}
+.admin-workspace .btn-light{color:#111!important;border-color:#d1d1d1!important;background:#fff!important}
+.admin-workspace .lang-btn.active{background:#111;color:#fff;border-color:#111}
+.admin-workspace button:focus-visible{outline-color:#111}
+}
+@media screen and (max-width:1180px){
+.pa-client-header{gap:11px;padding:13px 20px}
+.pa-client-brand{font-size:26px}
+.pa-client-desktop-nav{gap:0}
+.pa-client-nav-link{padding:10px 7px;font-size:12px}
+.pa-client-tools{gap:8px}
+.pa-client-profile span{display:none}
+}
+@media screen and (max-width:980px){
+.pa-client-desktop-nav{display:none}
+.pa-client-header{min-height:67px}
+.pa-client-main{padding:28px 24px 112px}
+.pa-client-mobile-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;border-top:1px solid #e5e5e5;background:#fff;padding:7px 5px calc(7px + env(safe-area-inset-bottom))}
+.pa-client-mobile-link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:54px;padding:7px 3px;background:transparent;border:0;border-radius:11px;font-size:10px;font-weight:650;line-height:1.25;text-align:center;color:#686868}
+.pa-client-mobile-link svg{width:20px;height:20px;flex:none}
+.pa-client-mobile-link.active{background:#f2f2f2;color:#111}
+.pa-client-hero{grid-template-columns:minmax(0,1fr) minmax(175px,.6fr)}
+.pa-client-categories{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media screen and (max-width:620px){
+.pa-client-header{padding:12px 16px;min-height:61px}
+.pa-client-brand{font-size:25px}
+.pa-client-main{padding:19px 15px 115px}
+.pa-client-hero{grid-template-columns:minmax(0,1fr);padding:29px 22px;margin-bottom:32px;border-radius:20px}
+.pa-client-hero h1{font-size:32px}
+.pa-client-hero p{font-size:14px}
+.pa-client-hero-aside{display:none}
+.pa-client-hero-actions{display:grid;grid-template-columns:1fr}
+.pa-client-hero-actions .btn{width:100%;justify-content:center}
+.pa-client-section{margin-bottom:33px}
+.pa-client-categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.pa-client-category{min-height:65px;padding:13px;font-size:13px;border-radius:13px}
+.pa-client-section-head{align-items:start}
+.pa-client-section-meta{display:none}
+.pa-client-empty{flex-direction:column;align-items:flex-start;padding:23px;gap:17px}
+.pa-client-empty .btn{width:100%;justify-content:center}
+.pa-client-mobile-link{font-size:9px;min-height:53px}
+.pa-client-mobile-link svg{width:19px;height:19px}
+.pa-client-create-grid{grid-template-columns:1fr}
+.pa-client-catalog-empty{padding:20px;flex-direction:column}
+.pa-client-search-wrap{padding:14px}
+.pa-client-workspace .files-page .files-entry-actions{gap:8px}
+.pa-client-workspace .files-page .files-entry-actions .btn{min-height:43px}
+}
+@media print{.pa-client-header,.pa-client-mobile-nav{display:none!important}}
