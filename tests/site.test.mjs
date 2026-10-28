@@ -16,7 +16,7 @@ test("La page d'accueil a un seul bouton d'inscription, vers la page du forfait"
  assert.equal((html.match(/>Créer mon compte</g)||[]).length,1);
 });
 test("La page distincte de forfait est honnête et bilingue, sans paiement fictif",()=>{
- assert.match(plan,/class="plan-page"/);
+ assert.match(plan,/class="info-surface plan-page"/);
  assert.match(plan,/Tarif à confirmer/);
  assert.match(plan,/Les inscriptions et les paiements ne sont pas encore ouverts/);
  assert.match(plan,/href="\.\/index\.html"/);
