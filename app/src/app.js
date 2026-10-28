@@ -1152,8 +1152,13 @@ function renderClientHome(){
     +'<button class="pa-client-text-link" type="button" data-action="nav" data-page="files">'+esc(fr?'Tout retrouver':'View all')+icon("arrow")+'</button></div>'
     +(clientFiles.loading?'<p role="status" class="pa-client-empty-text">'+esc(fr?'Chargement de vos fichiers…':'Loading your files…')+'</p>':
        hasFiles?'<div class="pa-client-creation-list">'+clientFiles.items.slice(0,3).map(doc=>
-        '<button type="button" class="pa-client-creation" data-action="nav" data-page="files">'
-        +icon("file-text")+'<span><strong>'+esc(doc.title||"PDF")+'</strong><small>'+esc(fr?'Document conservé dans votre compte':'Document saved in your account')+'</small></span>'+icon("arrow")+'</button>'
+        '<article class="pa-client-creation">'
+        +icon("file-text")+'<div class="pa-client-creation-info"><strong>'+esc(doc.title||"PDF")+'</strong>'
+        +'<small>'+esc(fr?'PDF original enregistré dans votre compte':'Original PDF saved in your account')+'</small></div>'
+        +'<div class="pa-client-creation-actions"><button type="button" data-action="files-preview" data-id="'+esc(doc.id)+'"'
+        +(clientFiles.busy?' disabled':'')+'>'+icon("search")+esc(fr?'Aperçu':'Preview')+'</button>'
+        +'<button type="button" class="pa-client-creation-reprint" data-action="files-reprint" data-id="'+esc(doc.id)+'"'
+        +(clientFiles.busy?' disabled':'')+'>'+icon("print")+esc(fr?'Réimprimer':'Reprint')+'</button></div></article>'
         ).join("")+'</div>':
         '<div class="pa-client-empty"><div>'+icon("file-text")+'<h3>'+esc(fr?'Aucune création enregistrée':'No saved creations yet')+'</h3><p>'+esc(fr?'Vos PDF apparaîtront ici dès leur enregistrement dans votre compte.':'Your PDFs will appear here when saved to your account.')+'</p></div>'
         +'<button class="btn btn-light" type="button" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button></div>')
@@ -1401,6 +1406,8 @@ root.addEventListener("click",function(event){
   if(a==="files-preview"&&authStatus.user&&!clientFiles.busy){
     const doc=clientFiles.items.find(item=>item.id===el.dataset.id);
     if(!doc)return;
+    // L'aperçu peut partir de l'accueil client sans détour par la liste.
+    if(SITE_EMBEDDED&&state.page==="home")state.page="files";
     const uid=authStatus.user.id,epoch=++clientFiles.request;
     clearClientPreview();clientFiles.busy=true;clientFiles.error="";render();
     void(async()=>{
