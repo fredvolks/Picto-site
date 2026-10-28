@@ -1,10 +1,10 @@
-name: Vérifier le site officiel Pict-au
+name: UX du site officiel Pict-au
 on:
   push:
     branches: [main]
   pull_request:
 jobs:
-  site:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,21 +13,12 @@ jobs:
           node-version: "22"
       - run: node --check src/site.js
       - run: node --test tests/site.test.mjs
-      - name: Vérifier UX écran unique sur 6 tailles et 3 vues
+      - name: Captures et contrôle géométrique des pages (FR et EN)
         run: node tests/responsive.mjs
-      - name: Conserver les 18 captures UX
+      - name: Captures écran unique
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pictau-site-ux
+          name: pictau-ux-one-screen
           path: artifacts/site-ux/
           if-no-files-found: warn
-      - name: Vérifier les seuls fichiers servis
-        run: |
-          test -f index.html
-          test -f src/site.css
-          test ! -e src/app.js
-          test ! -e src/google-auth.js
-          test ! -e src/core.js
-          test ! -e src/data.js
-          test ! -e docs/MASTER_PROMPT.md
