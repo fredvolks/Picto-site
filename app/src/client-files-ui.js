@@ -1,5 +1,21 @@
+// Un second geste explicite reste fiable si le navigateur a ignoré le
+// téléchargement automatique après un appel réseau (Safari/iOS notamment).
+// Le blob: provient exclusivement du PDF privé validé par downloadMyDocument.
+export function renderVerifiedPdfRetry({retry,uid,language="fr",escape:e}){
+ const fr=language==="fr";
+ if(!uid||!retry||retry.uid!==uid||typeof retry.url!=="string"||
+   !/^blob:(?:https?:\/\/|null\/)/.test(retry.url)||
+   typeof retry.filename!=="string"||!retry.filename.toLowerCase().endsWith(".pdf"))return "";
+ return '<section class="pa-pdf-retry" aria-label="'+(fr?"Téléchargement du PDF original":"Original PDF download")+'">'
+   +'<p>'+(fr?
+     "Si le téléchargement automatique n’a pas démarré, utilisez ce lien. Le PDF reste identique à l’original enregistré.":
+     "If the automatic download did not start, use this link. The PDF is identical to the saved original.")+'</p>'
+   +'<a class="btn btn-light" data-pdf-retry="true" href="'+e(retry.url)+'" download="'+e(retry.filename)+'">'
+   +(fr?"Télécharger le PDF original":"Download original PDF")+'</a></section>';
+}
+
 // Vue pure « Mes fichiers ». Aucune écriture, aucune clé API, aucun HTML PDF tiers.
-export function renderClientFiles({language,logged,files,escape:e,icon}){
+export function renderClientFiles({language,logged,files,uid=null,escape:e,icon}){
  const fr=language==="fr";
  const t=(a,b)=>fr?a:b;
  const typeName={routine:t("Routine","Routine"),sheet:t("Feuille","Sheet"),board:t("Tableau","Board")};
@@ -80,6 +96,7 @@ export function renderClientFiles({language,logged,files,escape:e,icon}){
  return '<div class="files-page">'+panel
    +(files.error?'<p class="request-error" role="alert">'+e(files.error)+'</p>':"")
    +(files.message?'<p class="request-success" role="status">'+e(files.message)+'</p>':"")
+   +renderVerifiedPdfRetry({retry:files.reprintRetry,uid,language,escape:e})
    +'<section class="panel files-history"><div class="files-history-head"><h2>'+t("Documents enregistrés","Saved documents")+'</h2>'
    +'<button type="button" class="btn btn-light btn-small" data-action="files-refresh"'+(files.loading?' disabled':'')+'>'+t("Actualiser","Refresh")+'</button></div>'
    +filters+list+pages+'</section>'+form+preview+'</div>';

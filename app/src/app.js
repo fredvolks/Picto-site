@@ -17,7 +17,7 @@ import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.
 import {submitPictogramRequest,listMyPictogramRequests,listAdminPictogramRequests,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
-import {renderClientFiles} from "./client-files-ui.js";
+import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
@@ -415,7 +415,11 @@ function observePublishedArtwork(){
   });
 }
 const clientFiles={items:[],total:0,page:0,query:"",type:"all",sort:"recent",loading:false,busy:false,error:"",message:"",
- renameId:null,request:0,preview:null,draft:{title:"",documentType:"routine"}};
+ renameId:null,request:0,preview:null,reprintRetry:null,draft:{title:"",documentType:"routine"}};
+function clearPdfReprintRetry(){
+  if(clientFiles.reprintRetry?.url)URL.revokeObjectURL(clientFiles.reprintRetry.url);
+  clientFiles.reprintRetry=null;
+}
 function clearClientPreview(){
   if(clientFiles.preview?.url)URL.revokeObjectURL(clientFiles.preview.url);
   clientFiles.preview=null;
@@ -430,7 +434,7 @@ function selectClientPreviewPage(nextIndex){
   return true;
 }
 function resetClientFiles(){
- clearClientPreview();
+ clearPdfReprintRetry();clearClientPreview();
  pendingGeneratedPdf=null; // effacer toute copie du compte précédent au changement de session
  clientFiles.request++;clientFiles.items=[];clientFiles.total=0;clientFiles.page=0;
  clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.loading=false;clientFiles.busy=false;
@@ -1478,6 +1482,7 @@ function renderClientHome(){
     +'<button class="pa-client-text-link" type="button" data-action="nav" data-page="files">'+esc(fr?'Tout retrouver':'View all')+icon("arrow")+'</button></div>'
     +(clientFiles.error?'<p role="alert" class="pa-client-context">'+esc(clientFiles.error)+'</p>':'')
     +(clientFiles.message?'<p role="status" class="pa-client-context">'+esc(clientFiles.message)+'</p>':'')
+    +renderVerifiedPdfRetry({retry:clientFiles.reprintRetry,uid:authStatus.user?.id,language:state.language,escape:esc})
     +(clientFiles.loading?'<p role="status" class="pa-client-empty-text">'+esc(fr?'Chargement de vos fichiers…':'Loading your files…')+'</p>':
        hasFiles?'<div class="pa-client-creation-list">'+clientFiles.items.slice(0,3).map(doc=>
         '<article class="pa-client-creation">'
@@ -1694,7 +1699,7 @@ function render(){
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):
     clientTitle?clientTitle[state.language==="fr"?0:1]:
     T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
-  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
+  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,uid:authStatus.user?.id,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
      kind:state.page==="routines"?"routine":"board",
      items:officialComposer[state.page==="routines"?"routine":"board"],
      language:state.language,imageUrls:publishedCatalog.imageUrls,
@@ -1708,7 +1713,7 @@ function render(){
      allowCaptionEdit:captionFeature.loaded&&captionFeature.enabled,
      pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,language:state.language,escape:esc,icon}),
      escape:esc,icon
-    }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
+    }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,uid:authStatus.user?.id,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
   updateArtFeedback();
   observeBankThumbnails();
@@ -1735,6 +1740,7 @@ window.addEventListener("resize",()=>{
     artworkResizeFrame=0;layoutArtwork(root);updateArtFeedback();
   });
 });
+window.addEventListener("pagehide",clearPdfReprintRetry);
 window.addEventListener("beforeprint",()=>{layoutArtwork(root);updateArtFeedback();});
 window.addEventListener("afterprint",()=>{layoutArtwork(root);updateArtFeedback();});
 function syncRoutine(){store("pictau-routine",state.routine);}
@@ -1831,7 +1837,7 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
+  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
   if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
     void fetchEditableDrafts();return;
   }
@@ -2149,6 +2155,7 @@ root.addEventListener("click",function(event){
   if(["files-reprint","files-download"].includes(a)&&authStatus.user&&!clientFiles.busy){
     const doc=clientFiles.items.find(item=>item.id===el.dataset.id);if(!doc)return;
     const uid=authStatus.user.id,epoch=++clientFiles.request;
+    clearPdfReprintRetry();
     const isReprint=a==="files-reprint";
     // Une fenêtre ne peut être ouverte de façon fiable qu'au clic de l'utilisateur.
     const tab=isReprint?window.open("about:blank","_blank"):null;
@@ -2175,7 +2182,12 @@ root.addEventListener("click",function(event){
           const filename=(doc.title||"pictau").replace(/[^\p{L}\p{N} _-]/gu,"").slice(0,80)||"pictau";
           const anchor=document.createElement("a");anchor.href=url;anchor.download=filename+".pdf";
           try{document.body.appendChild(anchor);anchor.click();}
-          finally{anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+          finally{anchor.remove();}
+          if(isReprint){
+            // Lien activable par l'utilisateur si le clic automatique post-réseau
+            // est bloqué (iOS, Android, bloqueur de téléchargement).
+            clientFiles.reprintRetry={uid,id:doc.id,url,filename:filename+".pdf"};
+          }else setTimeout(()=>URL.revokeObjectURL(url),60000);
           clientFiles.message=isReprint?(state.language==="fr"?
             "Ouverture du lecteur PDF bloquée. Téléchargement du PDF original demandé : ouvrez-le pour l’imprimer à 100 %.":
             "PDF viewer was blocked. Original PDF download requested: open it to print at 100%."):

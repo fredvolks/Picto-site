@@ -1217,6 +1217,10 @@
   .pa-client-workspace .pa-client-creation-actions button.pa-client-creation-reprint{background:#111;color:#fff;border-color:#111}
   .pa-client-workspace .pa-client-creation-actions button.pa-client-creation-reprint:hover{background:#292929}
   .pa-client-workspace .pa-client-creation-actions button:disabled{opacity:.55;cursor:wait}
+  .pa-client-workspace .pa-pdf-retry{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:12px 0;padding:14px 16px;border:1px solid #d5d5d5;border-radius:14px;background:#f7f7f7;color:#111}
+  .pa-client-workspace .pa-pdf-retry p{margin:0;flex:1 1 210px;font-size:14px;line-height:1.5}
+  .pa-client-workspace .pa-pdf-retry a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border:1px solid #111;border-radius:11px;color:#111;background:#fff;text-decoration:none;font-size:14px;font-weight:750}
+  .pa-client-workspace .pa-pdf-retry a:focus-visible{outline:3px solid #111;outline-offset:3px}
   .pa-client-workspace .files-upload-panel{margin-top:20px}
   .pa-client-workspace .files-upload-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:750;color:#111;min-height:48px;list-style:none}
   .pa-client-workspace .files-upload-toggle::-webkit-details-marker{display:none}
