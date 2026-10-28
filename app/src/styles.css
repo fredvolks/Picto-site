@@ -1093,3 +1093,110 @@
 .pa-client-workspace .files-page .files-entry-actions .btn{min-height:43px}
 }
 @media print{.pa-client-header,.pa-client-mobile-nav{display:none!important}}
+
+
+/* Directive responsive multiappareils — navigation role-specific 320px→desktop. */
+@media screen {
+  .pa-client-header-search,.pa-client-home-search,.admin-menu-trigger,
+  .admin-mobile-drawer-head,.admin-drawer-scrim{display:none}
+  .pa-client-workspace{min-height:100dvh}
+  .pa-client-main{scroll-margin-top:90px}
+  .pa-client-workspace button,.admin-workspace button{touch-action:manipulation}
+  .pa-client-workspace :where(button,a,input):focus-visible,
+  .admin-workspace :where(button,a,input):focus-visible{outline:3px solid #111;outline-offset:3px}
+  .pa-client-workspace,.admin-workspace{overflow-wrap:break-word}
+}
+@media screen and (max-width:1100px) {
+  /* The administrator gets a drawer, NOT the customer's mobile bottom nav. */
+  .admin-workspace{display:block;min-height:100dvh;padding-bottom:0}
+  .admin-sidebar{position:fixed;display:flex;flex-direction:column;top:0;bottom:0;left:0;z-index:82;
+    height:100dvh;width:min(320px,88vw);max-width:100%;overflow-y:auto;overscroll-behavior:contain;
+    padding:max(14px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom));
+    box-shadow:10px 0 34px rgba(0,0,0,.11);
+    transform:translateX(-105%);visibility:hidden;pointer-events:none;
+    transition:transform .19s ease-out,visibility .19s}
+  .admin-sidebar.is-open{transform:translateX(0);visibility:visible;pointer-events:auto}
+  .admin-mobile-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-size:12px;letter-spacing:.11em;margin-bottom:12px}
+  .admin-drawer-close{min-width:48px;min-height:48px;border:1px solid #e5e5e5;
+    display:grid;place-items:center;border-radius:12px;background:#fff;color:#111}
+  .admin-drawer-close svg{width:21px;height:21px}
+  .admin-menu-trigger{display:inline-flex;flex:none;align-items:center;justify-content:center;gap:7px;
+    min-width:48px;min-height:48px;background:#fff;color:#111;border:1px solid #e5e5e5;
+    border-radius:12px;padding:8px 10px;font-size:12px;font-weight:750}
+  .admin-menu-trigger svg{width:22px;height:22px}
+  .admin-drawer-scrim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.34);
+    width:100%;height:100%;border:0;cursor:pointer}
+  .admin-workspace.menu-open .admin-drawer-scrim{display:block}
+  .admin-sidebar-status{margin-top:auto}
+  .admin-mobile-nav{display:none!important}
+  .admin-main{max-width:100%;padding:clamp(16px,3vw,36px)}
+  .admin-topbar{position:sticky;top:0;z-index:35;min-height:70px;padding:10px 18px}
+  .admin-workspace .admin-side-link{min-height:50px}
+  .admin-dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media screen and (max-width:980px) {
+  .pa-client-header-search{display:grid;place-items:center;flex:none;
+    min-width:48px;min-height:48px;border:1px solid #e5e5e5;border-radius:12px;background:#fff;color:#111}
+  .pa-client-header-search svg{width:23px;height:23px}
+  .pa-client-home-search{display:flex;align-items:center;gap:12px;width:100%;
+    min-height:50px;padding:12px 15px;margin:0 0 16px;border:1px solid #d4d4d4;
+    border-radius:13px;background:#fff;color:#555;font-size:14px;font-weight:600;text-align:left}
+  .pa-client-home-search svg{width:20px;height:20px;flex:none}
+  .pa-client-home-search span{flex:1}
+  .pa-client-home-search svg:last-child{width:16px}
+  .pa-client-mobile-nav{padding:7px max(5px,env(safe-area-inset-left))
+    max(9px,env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-right));
+    box-shadow:0 -8px 22px rgba(0,0,0,.025)}
+  .pa-client-mobile-link{min-height:54px;min-width:0;gap:5px;font-size:10px}
+  .pa-client-mobile-link svg{width:22px;height:22px}
+  .pa-client-main{padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+  .pa-client-workspace :is(.pa-client-home-search,#pa-client-search):focus-visible{outline-color:#111}
+  /* When a virtual keyboard is open, leave the search unobstructed. */
+  .pa-client-workspace:has(#pa-client-search:focus) .pa-client-mobile-nav{display:none}
+  .pa-client-workspace:has(#pa-client-search:focus) .pa-client-main{padding-bottom:38px}
+}
+@media screen and (max-width:620px) {
+  .pa-client-home{display:flex;flex-direction:column;gap:0}
+  .pa-client-home>.pa-client-hero{order:1}
+  .pa-client-home>.pa-client-section:nth-of-type(3){order:2}
+  .pa-client-home>.pa-client-section:nth-of-type(2){order:3}
+  .pa-client-hero{padding:23px 19px;gap:0}
+  .pa-client-hero h1{font-size:clamp(28px,7.3vw,34px);margin-bottom:11px}
+  .pa-client-hero p{font-size:14px;line-height:1.5;margin-bottom:14px}
+  .pa-client-section{margin-bottom:25px}
+  .pa-client-mobile-link span{white-space:normal;line-height:1.2}
+  .pa-client-header{padding-top:max(10px,env(safe-area-inset-top))}
+  .admin-topbar{padding:10px 12px}
+  .admin-menu-trigger span{display:none}
+  .admin-topbar-actions{max-width:min(56vw,220px)}
+  .admin-dashboard-grid{grid-template-columns:1fr}
+  .admin-dashboard-summary{grid-template-columns:1fr}
+}
+@media screen and (max-width:350px) {
+  .pa-client-mobile-link{padding-inline:0;font-size:9px}
+  .pa-client-mobile-link svg{width:20px;height:20px}
+  .pa-client-categories{gap:7px}
+  .pa-client-category{padding:11px;font-size:12px}
+  .admin-topbar-intro strong{font-size:15px}
+}
+@media screen and (orientation:landscape) and (max-height:510px) and (max-width:980px) {
+  .pa-client-hero{padding:18px}
+  .pa-client-main{padding-top:12px}
+  .pa-client-mobile-nav{padding-block:4px max(5px,env(safe-area-inset-bottom))}
+  .pa-client-mobile-link{min-height:47px;gap:2px}
+  .admin-main{padding-top:14px}
+}
+@media screen and (prefers-reduced-motion:reduce) {
+  .admin-sidebar{transition:none}
+  .pa-client-workspace *, .admin-workspace *{scroll-behavior:auto!important}
+}
+@media print{
+  .admin-drawer-scrim,.admin-menu-trigger,.admin-sidebar,
+  .pa-client-header-search,.pa-client-home-search,
+  .pa-client-mobile-nav,.pa-client-header,.admin-topbar{display:none!important}
+}
+
+@media screen and (min-width:1101px){.admin-workspace>.admin-sidebar{position:sticky;top:0;height:100dvh;align-self:start;overflow-y:auto}}
+
+@media screen and (max-width:980px){.pa-client-workspace.pa-keyboard-open .pa-client-mobile-nav{display:none!important}.pa-client-workspace.pa-keyboard-open .pa-client-main{padding-bottom:38px}}

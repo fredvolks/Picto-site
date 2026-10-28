@@ -122,7 +122,8 @@ const iconPaths = {
   check:'<path d="m5 12 4 4L19 6"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7h.01"/>',
   upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/>',
-  close:'<path d="M5 5l14 14M19 5 5 19"/>'
+  close:'<path d="M5 5l14 14M19 5 5 19"/>',
+  menu:'<path d="M3 6h18M3 12h18M3 18h18"/>'
 };
 function icon(name,extraClass) {
   return '<svg class="'+(extraClass||"nav-icon")+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(iconPaths[name]||iconPaths.info)+'</svg>';
@@ -509,7 +510,7 @@ const state = {
   favorites:Array.isArray(load("pictau-demo-favorites",[]))?[...new Set(load("pictau-demo-favorites",[]).filter(id=>samples.some(item=>item.id===id)))].slice(0,samples.length):[],
   routine:Array.isArray(load("pictau-routine",[])) ? load("pictau-routine",[]).filter(x=>samples.some(s=>s.id===x)).slice(0,10):[],
   widthCm:5, paper:"letter", separatorMode:"simple", routinePdfTitle:"Ma routine visuelle",
-  currentPreset:{...preset}, savedPreset:{...preset}, adminItem:"toilette", adminTab:"overview", toast:"",
+  currentPreset:{...preset}, savedPreset:{...preset}, adminItem:"toilette", adminTab:"overview", adminMenuOpen:false, toast:"",
   board:sanitizeDemoBoard(load("pictau-board",[]),samples.map(x=>x.id)),
   boardTitle:String(load("pictau-board-title","")).slice(0,80),
   boardCols:boardColumnCount(load("pictau-board-cols",3)),boardWidthCm:4
@@ -1070,14 +1071,18 @@ function renderAdminWorkspace(){
     '<button type="button" class="'+(compact?'admin-mobile-link':'admin-side-link')+(state.adminTab===tab?' active':'')
     +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+'>'
     +icon(ico)+'<span>'+esc(label)+'</span></button>';
-  return '<div class="admin-workspace">'
+  return '<div class="admin-workspace'+(state.adminMenuOpen?' menu-open':'')+'">'
     +'<a href="#admin-main" class="skip">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
-    +'<aside class="admin-sidebar" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'
+    +'<button class="admin-drawer-scrim" type="button" tabindex="-1" data-action="admin-menu-close" aria-label="'+esc(fr?'Fermer le menu d’administration':'Close administration menu')+'"></button>'
+    +'<aside id="pictau-admin-drawer" class="admin-sidebar'+(state.adminMenuOpen?' is-open':'')+'" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'
+    +'<div class="admin-mobile-drawer-head"><strong>PICT-AU · ADMIN</strong>'
+    +'<button type="button" class="admin-drawer-close" data-action="admin-menu-close" aria-label="'+esc(fr?'Fermer le menu':'Close menu')+'">'+icon("close")+'</button></div>'
     +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview"><span class="admin-brand-mark">P</span><span class="admin-brand-identity"><strong>Pict-<span class="admin-brand-hand">a</span>u</strong><small>SUPER ADMIN</small></span></button>'
     +'<div class="admin-sidebar-caption">'+esc(fr?'ADMINISTRATION':'ADMINISTRATION')+'</div>'
     +'<nav class="admin-side-nav">'+tabs.map(tab=>button(tab)).join('')+'</nav>'
     +'<div class="admin-sidebar-status">'+esc(fr?'Espace administrateur sécurisé':'Secure administrator workspace')+'</div></aside>'
     +'<div class="admin-area"><header class="admin-topbar">'
+    +'<button type="button" id="admin-menu-toggle" class="admin-menu-trigger" data-action="admin-menu-toggle" aria-controls="pictau-admin-drawer" aria-expanded="'+(state.adminMenuOpen?'true':'false')+'" aria-label="'+esc(fr?'Ouvrir le menu administrateur':'Open administrator menu')+'">'+icon("menu")+'<span>'+esc(fr?'Menu':'Menu')+'</span></button>'
     +'<div class="admin-topbar-intro"><span>'+esc(fr?'PICT-AU · GESTION':'PICT-AU · MANAGEMENT')+'</span>'
     +'<strong>'+esc(tabs.find(t=>t[0]===state.adminTab)?.[1]||tabs[0][1])+'</strong></div>'
     +'<div class="admin-topbar-actions"><div class="lang-switch" role="group" aria-label="Language">'
@@ -1085,8 +1090,7 @@ function renderAdminWorkspace(){
     +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
     +googleButton()+'</div></header>'
     +'<main id="admin-main" class="admin-main">'+(state.adminTab==="overview"?renderAdminHome():renderAdmin())+'</main></div>'
-    +'<nav class="admin-mobile-nav" aria-label="'+esc(fr?'Navigation Super Admin mobile':'Mobile Super Admin navigation')+'">'
-    +tabs.map(tab=>button(tab,true)).join('')+'</nav></div>';
+    +'</div>';
 }
 // BOUTIQUE CLIENT : structure premium noire et blanche, contenus uniquement du vrai compte.
 const CLIENT_CATEGORIES=[
@@ -1112,7 +1116,7 @@ function renderClientWorkspace(content){
   const fr=state.language==="fr";
   const items=clientNavItems();
   const action=(entry,cls)=>{
-    const [page,title,ico]=entry,active=page==="search"?false:state.page===page;
+    const [page,title,ico]=entry,active=page==="search"?(cls==="pa-client-mobile-link"&&state.page==="library"):(page==="create"?["create","routines","boards"].includes(state.page):state.page===page);
     return '<button type="button" class="'+cls+(active?' active':'')+'" data-action="'+(page==="search"?"client-search":"nav")+'"'
       +(page==="search"?'':' data-page="'+page+'"')+(active?' aria-current="page"':'')
       +'>'+icon(ico)+'<span>'+esc(title)+'</span></button>';
@@ -1122,13 +1126,13 @@ function renderClientWorkspace(content){
     +'<header class="pa-client-header"><button class="pa-client-brand" type="button" data-action="nav" data-page="home" aria-label="Pict-au, '+esc(fr?'accueil':'home')+'">Pict-<span>a</span>u</button>'
     +'<nav class="pa-client-desktop-nav" aria-label="'+esc(fr?'Navigation de mon espace':'My space navigation')+'">'
     +items.map(x=>action(x,"pa-client-nav-link")).join("")+'</nav>'
-    +'<div class="pa-client-tools"><div class="lang-switch" role="group" aria-label="Language">'
+    +'<div class="pa-client-tools"><button class="pa-client-header-search" type="button" data-action="client-search" aria-label="'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'">'+icon("search")+'</button><div class="lang-switch" role="group" aria-label="Language">'
     +'<button class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
     +'<button class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
     +'</div></header>'
     +'<main class="pa-client-main" id="pa-client-main">'+content+'</main>'
     +'<nav class="pa-client-mobile-nav" aria-label="'+esc(fr?'Navigation mobile client':'Client mobile navigation')+'">'
-    +items.filter(x=>x[0]!=="search").map(x=>action(x,"pa-client-mobile-link")).join("")+'</nav>'
+    +[items[0],["search",fr?"Recherche":"Search","search"],["create",fr?"Créer":"Create","plus"],items[2],items[5]].map(x=>action(x,"pa-client-mobile-link")).join("")+'</nav>'
     +(state.toast?'<div class="toast" role="status">'+esc(state.toast)+'</div>':'')+'</div>';
 }
 function renderClientHome(){
@@ -1138,6 +1142,7 @@ function renderClientHome(){
     +'<span class="pa-client-overline">PICT-AU · '+esc(fr?'VOTRE ESPACE':'YOUR SPACE')+'</span>'
     +'<h1 id="client-home-title">'+esc(fr?'Vos repères visuels, à votre façon.':'Visual support, made for you.')+'</h1>'
     +'<p>'+esc(fr?'Retrouvez vos créations et explorez les catégories de pictogrammes. Un espace clair pour préparer vos supports.':'Find your creations and explore pictogram categories. A simple space for your visual supports.')+'</p>'
+    +'<button type="button" class="pa-client-home-search" data-action="client-search">'+icon("search")+'<span>'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</span>'+icon("arrow")+'</button>'
     +'<div class="pa-client-hero-actions"><button type="button" class="btn btn-primary" data-action="nav" data-page="create">'+esc(fr?'Créer un support':'Create a visual support')+icon("arrow")+'</button>'
     +'<button type="button" class="btn btn-light" data-action="nav" data-page="library">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</button></div></div>'
     +'<div class="pa-client-hero-aside"><span class="pa-client-hero-icon">'+icon("library")+'</span><strong>'+esc(fr?'Des supports qui vous ressemblent.':'Supports that fit your needs.')+'</strong>'
@@ -1303,6 +1308,9 @@ root.addEventListener("load",function(event){
 },true);
 // Fenêtre modale d'aperçu : Escape ferme et Tab reste dans le dialogue.
 root.addEventListener("keydown",function(event){
+  if(event.key==="Escape"&&state.adminMenuOpen&&SITE_EMBEDDED){
+    event.preventDefault();state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
+  }
   if(!clientFiles.preview||state.page!=="files")return;
   const dialog=root.querySelector(".files-preview-modal");
   if(!dialog)return;
@@ -1332,11 +1340,31 @@ root.addEventListener("keydown",function(event){
     event.preventDefault();first.focus();
   }
 });
+// Fallback robuste pour clavier virtuel iOS/Android même sans :has() CSS.
+root.addEventListener("focusin",function(event){
+  if(event.target?.id==="pa-client-search")
+    root.querySelector(".pa-client-workspace")?.classList.add("pa-keyboard-open");
+});
+root.addEventListener("focusout",function(event){
+  if(event.target?.id==="pa-client-search")
+    root.querySelector(".pa-client-workspace")?.classList.remove("pa-keyboard-open");
+});
 root.addEventListener("click",function(event){
   const el=event.target.closest("[data-action]");
   if(!el)return;
   if(el.tagName==="A")event.preventDefault();
   const a=el.dataset.action;
+  if(a==="admin-menu-toggle"){
+    if(!SITE_EMBEDDED||!canOpenAdmin())return;
+    state.adminMenuOpen=!state.adminMenuOpen;render();
+    if(state.adminMenuOpen)root.querySelector(".admin-drawer-close")?.focus();
+    else root.querySelector("#admin-menu-toggle")?.focus();
+    return;
+  }
+  if(a==="admin-menu-close"){
+    if(!SITE_EMBEDDED||!canOpenAdmin())return;
+    state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
+  }
   if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();}
   if(a==="client-search"){
     if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
@@ -1594,7 +1622,7 @@ root.addEventListener("click",function(event){
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
     if(el.dataset.tab!=="bank"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
-    state.adminTab=el.dataset.tab;state.toast="";render();
+    state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
     if(state.adminTab==="requests"&&authStatus.user)
       void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id))
        .catch(error=>{adminRequests.error=String(error?.message||error);render();});
