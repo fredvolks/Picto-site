@@ -1409,3 +1409,15 @@
 .pa-feature-switch{align-self:flex-start}
 }
 @media print{.pa-feature-settings{display:none!important}}
+
+/* « Mes créations » : une troisième action seulement si le PDF a une source. */
+@media screen{
+  .pa-client-workspace .pa-client-creation-actions{flex-wrap:wrap}
+  .pa-client-workspace .pa-client-creation-actions button{min-width:0}
+  .pa-client-workspace .files-entry-actions [data-action="files-edit-source"]{border-style:solid}
+}
+@media screen and (max-width:520px){
+  .pa-client-workspace .pa-client-creation-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pa-client-workspace .pa-client-creation-actions button{min-width:0;white-space:normal}
+  .pa-client-workspace .pa-client-creation-actions [data-action="files-edit-source"]{grid-column:1/-1}
+}

@@ -17,7 +17,7 @@ export function normalizeDocumentSort(sort="recent"){
     throw Error("Tri de documents invalide.");
   return sort;
 }
-const COLUMNS="id,title,document_type,sha256,byte_size,page_count,created_at";
+const COLUMNS="id,title,document_type,sha256,byte_size,page_count,created_at,source_draft_id";
 export function normalizeDocumentTitle(title){
   if(typeof title!=="string"||/[\p{C}]/u.test(title))throw Error("Titre de document invalide.");
   const clean=title.trim().replace(/\s+/g," ");
@@ -54,9 +54,11 @@ export async function validatePdfBlob(file){
     throw Error("Ce fichier ne commence pas par une signature PDF valide.");
   return{sha256:await sha256Hex(file),byte_size:file.size};
 }
-export async function archivePdf(client,uid,file,{title,documentType="routine",pageCount=null}){
+export async function archivePdf(client,uid,file,{title,documentType="routine",pageCount=null,sourceDraftId=null}){
   const cleanTitle=normalizeDocumentTitle(title);
   if(!TYPES.includes(documentType))throw Error("Type de document invalide.");
+  if(sourceDraftId!==null&&(!UUID.test(sourceDraftId)||!["routine","board"].includes(documentType)))
+    throw Error("Source modifiable de document invalide.");
   if(pageCount!==null&&(!Number.isSafeInteger(pageCount)||pageCount<1||pageCount>100))
     throw Error("Nombre de pages PDF invalide.");
   // Lire et valider le PDF AVANT d'envoyer des octets vers le stockage.
@@ -73,10 +75,12 @@ export async function archivePdf(client,uid,file,{title,documentType="routine",p
     await verifiedUser(client,uid);
     const row=await client.from("pictau_documents").insert({
       id,owner_id:uid,title:cleanTitle,document_type:documentType,
-      storage_path:path,...fingerprint,...(pageCount===null?{}:{page_count:pageCount})
+      storage_path:path,...fingerprint,...(pageCount===null?{}:{page_count:pageCount}),
+      ...(sourceDraftId===null?{}:{source_draft_id:sourceDraftId})
     }).select(COLUMNS).single();
     if(row.error)throw row.error;
-    if(row.data?.id!==id||row.data?.sha256!==fingerprint.sha256)
+    if(row.data?.id!==id||row.data?.sha256!==fingerprint.sha256||
+      (sourceDraftId!==null&&row.data?.source_draft_id!==sourceDraftId))
       throw Error("L'archivage n'a pas été confirmé par le serveur.");
     await verifiedUser(client,uid);
     return row.data;

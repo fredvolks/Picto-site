@@ -11,7 +11,7 @@ export function renderClientFiles({language,logged,files,escape:e,icon}){
  const pageMax=Math.max(0,Math.ceil(files.total/20)-1);
  const panel='<div class="files-heading"><div><span class="client-detail-kicker">'+t("VOTRE ESPACE PRIVÉ","YOUR PRIVATE SPACE")+'</span>'
    +'<h1>'+t("Mes créations","My creations")+'</h1>'
-   +'<p>'+t("Retrouvez vos PDF préparés et réimprimez le document original, sans le reconstruire.","Find your prepared PDFs and print the original document without rebuilding it.")+'</p></div></div>';
+   +'<p>'+t("Retrouvez vos PDF préparés et réimprimez le document original, sans le reconstruire. Lorsqu’une source modifiable existe, vous pouvez aussi l’ouvrir pour créer une nouvelle version.","Find your prepared PDFs and reprint the unchanged original. If an editable source exists, open it to create a new version.")+'</p></div></div>';
  if(!logged)return '<div class="files-page">'+panel+'<section class="panel files-sign-in"><h2>'+t("Connectez-vous pour retrouver vos documents","Sign in to find your documents")+'</h2>'
   +'<p>'+t("Les PDF sont conservés de façon privée et associés à votre compte Google. Utilisez « Continuer avec Google » dans l’en-tête.","PDFs are stored privately under your Google account. Use Continue with Google in the header.")+'</p></section></div>';
  const form='<details class="panel files-upload-panel"><summary class="files-upload-toggle">'+t("Ajouter un PDF existant","Add an existing PDF")+'</summary><div class="files-upload-panel-inner"><h2>'+t("Archiver un PDF existant","Archive an existing PDF")+'</h2>'
@@ -52,6 +52,8 @@ export function renderClientFiles({language,logged,files,escape:e,icon}){
        +'<div class="files-entry-actions"><button type="button" class="btn btn-light btn-small" data-action="files-preview" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+icon("search","btn-icon")+t("Aperçu","Preview")+'</button>'
        +'<button type="button" class="btn btn-primary btn-small" data-action="files-reprint" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+icon("print","btn-icon")+t("Réimprimer","Reprint")+'</button>'
        +'<button type="button" class="btn btn-light btn-small" data-action="files-download" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+t("Télécharger PDF","Download PDF")+'</button>'
+       +(doc.source_draft_id?'<button type="button" class="btn btn-light btn-small" data-action="files-edit-source" data-id="'+e(doc.id)+'"'
+         +(files.busy?' disabled':'')+'>'+icon("edit","btn-icon")+t("Modifier la source","Edit source")+'</button>':'')
        +'<button type="button" class="btn btn-light btn-small" data-action="files-rename-open" data-id="'+e(doc.id)+'">'+t("Renommer","Rename")+'</button></div></article>';
      }).join("")+'</div>'
    :'<p class="files-empty">'+t("Aucun PDF archivé pour le moment. Vous pouvez en ajouter un ci-dessus.","No archived PDFs yet. You can add one above.")+'</p>';

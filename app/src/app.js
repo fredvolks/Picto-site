@@ -123,6 +123,7 @@ const iconPaths = {
   down:'<path d="m6 9 6 6 6-6"/>',
   trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/>',
   print:'<path d="M6 9V3h12v6M6 18H4V9h16v9h-2M7 15h10v6H7z"/>',
+  edit:'<path d="m4 20 4.2-1 11-11a2.12 2.12 0 0 0-3-3L5.2 16 4 20ZM14.5 6.5l3 3M12 21h8"/>',
   'file-text':'<path d="M6 2h8l5 5v15H6zM14 2v5h5M9 12h7M9 16h7"/>',
   check:'<path d="m5 12 4 4L19 6"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7h.01"/>',
@@ -1405,7 +1406,10 @@ function renderClientHome(){
         +'<div class="pa-client-creation-actions"><button type="button" data-action="files-preview" data-id="'+esc(doc.id)+'"'
         +(clientFiles.busy?' disabled':'')+'>'+icon("search")+esc(fr?'Aperçu':'Preview')+'</button>'
         +'<button type="button" class="pa-client-creation-reprint" data-action="files-reprint" data-id="'+esc(doc.id)+'"'
-        +(clientFiles.busy?' disabled':'')+'>'+icon("print")+esc(fr?'Réimprimer':'Reprint')+'</button></div></article>'
+        +(clientFiles.busy?' disabled':'')+'>'+icon("print")+esc(fr?'Réimprimer':'Reprint')+'</button>'
+        +(doc.source_draft_id?'<button type="button" data-action="files-edit-source" data-id="'+esc(doc.id)+'"'
+          +(clientFiles.busy?' disabled':'')+'>'+icon("edit")+esc(fr?'Modifier la source':'Edit source')+'</button>':'')
+        +'</div></article>'
         ).join("")+'</div>':
         '<div class="pa-client-empty"><div>'+icon("file-text")+'<h3>'+esc(fr?'Aucune création enregistrée':'No saved creations yet')+'</h3><p>'+esc(fr?'Vos PDF apparaîtront ici dès leur enregistrement dans votre compte.':'Your PDFs will appear here when saved to your account.')+'</p></div>'
         +'<button class="btn btn-light" type="button" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button></div>')
@@ -1752,6 +1756,41 @@ root.addEventListener("click",function(event){
       }finally{
         if(authStatus.user?.id===uid&&request===editableDrafts.request){
           editableDrafts.busy=false;render();
+        }
+      }
+    })();return;
+  }
+  if(a==="files-edit-source"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!clientFiles.busy&&!officialComposer.busy&&!editableDrafts.busy){
+    const file=clientFiles.items.find(row=>row.id===el.dataset.id);
+    if(!file?.source_draft_id||!["routine","board"].includes(file.document_type))return;
+    if((editableDrafts.dirty.routine||editableDrafts.dirty.board)&&!window.confirm(state.language==="fr"?
+      "Des modifications de votre éditeur ne sont pas sauvegardées. Ouvrir la source de ce PDF sans les conserver ?":
+      "You have unsaved edits. Open this PDF's source without saving them?"))return;
+    const uid=authStatus.user.id,epoch=++clientFiles.request;
+    clientFiles.busy=true;clientFiles.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        const draft=await loadEditableDraft(client,uid,file.source_draft_id);
+        if(authStatus.user?.id!==uid||epoch!==clientFiles.request)return;
+        if(draft.kind!==file.document_type)throw Error("La source de ce PDF ne correspond pas au type de document.");
+        officialComposer[draft.kind]=draft.content.items.map(item=>({...item}));
+        officialComposer.settings[draft.kind]={...draft.content.settings};
+        editableDrafts.current[draft.kind]={id:draft.id,revision:draft.revision};
+        editableDrafts.dirty[draft.kind]=false;
+        officialComposer.error="";
+        clearClientPreview();
+        state.page=draft.kind==="routine"?"routines":"boards";
+        state.toast=state.language==="fr"?
+          "Source modifiable ouverte. Le PDF original archivé reste inchangé.":
+          "Editable source opened. Your archived original PDF stays unchanged.";
+      }catch(error){
+        if(authStatus.user?.id===uid&&epoch===clientFiles.request){
+          clientFiles.error=String(error?.message||error);
+        }
+      }finally{
+        if(authStatus.user?.id===uid&&epoch===clientFiles.request){
+          clientFiles.busy=false;render();
         }
       }
     })();return;
@@ -2425,8 +2464,8 @@ root.addEventListener("submit",function(event){
           separatorMode:"simple",preset:{...DEFAULT_PRESET,color:"#111111",colored:false}
         });
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
-        pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind};
-        await archivePdf(client,uid,blob,{title,documentType:kind,pageCount});
+        pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind,sourceDraftId:savedDraft.id};
+        await archivePdf(client,uid,blob,{title,documentType:kind,pageCount,sourceDraftId:savedDraft.id});
         if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
         officialComposer[kind]=[];
