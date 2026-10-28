@@ -1,7 +1,7 @@
 import {samples} from "./data.js";
 import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
-import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser} from "./google-auth.js";
+import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
 import {readAdminBank,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
@@ -131,7 +131,7 @@ const root = document.querySelector("#app");
 let pdfExportBusy=false;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
-const authStatus={user:null,working:false,ready:false,error:""};
+const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
 const clientFiles={items:[],total:0,page:0,query:"",type:"all",loading:false,busy:false,error:"",message:"",
  renameId:null,request:0,preview:null,draft:{title:"",documentType:"routine"}};
 function clearClientPreview(){
@@ -410,6 +410,9 @@ async function refreshPrivateBank(client,userId){
     const result=await readAdminBank(client,userId,{...bankFilters,page:privateBank.page});
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
+    authStatus.roleReady=true;authStatus.roleError="";
+    if(SITE_EMBEDDED&&result.authorized){state.page="admin";state.adminTab="overview";}
+    else if(SITE_EMBEDDED&&state.page==="admin")state.page="home";
     privateBank.items=result.items;privateBank.total=result.total;privateBank.page=result.page;
     if(result.authorized){
       try{
@@ -433,6 +436,7 @@ async function refreshPrivateBank(client,userId){
     privateBank.items=[];privateBank.total=0;
     clearAdminPreview();clearDraftEditor();
     privateBank.error=String(error?.message||error);
+    if(SITE_EMBEDDED&&!authStatus.roleReady)authStatus.roleError=state.language==="fr"?"Impossible de vérifier les droits du compte.":"Unable to verify your account permissions.";
   }finally{
     if(request===privateBank.request){
       privateBank.loading=false;
@@ -472,10 +476,10 @@ async function refreshGoogleUser(client){
     const verified=await currentVerifiedUser(client);
     const previousId=authStatus.user?.id;
     authStatus.user=verified;authStatus.error="";authStatus.working=false;authStatus.ready=true;
-    if(!verified){resetPrivateBank();render();return;}
-    if(previousId!==verified.id){resetPrivateBank();render();void refreshPrivateBank(client,verified.id);if(state.page==="files")void fetchClientFiles(client,verified.id);return;}
+    if(!verified){authStatus.roleReady=false;authStatus.roleError="";authStatus.recovery=false;resetPrivateBank();render();return;}
+    if(previousId!==verified.id){authStatus.roleReady=false;authStatus.roleError="";resetPrivateBank();render();void refreshPrivateBank(client,verified.id);if(state.page==="files")void fetchClientFiles(client,verified.id);return;}
   }catch(error){
-    authStatus.user=null;authStatus.error=String(error.message||error);authStatus.ready=true;
+    authStatus.user=null;authStatus.error=String(error.message||error);authStatus.ready=true;authStatus.roleReady=false;
     resetPrivateBank();
   }
   render();
@@ -484,7 +488,8 @@ async function initializeGoogle(){
   try{
     const client=await supabaseClient();
     client.auth.onAuthStateChange((event)=>{
-      if(event==="SIGNED_OUT"){authStatus.user=null;authStatus.ready=true;resetPrivateBank();render();}
+      if(event==="SIGNED_OUT"){authStatus.user=null;authStatus.ready=true;authStatus.roleReady=false;authStatus.recovery=false;resetPrivateBank();render();}
+      else if(event==="PASSWORD_RECOVERY"){authStatus.recovery=true;authStatus.ready=true;void refreshGoogleUser(client);}
       else if(["INITIAL_SESSION","SIGNED_IN","TOKEN_REFRESHED","USER_UPDATED"].includes(event)){
         // Ne pas appeler getUser directement dans le callback de changement de session.
         setTimeout(()=>{void refreshGoogleUser(client);},0);
@@ -497,7 +502,7 @@ async function initializeGoogle(){
 const initial = load("pictau-preset", DEFAULT_PRESET);
 const preset=restoreVersionedPreset(initial,DEFAULT_PRESET,validatePreset);
 const state = {
-  page:SITE_EMBEDDED?"library":"home", language:load("pictau-language","fr")==="en"?"en":"fr",
+  page:"home", language:load("pictau-language","fr")==="en"?"en":"fr",
   search:"", theme:"all", sort:"recent", showFavorites:false, detailId:null,
   recentlyViewed:sanitizedDemoIds(load("pictau-demo-recent",[]),samples.map(x=>x.id),8),
   favorites:Array.isArray(load("pictau-demo-favorites",[]))?[...new Set(load("pictau-demo-favorites",[]).filter(id=>samples.some(item=>item.id===id)))].slice(0,samples.length):[],
@@ -527,7 +532,7 @@ function renderUnarchivedPdf(){
 }
 function shell(content){
   return '<a class="skip" href="#page-main">'+(state.language==="fr"?"Aller au contenu":"Skip to content")+'</a><div class="app-shell">'
-  +'<aside class="sidebar" aria-label="Navigation"><a class="brand" href="'+(SITE_EMBEDDED?"../index.html":"#home")+'" '+(SITE_EMBEDDED?"":'data-action="nav" data-page="home"')+'>'+brand()+'</a>'
+  +'<aside class="sidebar" aria-label="Navigation"><a class="brand" href="#home" data-action="nav" data-page="home">'+brand()+'</a>'
   +'<div><div class="side-label">MENU</div><nav class="side-links">'+navButton("home",state.language==="fr"?"Accueil":"Home","home",false)+navButton("library",T("library"),"library",false)+navButton("routines",T("routines"),"routine",false)+navButton("boards",T("boards"),"library",false)+navButton("files",T("files"),"database",false)+(canOpenAdmin()?navButton("admin",T("admin"),"settings",false):"")+'</nav></div>'
   +'<div class="sidebar-footer"><strong>'+T("demo")+'</strong><p>'+T("note")+'</p></div></aside>'
   +'<div class="workspace"><header class="topbar"><div class="topbar-heading"><div><div class="eyebrow">'+T("discovery")+'</div><h2 class="topbar-title">'+T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin")+'</h2></div></div>'
@@ -1021,6 +1026,88 @@ function renderAdmin(){
 function adminRange(key,label,value,min,max,step,unit){
   return '<div class="control full-span"><div class="range-header"><label for="admin-'+key+'">'+label+'</label><output id="out-'+key+'">'+fmt(value)+' '+unit+'</output></div><input id="admin-'+key+'" data-input="admin-range" data-key="'+key+'" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+value+'"></div>';
 }
+
+function renderRoleChecking(){
+  const fr=state.language==="fr";
+  return '<section class="hosted-access" aria-label="'+esc(fr?'Vérification des accès':'Access verification')+'">'
+    +'<div class="hosted-access-main"><div class="hosted-access-panel"><span class="hosted-access-eyebrow">PICT-AU</span>'
+    +'<h1>'+esc(fr?'Vérification des accès':'Checking access')+'</h1>'
+    +'<p role="status">'+esc(authStatus.roleError|| (fr?'Vérification sécurisée de votre rôle…':'Securely checking your role…'))+'</p>'
+    +(authStatus.roleError?'<button type="button" class="btn btn-primary" data-action="role-retry">'+esc(fr?'Réessayer':'Try again')+'</button>':'')
+    +'<div class="hosted-access-action">'+googleButton()+'</div></div></div></section>';
+}
+function renderAdminHome(){
+  const fr=state.language==="fr";
+  const links=[
+    ["bank",fr?"Banque d’images":"Image bank",fr?"Importer et classer les brouillons privés":"Import and organize private drafts","library"],
+    ["requests",fr?"Demandes":"Requests",fr?"Suivre et traiter les demandes reçues":"Review incoming requests","file-text"],
+    ["tools",fr?"Outils":"Tools",fr?"Outils d’importation et de travail":"Import and work tools","upload"],
+    ["templates",fr?"Gabarits":"Templates",fr?"Préparer les normes des pictogrammes":"Prepare pictogram standards","settings"]
+  ];
+  return '<section class="admin-dashboard" aria-labelledby="admin-dashboard-title">'
+    +'<span class="admin-dashboard-kicker">'+esc(fr?'TABLEAU DE BORD ADMINISTRATEUR':'ADMINISTRATOR DASHBOARD')+'</span>'
+    +'<h1 id="admin-dashboard-title">'+esc(fr?'Accueil Super Admin':'Super Admin home')+'</h1>'
+    +'<p>'+esc(fr?'Gérez votre banque privée et vos demandes. Aucun écran client ni contenu fictif dans cet espace.':'Manage your private library and requests. No customer screens or sample content in this workspace.')+'</p>'
+    +'<div class="admin-dashboard-summary"><div><span>'+esc(fr?'Fiches dans la banque privée':'Private bank records')+'</span><strong>'+privateBank.total+'</strong></div>'
+    +'<div><span>'+esc(fr?'Statut':'Status')+'</span><strong>'+esc(fr?'Accès administrateur vérifié':'Administrator verified')+'</strong></div></div>'
+    +'<div class="admin-dashboard-grid">'+links.map(([tab,title,copy,ico])=>
+      '<button type="button" class="admin-dashboard-card" data-action="admin-tab" data-tab="'+tab+'">'
+      +icon(ico)+ '<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
+    +'</section>';
+}
+function renderAdminWorkspace(){
+  if(!canOpenAdmin())return renderRoleChecking();
+  const fr=state.language==="fr";
+  const tabs=[
+    ["overview",fr?"Accueil":"Home","home"],
+    ["bank",fr?"Banque":"Image bank","library"],
+    ["requests",fr?"Demandes":"Requests","file-text"],
+    ["tools",fr?"Outils":"Tools","upload"],
+    ["templates",fr?"Gabarits":"Templates","settings"]
+  ];
+  const button=([tab,label,ico],compact=false)=>
+    '<button type="button" class="'+(compact?'admin-mobile-link':'admin-side-link')+(state.adminTab===tab?' active':'')
+    +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+'>'
+    +icon(ico)+'<span>'+esc(label)+'</span></button>';
+  return '<div class="admin-workspace">'
+    +'<a href="#admin-main" class="skip">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
+    +'<aside class="admin-sidebar" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'
+    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview">'+brand()+'</button>'
+    +'<div class="admin-sidebar-caption">'+esc(fr?'ADMINISTRATION':'ADMINISTRATION')+'</div>'
+    +'<nav class="admin-side-nav">'+tabs.map(tab=>button(tab)).join('')+'</nav>'
+    +'<div class="admin-sidebar-status">'+esc(fr?'Espace administrateur sécurisé':'Secure administrator workspace')+'</div></aside>'
+    +'<div class="admin-area"><header class="admin-topbar">'
+    +'<div class="admin-topbar-intro"><span>'+esc(fr?'PICT-AU · GESTION':'PICT-AU · MANAGEMENT')+'</span>'
+    +'<strong>'+esc(tabs.find(t=>t[0]===state.adminTab)?.[1]||tabs[0][1])+'</strong></div>'
+    +'<div class="admin-topbar-actions"><div class="lang-switch" role="group" aria-label="Language">'
+    +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
+    +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
+    +googleButton()+'</div></header>'
+    +'<main id="admin-main" class="admin-main">'+(state.adminTab==="overview"?renderAdminHome():renderAdmin())+'</main></div>'
+    +'<nav class="admin-mobile-nav" aria-label="'+esc(fr?'Navigation Super Admin mobile':'Mobile Super Admin navigation')+'">'
+    +tabs.map(tab=>button(tab,true)).join('')+'</nav></div>';
+}
+function renderClientHome(){
+  const fr=state.language==="fr";
+  return '<section class="hosted-library-empty" aria-labelledby="client-home-title">'
+    +'<span class="hosted-access-eyebrow">'+esc(fr?'MON ESPACE':'MY SPACE')+'</span>'
+    +'<h1 id="client-home-title">'+esc(fr?'Accueil de mon espace':'My workspace home')+'</h1>'
+    +'<p>'+esc(fr?'Retrouvez vos fichiers enregistrés et vos demandes. Les pictogrammes officiels apparaîtront dans la bibliothèque après publication.':'Find your saved files and requests. Official pictograms will appear in the library after publication.')+'</p>'
+    +'<div class="client-home-actions"><button type="button" class="btn btn-primary" data-action="nav" data-page="files">'+icon("file-text","btn-icon")+esc(fr?'Mes fichiers':'My files')+'</button>'
+    +'<button type="button" class="btn btn-light" data-action="nav" data-page="library">'+icon("library","btn-icon")+esc(fr?'Bibliothèque':'Library')+'</button></div></section>';
+}
+function renderNewPassword(){
+  const fr=state.language==="fr";
+  return '<section class="hosted-access"><div class="hosted-access-main"><div class="hosted-access-panel">'
+   +'<span class="hosted-access-eyebrow">PICT-AU · '+esc(fr?'SÉCURITÉ':'SECURITY')+'</span>'
+   +'<h1>'+esc(fr?'Choisir un nouveau mot de passe':'Choose a new password')+'</h1>'
+   +'<p>'+esc(fr?'Votre lien de récupération a été reconnu. Choisissez un nouveau mot de passe.':'Your recovery link was recognized. Choose a new password.')+'</p>'
+   +'<form data-form="email-update-password"><label for="new-password">'+esc(fr?'Nouveau mot de passe':'New password')+'</label>'
+   +'<input id="new-password" type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="128">'
+   +'<button class="btn btn-primary" type="submit"'+(authStatus.emailBusy?' disabled':'')+'>'+esc(fr?'Enregistrer mon mot de passe':'Save my password')+'</button></form>'
+   +(authStatus.emailError?'<p role="alert" class="hosted-access-error">'+esc(authStatus.emailError)+'</p>':'')
+   +'</div></div></section>';
+}
 function renderHostedAccess(){
   const fr=state.language==="fr";
   const wait=!authStatus.ready;
@@ -1034,7 +1121,18 @@ function renderHostedAccess(){
    +'<h1 id="hosted-access-title">'+esc(fr?'Accéder à mon espace':'Access my space')+'</h1>'
    +'<p>'+esc(fr?'Connectez-vous pour retrouver vos fichiers et vos demandes. Aucune démonstration n’est ajoutée à votre compte.':'Sign in to access your files and requests. No sample content is added to your account.')+'</p>'
    +(wait?'<p class="hosted-access-status" role="status">'+esc(fr?'Vérification de la session…':'Checking your session…')+'</p>':'')
+   +'<form data-form="email-login" class="hosted-email-form">'
+   +'<label for="auth-email">'+esc(fr?'Adresse courriel':'Email address')+'</label>'
+   +'<input id="auth-email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="nom@exemple.com" value="'+esc(authStatus.email)+'">'
+   +'<label for="auth-password">'+esc(fr?'Mot de passe':'Password')+'</label>'
+   +'<input id="auth-password" name="password" type="password" autocomplete="current-password" required>'
+   +'<button type="submit" class="btn btn-primary"'+(authStatus.emailBusy?' disabled':'')+'>'+esc(fr?'Se connecter par courriel':'Sign in with email')+'</button></form>'
+   +'<div class="hosted-email-links"><button type="button" data-action="email-link"'+(authStatus.emailBusy?' disabled':'')+'>'+esc(fr?'Recevoir un lien par courriel':'Get an email sign-in link')+'</button>'
+   +'<button type="button" data-action="email-reset"'+(authStatus.emailBusy?' disabled':'')+'>'+esc(fr?'Mot de passe oublié ?':'Forgot password?')+'</button></div>'
+   +'<div class="hosted-auth-divider"><span>'+esc(fr?'ou':'or')+'</span></div>'
    +'<div class="hosted-access-action">'+googleButton()+'</div>'
+   +(authStatus.emailMessage?'<p class="hosted-email-success" role="status">'+esc(authStatus.emailMessage)+'</p>':'')
+   +(authStatus.emailError?'<p class="hosted-access-error" role="alert">'+esc(authStatus.emailError)+'</p>':'')
    +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'')
    +'<a href="../index.html" class="hosted-access-back">'+esc(fr?'← Retour à l’accueil Pict-au':'← Back to Pict-au home')+'</a>'
    +'</div></main></section>';
@@ -1057,7 +1155,7 @@ function render(){
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
-  root.innerHTML=SITE_EMBEDDED&&!authStatus.user?renderHostedAccess():(SITE_EMBEDDED&&state.page!=="files"&&state.page!=="admin"?shell(renderHostedEmpty()):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary()));
+  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():shell(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="home"?renderClientHome():renderHostedEmpty())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
   updateArtFeedback();
   observeBankThumbnails();
@@ -1142,7 +1240,7 @@ root.addEventListener("click",function(event){
   if(!el)return;
   if(el.tagName==="A")event.preventDefault();
   const a=el.dataset.action;
-  if(a==="nav"){if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();}
+  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();}
   if(a==="files-preview-close"){
     const docId=clientFiles.preview?.id;
     clearClientPreview();render();
@@ -1240,8 +1338,19 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
+  if(a==="role-retry"){if(!authStatus.user)return;authStatus.roleError="";void supabaseClient().then(c=>refreshPrivateBank(c,authStatus.user.id));return;}
+  if(a==="email-link"||a==="email-reset"){
+    const input=root.querySelector('#auth-email');
+    if(!input||!input.reportValidity()||authStatus.emailBusy)return;
+    authStatus.email=input.value.trim();authStatus.emailError="";authStatus.emailMessage="";authStatus.emailBusy=true;render();
+    void (a==="email-link"?sendEmailSignInLink(authStatus.email,window.location.href):sendPasswordReset(authStatus.email,window.location.href))
+      .then(()=>{authStatus.emailMessage=state.language==="fr"?"Si le compte existe et que l’envoi est autorisé, consultez votre boîte courriel.":"If the account exists and email delivery is enabled, check your inbox.";})
+      .catch(()=>{authStatus.emailError=state.language==="fr"?"Envoi impossible. Vérifiez la configuration du courriel ou réessayez plus tard.":"Unable to send. Check email settings or try again later.";})
+      .finally(()=>{authStatus.emailBusy=false;render();});
+    return;
+  }
   if(a==="google-login"){authStatus.working=true;render();void loginGoogle(window.location.href).catch(err=>{authStatus.working=false;authStatus.error=String(err.message||err);notify(state.language==="fr"?"Connexion Google impossible : "+authStatus.error:"Google sign-in failed: "+authStatus.error);});return;}
-  if(a==="google-logout"){authStatus.working=true;resetPrivateBank();render();void logoutGoogle().then(()=>{authStatus.user=null;authStatus.working=false;render();}).catch(err=>{authStatus.working=false;notify(String(err.message||err));});return;}
+  if(a==="google-logout"){authStatus.working=true;resetPrivateBank();render();void logoutGoogle().then(()=>{authStatus.user=null;authStatus.roleReady=false;authStatus.working=false;state.page="home";state.adminTab="overview";render();}).catch(err=>{authStatus.working=false;notify(String(err.message||err));});return;}
   if(a==="lang"){state.language=el.dataset.lang;store("pictau-language",state.language);state.toast="";render();}
   if(a==="view-picto"){
     if(!samples.some(item=>item.id===el.dataset.id))return;
@@ -1540,6 +1649,29 @@ root.addEventListener("input",function(event){
   if(event.target.dataset.field==="size"){state.widthCm=clampWidth(event.target.value);routineLive();}
 });
 root.addEventListener("submit",function(event){
+  if(event.target.matches('form[data-form="email-login"]')){
+    event.preventDefault();
+    if(authStatus.emailBusy||authStatus.user)return;
+    const data=new FormData(event.target);
+    const email=String(data.get("email")||"").trim(),password=String(data.get("password")||"");
+    authStatus.email=email;authStatus.emailBusy=true;authStatus.emailError="";authStatus.emailMessage="";
+    render();
+    void loginWithEmail(email,password).catch(()=>{
+      authStatus.emailError=state.language==="fr"?"Connexion impossible. Vérifiez votre courriel, votre mot de passe et l’activation du compte.":"Unable to sign in. Check your email, password and account status.";
+    }).finally(()=>{authStatus.emailBusy=false;render();});
+    return;
+  }
+  if(event.target.matches('form[data-form="email-update-password"]')){
+    event.preventDefault();
+    if(authStatus.emailBusy||!authStatus.user||!authStatus.recovery)return;
+    const password=String(new FormData(event.target).get("password")||"");
+    authStatus.emailBusy=true;authStatus.emailError="";render();
+    void updateEmailPassword(password).then(()=>{
+      authStatus.recovery=false;authStatus.emailMessage="";
+    }).catch(()=>{authStatus.emailError=state.language==="fr"?"Impossible d’enregistrer le nouveau mot de passe.":"Unable to save the new password.";})
+      .finally(()=>{authStatus.emailBusy=false;render();});
+    return;
+  }
   const uploadForm=event.target.closest('form[data-form="archive-pdf"]');
   if(uploadForm){
     event.preventDefault();
