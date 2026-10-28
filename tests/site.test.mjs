@@ -87,3 +87,11 @@ test("Le visuel conceptuel comprend un ordinateur et un téléphone complémenta
   assert.match(css,/@media\(max-width:680px\)\{\.phone\{display:none\}\}/);
   assert.doesNotMatch(html,/vraie capture de l.application|démo interactive/);
 });
+
+test("Libellés d'illustration bilingues, sans dupliquer les écrans",()=>{
+  for(const english of ["snack","read","hello","bathroom","school"]){
+    assert.ok(html.includes('data-en="'+english+'"'));
+  }
+  assert.equal((html.match(/class="phone"/g)||[]).length,1);
+  assert.equal((html.match(/class="laptop"/g)||[]).length,1);
+});
