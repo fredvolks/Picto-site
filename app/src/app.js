@@ -26,6 +26,7 @@ import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,sa
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
+import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
 // The public Pages build changes this to true. It must never expose the mock admin UI.
@@ -2860,7 +2861,8 @@ root.addEventListener("submit",function(event){
       widthCm=Number(data.get("widthCm")),paper=String(data.get("paper")||"letter"),
       columns=kind==="board"?Number(data.get("columns")):3,
       snapshot=officialComposer[kind].map(x=>({...x})),uid=authStatus.user.id,
-      epoch=++officialComposer.request;
+      epoch=++officialComposer.request,sourcePage=state.page,
+      navigation=clientNavigationEpoch;
     if(!canPrepareApproved({kind,items:snapshot,widthCm,paper,columns})){
       officialComposer.error=state.language==="fr"?
         "Dimensions incompatibles avec la page imprimable. Réduisez la largeur ou le nombre de cases.":
@@ -2912,15 +2914,26 @@ root.addEventListener("submit",function(event){
         await archivePdf(client,uid,blob,{title,documentType:kind,pageCount,sourceDraftId:savedDraft.id});
         if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
-        officialComposer[kind]=[];
-        officialComposer.settings[kind]=emptyComposerSettings()[kind];
-        editableDrafts.current[kind]=null;draftAutosave.discard(kind);
-        editableDrafts.dirty[kind]=false;
+        // L'archivage a réellement réussi, même si l'utilisateur s'est déplacé.
+        // Dans ce cas, conserver sa composition/source éditable et SA page;
+        // la confirmation sera disponible quand il ouvrira « Mes créations ».
         editableDrafts.loaded=false;
-        state.page="files";
-        clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
-        clientFiles.message=state.language==="fr"?"PDF original créé et archivé dans votre compte.":"Original PDF created and saved in your account.";
-        await fetchClientFiles(client,uid);
+        clientFiles.message=state.language==="fr"?
+          "PDF original créé et archivé dans votre compte.":
+          "Original PDF created and saved in your account.";
+        if(shouldOpenArchivedPdf({
+          uid,activeUid:authStatus.user?.id,request:epoch,
+          activeRequest:officialComposer.request,sourcePage,currentPage:state.page,
+          navigation,activeNavigation:clientNavigationEpoch
+        })){
+          officialComposer[kind]=[];
+          officialComposer.settings[kind]=emptyComposerSettings()[kind];
+          editableDrafts.current[kind]=null;draftAutosave.discard(kind);
+          editableDrafts.dirty[kind]=false;
+          state.page="files";
+          clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
+          await fetchClientFiles(client,uid);
+        }
       }catch(error){
         if(authStatus.user?.id===uid&&epoch===officialComposer.request)
           officialComposer.error=String(error?.message||error);
