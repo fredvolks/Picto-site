@@ -5,9 +5,9 @@ Site commercial bilingue **FR/EN** : https://fredvolks.github.io/Picto-site/
 ## Ce que contient le site
 
 - Accueil commercial blanc, sobre et responsive sur **une seule vue** aux tailles ordinaires (ordinateur, tablette, téléphone), sans onglets, simulateur ou application cliente.
-- **Une seule offre**, aucun prix ni paiement inventé. Un seul bouton **« Créer mon compte »**, dans le forfait, actuellement inactif car l'inscription réelle n'est pas encore ouverte.
+- **Nouvelle direction commerciale 28 octobre 2026 (§§0.3.2–0.3.3)** : aucune carte de forfait ni prix sur l'accueil. Un seul bouton actif **« Créer mon compte »** renvoie vers la page distincte `forfait.html` (formule unique, prix à confirmer, inscriptions et paiements indisponibles explicitement; aucun faux formulaire ni checkout). « Connexion » reste en haut.
 - **Connexion** toujours visible en haut, menant à une page d'état explicite tant que le portail sécurisé de l'application n'est pas accessible — aucune fausse connexion.
-- Direction artistique du prompt maître 2026-10-28 : fond blanc, bleu et jaune discrets, grand titre, **ordinateur portable graphique original** avec trois pictogrammes noirs et blancs (illustration conceptuelle, pas une capture réelle de l'application), puis trio **Trouver / Personnaliser / Imprimer**.
+- Direction artistique du prompt maître 2026-10-28 : fond blanc, bleu/jaune discrets, titre fort, ordinateur portable et téléphone illustratifs contenant **cinq vrais SVG d'exemple utilisés dans le code de l'application** (mais **pas** des pictogrammes approuvés/publiés), chacun avec **cadre noir, dessin centré, ligne de séparation noire, texte centré**, sans barres bleues fictives. Trois bénéfices **Trouver / Personnaliser / Imprimer** plus grands et centrés sur mobile/PC.
 - Trois fonctions présentées, pictogrammes graphiques d'illustration non présentés comme une banque publiée; pages Contact, Conditions et Confidentialité séparées, provisoires lorsqu'une décision manque.
 - Des adaptations pour grand zoom, petites hauteurs ou texte agrandi permettent le défilement nécessaire plutôt que de tronquer le contenu.
 
