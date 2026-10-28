@@ -14,34 +14,34 @@
 </head>
 <body>
 <a class="skip" href="#page-main" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
-<div class="home-site">
+<div class="home-site" data-view="home">
   <header class="home-header">
-    <a href="#accueil" class="home-logo" aria-label="Pict-au, accueil">
+    <a href="#accueil" data-view-link="home" class="home-logo" aria-label="Pict-au, accueil">
       <span class="home-logo-symbol" aria-hidden="true">P</span>
       <span class="home-logo-word">Pict-<span class="home-hand">a</span>u</span>
     </a>
     <nav class="home-header-links" aria-label="Navigation principale">
-      <a href="#fonctionnalites" data-fr="Fonctionnalités" data-en="Features">Fonctionnalités</a>
-      <a href="#avantages" data-fr="Pourquoi Pict-au" data-en="Why Pict-au">Pourquoi Pict-au</a>
-      <a href="#forfait" data-fr="Notre forfait" data-en="Our plan">Notre forfait</a>
+      <a href="#fonctionnalites" data-view-link="features" data-fr="Fonctionnalités" data-en="Features">Fonctionnalités</a>
+      <a href="#avantages" data-view-link="features" data-fr="Pourquoi Pict-au" data-en="Why Pict-au">Pourquoi Pict-au</a>
+      <a href="#forfait" data-view-link="plan" data-fr="Notre forfait" data-en="Our plan">Notre forfait</a>
     </nav>
     <div class="home-header-right">
       <div class="home-lang" role="group" aria-label="Langue / Language">
         <button type="button" data-lang="fr" aria-pressed="true" class="active">FR</button>
         <button type="button" data-lang="en" aria-pressed="false">EN</button>
       </div>
-      <a href="#forfait" class="home-btn primary home-open" data-fr="Voir notre forfait" data-en="View our plan">Voir notre forfait</a>
+      <a href="#forfait" data-view-link="plan" class="home-btn primary home-open" data-fr="Voir notre forfait" data-en="View our plan">Voir notre forfait</a>
     </div>
   </header>
   <main id="page-main">
     <section class="home-hero" id="accueil" aria-labelledby="landing-title">
       <div class="home-hero-copy">
-        <div class="home-kicker"><span></span><span data-fr="PICTOGRAMMES ET ROUTINES VISUELLES" data-en="PICTOGRAMS AND VISUAL ROUTINES">PICTOGRAMMES ET ROUTINES VISUELLES</span></div>
+        <div class="home-kicker"><span class="home-kicker-dot" aria-hidden="true"></span><span data-fr="PICTOGRAMMES ET ROUTINES VISUELLES" data-en="PICTOGRAMS AND VISUAL ROUTINES">PICTOGRAMMES ET ROUTINES VISUELLES</span></div>
         <h1 id="landing-title" data-fr="Les pictogrammes et les routines, simplement." data-en="Pictograms and routines, made simple.">Les pictogrammes et les routines, simplement.</h1>
         <p data-fr="Des repères visuels clairs pour accompagner chaque étape du quotidien. Une bibliothèque organisée, des routines personnalisables et des supports faciles à imprimer." data-en="Clear visual cues for everyday moments. An organized pictogram library, customizable routines and visual materials made for printing.">Des repères visuels clairs pour accompagner chaque étape du quotidien. Une bibliothèque organisée, des routines personnalisables et des supports faciles à imprimer.</p>
         <div class="home-hero-actions">
-          <a class="home-btn primary" href="#forfait" data-fr="Découvrir le forfait" data-en="Discover the plan">Découvrir le forfait</a>
-          <a class="home-btn secondary" href="#fonctionnalites" data-fr="Voir les fonctionnalités" data-en="Explore features">Voir les fonctionnalités</a>
+          <a class="home-btn primary" href="#forfait" data-view-link="plan" data-fr="Découvrir le forfait" data-en="Discover the plan">Découvrir le forfait</a>
+          <a class="home-btn secondary" href="#fonctionnalites" data-view-link="features" data-fr="Voir les fonctionnalités" data-en="Explore features">Voir les fonctionnalités</a>
         </div>
       </div>
       <div class="home-art" role="img" aria-label="Illustration de l'interface Pict-au sur ordinateur et téléphone">
@@ -116,10 +116,15 @@
     </section>
   </main>
   <footer class="home-footer">
-    <a href="#accueil" class="home-logo" aria-label="Pict-au, accueil"><span class="home-logo-symbol" aria-hidden="true">P</span><span class="home-logo-word">Pict-<span class="home-hand">a</span>u</span></a>
+    <a href="#accueil" data-view-link="home" class="home-logo" aria-label="Pict-au, accueil"><span class="home-logo-symbol" aria-hidden="true">P</span><span class="home-logo-word">Pict-<span class="home-hand">a</span>u</span></a>
     <p data-fr="Des repères visuels pour chaque jour." data-en="Visual cues for every day.">Des repères visuels pour chaque jour.</p>
     <small data-fr="© 2026 Pict-au · Site officiel" data-en="© 2026 Pict-au · Official website">© 2026 Pict-au · Site officiel</small>
   </footer>
+  <nav class="mobile-dock" aria-label="Navigation des sections">
+    <a href="#accueil" data-view-link="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7"/></svg><span data-fr="Accueil" data-en="Home">Accueil</span></a>
+    <a href="#fonctionnalites" data-view-link="features"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg><span data-fr="Fonctions" data-en="Features">Fonctions</span></a>
+    <a href="#forfait" data-view-link="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg><span data-fr="Forfait" data-en="Plan">Forfait</span></a>
+  </nav>
 </div>
 </body>
 </html>
