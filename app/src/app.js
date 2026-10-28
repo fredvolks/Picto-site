@@ -19,6 +19,7 @@ import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
+import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE} from "./used-pictograms.js";
 import {selectApprovedItem,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDrafts,loadEditableDraft,saveEditableDraft,deleteEditableDraft} from "./client-drafts.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
@@ -213,6 +214,31 @@ function recordComposerCaption(target){
     "Use 48 characters or fewer, with no control characters.");}
   return true;
 }
+const usedPictos={items:[],total:0,page:0,loading:false,error:"",query:"",sort:"recent",theme:"all",request:0};
+function resetUsedPictos(){
+  usedPictos.request++;usedPictos.items=[];usedPictos.total=0;usedPictos.page=0;
+  usedPictos.loading=false;usedPictos.error="";usedPictos.query="";usedPictos.sort="recent";usedPictos.theme="all";
+}
+async function fetchUsedPictos(){
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+  const uid=authStatus.user.id,ticket=++usedPictos.request;
+  usedPictos.loading=true;usedPictos.error="";render();
+  try{
+    const client=await supabaseClient();
+    const result=await listUsedPictograms(client,uid,{
+      query:usedPictos.query,theme:usedPictos.theme,sort:usedPictos.sort,page:usedPictos.page
+    });
+    if(ticket!==usedPictos.request||authStatus.user?.id!==uid)return;
+    usedPictos.items=result.items;usedPictos.total=result.total;
+  }catch(error){
+    if(ticket!==usedPictos.request||authStatus.user?.id!==uid)return;
+    usedPictos.error=String(error?.message||error);usedPictos.items=[];usedPictos.total=0;
+  }finally{
+    if(ticket===usedPictos.request&&authStatus.user?.id===uid){
+      usedPictos.loading=false;render();
+    }
+  }
+}
 const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
   imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:""};
 function clearPublishedCatalog(){
@@ -252,19 +278,23 @@ let catalogImageObserver=null;
 function observePublishedArtwork(){
   if(catalogImageObserver)catalogImageObserver.disconnect();
   catalogImageObserver=null;
-  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!["library","routines","boards"].includes(state.page))return;
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!["library","used","routines","boards"].includes(state.page))return;
   const nodes=[...root.querySelectorAll("img[data-catalog-id]")];
   if(!nodes.length)return;
   const uid=authStatus.user.id;
   const load=async img=>{
-    const id=img.dataset.catalogId,row=[...publishedCatalog.items,...officialComposer.routine,...officialComposer.board].find(x=>x.id===id);
+    const id=img.dataset.catalogId,row=[...publishedCatalog.items,
+      ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
+      ...officialComposer.routine,...officialComposer.board].find(x=>x.id===id);
     if(!row||publishedCatalog.loadingImages.has(id))return;
     if(publishedCatalog.imageUrls.has(id)){img.src=publishedCatalog.imageUrls.get(id);return;}
     publishedCatalog.loadingImages.add(id);
     try{
       const client=await supabaseClient();
       const blob=await downloadPublishedArtwork(client,uid,row);
-      if(authStatus.user?.id!==uid||![...publishedCatalog.items,...officialComposer.routine,...officialComposer.board].some(x=>x.id===id))return;
+      if(authStatus.user?.id!==uid||![...publishedCatalog.items,
+          ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
+          ...officialComposer.routine,...officialComposer.board].some(x=>x.id===id))return;
       const url=URL.createObjectURL(blob);
       publishedCatalog.imageUrls.set(id,url);
       for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id)match.src=url;
@@ -548,7 +578,7 @@ async function openAdminPreview(assetId){
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
 function resetPrivateBank(){
-  resetOfficialComposer();resetEditableDrafts();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
+  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -1312,7 +1342,8 @@ function renderClientHome(){
     +'<p>'+esc(fr?'Retrouvez vos créations et explorez les catégories de pictogrammes. Un espace clair pour préparer vos supports.':'Find your creations and explore pictogram categories. A simple space for your visual supports.')+'</p>'
     +'<button type="button" class="pa-client-home-search" data-action="client-search">'+icon("search")+'<span>'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</span>'+icon("arrow")+'</button>'
     +'<div class="pa-client-hero-actions"><button type="button" class="btn btn-primary" data-action="nav" data-page="create">'+esc(fr?'Créer un support':'Create a visual support')+icon("arrow")+'</button>'
-    +'<button type="button" class="btn btn-light" data-action="nav" data-page="library">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</button></div></div>'
+    +'<button type="button" class="btn btn-light" data-action="nav" data-page="library">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</button>'
+    +'<button type="button" class="btn btn-light" data-action="nav" data-page="used">'+esc(fr?'Déjà utilisés':'Previously used')+'</button></div></div>'
     +'<div class="pa-client-hero-aside"><span class="pa-client-hero-icon">'+icon("library")+'</span><strong>'+esc(fr?'Des supports qui vous ressemblent.':'Supports that fit your needs.')+'</strong>'
     +'<span>'+esc(fr?'Dessins et textes alignés, prêts à être imprimés après publication.':'Clear images and captions, once artwork is published.')+'</span></div></section>'
     +'<section class="pa-client-section" aria-labelledby="pa-creations-title"><div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'PRIVÉ ET ENREGISTRÉ':'PRIVATE AND SAVED')+'</span>'
@@ -1373,6 +1404,7 @@ function renderClientLibrary(){
     +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'BIBLIOTHÈQUE':'LIBRARY')+'</span>'
     +'<h1 id="pa-catalog-title">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</h1></div>'
     +(f.loaded?'<span class="pa-client-section-meta">'+f.total+' '+esc(fr?'résultats approuvés':'approved results')+'</span>':'')+'</div>'
+    +'<button type="button" class="btn btn-light pa-used-discovery" data-action="nav" data-page="used">'+esc(fr?"Mes pictogrammes utilisés":"My used pictograms")+'</button>'
     +'<form data-form="catalog-filter" class="pa-client-search-wrap" role="search">'
     +'<label for="pa-client-search">'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</label>'
     +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="80"'
@@ -1386,6 +1418,58 @@ function renderClientLibrary(){
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'">'
       +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>';
+}
+function renderClientUsed(){
+  const fr=state.language==="fr",u=usedPictos;
+  const pages=Math.max(1,Math.ceil(u.total/USED_PAGE_SIZE));
+  const usedCards=u.items.map(entry=>{
+    const item=approvedFromUsage(entry);
+    if(!item)return '<article class="pa-catalog-card pa-used-unavailable">'
+      +'<div class="pa-client-empty">'+icon("info")+'<p>'+esc(fr?"Pictogramme retiré du catalogue":"Pictogram removed from catalogue")+'</p></div>'
+      +'<p>'+esc(fr?"Ancienne utilisation conservée; nouvelle impression indisponible.":"Previous use saved; new printing unavailable.")+'</p></article>';
+    const title=fr?item.title_fr:(item.title_en||item.title_fr),url=publishedCatalog.imageUrls.get(item.id);
+    return '<article class="pa-catalog-card"><div class="pa-catalog-art"><div class="pa-catalog-art-body">'
+      +'<img data-catalog-id="'+esc(item.id)+'"'+(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async"></div>'
+      +'<div class="pa-catalog-art-caption">'+esc(title)+'</div></div>'
+      +'<p class="pa-catalog-card-label">'+esc(title)+'</p><span class="pa-catalog-card-category">'+esc(
+        CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
+      )+'</span><div class="pa-catalog-add">'
+      +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'
+      +(officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?"Routine":"Routine")+'</button>'
+      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'
+      +(officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?"Tableau":"Board")+'</button></div></article>';
+  }).join("");
+  return '<section class="pa-client-catalog pa-used-pictos" aria-labelledby="pa-used-title">'
+    +'<span class="pa-client-overline">'+esc(fr?"VOTRE BIBLIOTHÈQUE PERSONNELLE":"YOUR PERSONAL LIBRARY")+'</span>'
+    +'<h1 id="pa-used-title">'+esc(fr?"Mes pictogrammes utilisés":"My used pictograms")+'</h1>'
+    +'<p class="pa-client-context">'+esc(fr?
+      "Retrouvez les images de vos routines et tableaux enregistrés. Choisissez-en plusieurs pour composer une nouvelle impression, sans retrouver un ancien PDF.":
+      "Reuse images from saved routines and boards to create a new printable document without reopening an old PDF.")+'</p>'
+    +'<form data-form="used-filter" class="pa-used-filters">'
+    +'<div class="control"><label for="pa-used-search">'+esc(fr?"Rechercher":"Search")+'</label>'
+    +'<input id="pa-used-search" name="query" maxlength="80" value="'+esc(u.query)+'" placeholder="'+esc(fr?"Nom du pictogramme":"Pictogram name")+'"></div>'
+    +'<div class="control"><label for="pa-used-sort">'+esc(fr?"Trier par":"Sort by")+'</label>'
+    +'<select id="pa-used-sort" name="sort"><option value="recent"'+(u.sort==="recent"?' selected':'')+'>'+esc(fr?"Récemment utilisés":"Recently used")+'</option>'
+    +'<option value="name"'+(u.sort==="name"?' selected':'')+'>'+esc(fr?"Nom A à Z":"Name A to Z")+'</option></select></div>'
+    +'<div class="control"><label for="pa-used-theme">'+esc(fr?"Catégorie":"Category")+'</label>'
+    +'<select id="pa-used-theme" name="theme"><option value="all">'+esc(fr?"Toutes":"All")+'</option>'
+    +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<option value="'+esc(key)+'"'+(u.theme===key?' selected':'')+'>'+esc(fr?frName:enName)+'</option>').join("")+'</select></div>'
+    +'<button type="submit" class="btn btn-primary"'+(u.loading?' disabled':'')+'>'+esc(fr?"Filtrer":"Filter")+'</button></form>'
+    +(officialComposer.routine.length||officialComposer.board.length?
+      '<div class="pa-composer-toolbar"><strong>'+esc(fr?"Votre sélection":"Your selection")+'</strong>'
+      +'<button type="button" data-action="nav" data-page="routines">'+esc(fr?"Routine":"Routine")+' · '+officialComposer.routine.length+'</button>'
+      +'<button type="button" data-action="nav" data-page="boards">'+esc(fr?"Tableau":"Board")+' · '+officialComposer.board.length+'</button></div>':'')
+    +(u.loading?'<p role="status" class="pa-catalog-notice">'+esc(fr?"Chargement de vos pictogrammes…":"Loading used pictograms…")+'</p>':
+      u.error?'<p role="alert" class="pa-catalog-notice">'+esc(u.error)+'</p>':
+      !u.items.length?'<div class="pa-client-empty"><p>'+esc(fr?
+        "Aucun pictogramme utilisé enregistré pour ces critères. Enregistrez une routine ou un tableau pour commencer. Les anciens PDF seuls ne permettent pas de retrouver automatiquement leurs images.":
+        "No saved pictogram uses match. Save a routine or board to start. Old PDFs alone cannot restore their image list.")+'</p></div>':
+      '<div class="pa-catalog-grid">'+usedCards+'</div>'
+      +(pages>1?'<nav class="pa-catalog-pages" aria-label="'+esc(fr?"Pages":"Pages")+'">'
+        +'<button type="button" data-action="used-page" data-direction="-1"'+(!u.page?' disabled':'')+'>'+esc(fr?"Précédent":"Previous")+'</button>'
+        +'<span>'+(u.page*USED_PAGE_SIZE+1)+'–'+Math.min(u.total,(u.page+1)*USED_PAGE_SIZE)+' / '+u.total+'</span>'
+        +'<button type="button" data-action="used-page" data-direction="1"'+(u.page>=pages-1?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></nav>':''))
+    +'</section>';
 }
 function renderClientCreate(){
   const fr=state.language==="fr";
@@ -1472,7 +1556,7 @@ function render(){
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
-  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
+  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
      kind:state.page==="routines"?"routine":"board",
      items:officialComposer[state.page==="routines"?"routine":"board"],
      language:state.language,imageUrls:publishedCatalog.imageUrls,
@@ -1591,7 +1675,7 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();}
+  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
   if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
     void fetchEditableDrafts();return;
   }
@@ -1689,7 +1773,7 @@ root.addEventListener("click",function(event){
     return;
   }
   if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!officialComposer.busy){
-     const kind=el.dataset.kind,row=publishedCatalog.items.find(x=>x.id===el.dataset.id);
+     const kind=el.dataset.kind,row=[...publishedCatalog.items,...usedPictos.items.map(approvedFromUsage).filter(Boolean)].find(x=>x.id===el.dataset.id);
      if(!row||!["routine","board"].includes(kind))return;
      try{officialComposer[kind]=selectApprovedItem(officialComposer[kind],row,kind);markDraftChanged(kind);officialComposer.error="";render();}
      catch(error){officialComposer.error=String(error.message||error);render();}
@@ -1702,7 +1786,14 @@ root.addEventListener("click",function(event){
        changeApprovedOrder(officialComposer[kind],index,Number(el.dataset.direction));
      markDraftChanged(kind);render();return;
    }
-   if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
+   if(a==="used-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading){
+    const target=usedPictos.page+Number(el.dataset.direction);
+    if(Number.isSafeInteger(target)&&target>=0&&target<Math.ceil(usedPictos.total/USED_PAGE_SIZE)){
+      usedPictos.page=target;void fetchUsedPictos();
+    }
+    return;
+  }
+  if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
   if(a==="catalog-page"&&SITE_EMBEDDED&&!canOpenAdmin()&&!publishedCatalog.loading){
     const target=publishedCatalog.page+Number(el.dataset.direction);
     if(!Number.isSafeInteger(target)||target<0||target>=Math.ceil(publishedCatalog.total/CATALOG_PAGE_SIZE))return;
@@ -2187,6 +2278,16 @@ root.addEventListener("submit",function(event){
       }catch(error){if(authStatus.user?.id===uid)publishedCatalog.publishError=String(error?.message||error);}
       finally{publishedCatalog.publishing=false;render();}
     })();return;
+  }
+  const usedForm=event.target.closest('form[data-form="used-filter"]');
+  if(usedForm){
+    event.preventDefault();
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||usedPictos.loading)return;
+    const data=new FormData(usedForm);
+    usedPictos.query=String(data.get("query")||"");
+    usedPictos.sort=String(data.get("sort")||"recent");
+    usedPictos.theme=String(data.get("theme")||"all");
+    usedPictos.page=0;void fetchUsedPictos();return;
   }
   const officialForm=event.target.closest('form[data-form="approved-export"]');
   if(officialForm){

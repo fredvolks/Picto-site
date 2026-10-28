@@ -1364,3 +1364,25 @@
 .pa-composer-draft-status{width:100%}
 }
 @media print{.pa-editable-drafts,.pa-composer-draft-actions{display:none!important}}
+
+/* Pictogrammes déjà utilisés : recherche simple et sélection tactile responsive. */
+@media screen {
+  .pa-used-discovery{margin:6px 0 18px;min-height:44px}
+  .pa-used-filters{display:grid;grid-template-columns:minmax(180px,2fr) repeat(2,minmax(130px,1fr)) auto;
+    align-items:end;gap:12px;margin:18px 0 22px;padding:16px;
+    border:1px solid #e3e3e3;border-radius:17px;background:#fff}
+  .pa-used-filters .control{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .pa-used-filters label{font-weight:750;font-size:13px;color:#333}
+  .pa-used-filters input,.pa-used-filters select{width:100%;min-width:0;min-height:46px;
+    padding:9px 11px;border:1px solid #c9c9c9;border-radius:11px;color:#111;background:#fff;font-size:15px}
+  .pa-used-filters>.btn{min-height:46px}
+  .pa-used-unavailable{display:flex;flex-direction:column;justify-content:center;gap:10px;
+    min-height:170px;border-style:dashed}
+  .pa-used-unavailable .pa-client-empty{padding:8px}
+  .pa-used-unavailable p{font-size:13px;line-height:1.4;margin:0}
+  .pa-used-pictos .pa-catalog-grid{margin-top:12px}
+}
+@media screen and (max-width:880px){.pa-used-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media screen and (max-width:520px){.pa-used-filters{grid-template-columns:minmax(0,1fr);gap:11px;padding:13px}
+  .pa-used-filters>.btn{width:100%}}
+@media print{.pa-used-discovery,.pa-used-filters{display:none!important}}
