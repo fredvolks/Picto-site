@@ -145,8 +145,8 @@ try{
         assert.equal(label.align,"center",name+" label vertically centered");
         assert.equal(label.justify,"center",name+" label horizontally centered");
       }
-      if(width<=680)assert.equal(value.devicesDisplay,"none",name+" devices hidden on narrow mobile");
-      else assert.notEqual(value.devicesDisplay,"none",name+" laptop and phone visible");
+      if(width<=370&&height<=620)assert.equal(value.devicesDisplay,"none",name+" no decorative visual on short phone");
+      else assert.notEqual(value.devicesDisplay,"none",name+" authentic sample images visible");
       const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
       await writeFile(join(screenshots,name+".png"),Buffer.from(shot.data,"base64"));
       console.log("PASS "+name+" : page unique, deux actions, bénéfices et ligne noire");
