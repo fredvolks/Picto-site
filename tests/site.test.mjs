@@ -28,7 +28,10 @@ test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
  assert.match(html,/<a class="login-link" href="\.\/connexion\.html">/);
  assert.doesNotMatch(html,/hamburger|menu-toggle|google-login|supabase/i);
  assert.doesNotMatch(css,/\.login-link\s*\{[^}]*display\s*:\s*none/);
- assert.match(read("connexion.html"),/n.est pas encore ouvert/);
+ const loginPage=read("connexion.html");
+ assert.match(loginPage,/href="\.\/app\/"/);
+ assert.match(loginPage,/accéder à la connexion Google/);
+ assert.match(loginPage,/Super Admin nécessite un compte expressément autorisé/);
 });
 test("Pictogrammes issus des illustrations de l'app : trait séparateur noir et étiquettes centrées",()=>{
  assert.equal((html.match(/class="pictau-picto /g)||[]).length,5);
