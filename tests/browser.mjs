@@ -105,73 +105,84 @@ try{
   await command("Runtime.enable");
   await mkdir(screenshots,{recursive:true});
 
-  const sizes=[[320,568],[360,640],[390,844],[412,915],[768,1024],
-    [1024,768],[1280,720],[1366,768],[1440,900],[1920,1080]];
+  const sizes=[[320,568],[360,640],[390,844],[412,915],[768,1024],[1024,768],[1280,720],[1366,768],[1440,900],[1920,1080]];
   for(const [width,height] of sizes){
-    const mobile=width<=680;
-    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile,deviceScaleFactor:1});
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=680,deviceScaleFactor:1});
     await command("Page.navigate",{url:base+"/index.html"});
-    await waitFor("return document.readyState==='complete' && !!document.querySelector('.hero-title')");
+    await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
     for(const lang of ["fr","en"]){
       await evaluate("document.querySelector('[data-lang="+lang+"]').click();return true;");
       await waitFor("return document.documentElement.lang==='"+lang+"'");
-      const state=await evaluate("\nconst selectors=[\".header\",\".login-link\",\".hero\",\".hero-title\",\".intro\",\".benefits\",\".plan\",\".signup-button\",\".site-footer\"];\nconst bounds={};\nfor(const key of selectors){\n const node=document.querySelector(key),r=node.getBoundingClientRect();\n bounds[key]={left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,\n visible:getComputedStyle(node).display!==\"none\"&&getComputedStyle(node).visibility!==\"hidden\"};\n}\nconst textRange=document.createRange();\ntextRange.selectNodeContents(document.querySelector(\".hero-title\"));\nconst titleText=textRange.getBoundingClientRect();\nreturn {\n width:innerWidth,height:innerHeight,scrollW:document.documentElement.scrollWidth,\n scrollH:document.documentElement.scrollHeight,language:document.documentElement.lang,\n bounds,plans:document.querySelectorAll(\".plan\").length,\n primary:document.querySelectorAll(\".signup-button\").length,\n disabled:document.querySelector(\".signup-button\").disabled,\n price:document.querySelector(\".price\").textContent,\n login:document.querySelector(\".login-link\").textContent.trim(),\n legal:document.querySelectorAll(\".site-footer a\").length,\n laptop:getComputedStyle(document.querySelector(\".hero-visual\")).display,\n phone:getComputedStyle(document.querySelector(\".phone\")).display,\n deviceCount:document.querySelectorAll(\".laptop,.phone\").length,\n titleText:{top:titleText.top,bottom:titleText.bottom}\n};");
-            const tag=lang+" "+width+"x"+height;
-      assert.equal(state.plans,1,tag+" single plan");
-      assert.equal(state.primary,1,tag+" single CTA");
-      assert.equal(state.disabled,true,tag+" checkout not open");
-      assert.equal(state.legal,3,tag+" legal links");
-      assert.equal(state.login,lang==="fr"?"Connexion":"Sign in",tag+" accessible sign in");
-      assert.match(state.price,lang==="fr"?/Tarif à confirmer/:/Pricing to be confirmed/,tag+" no fake price");
-      assert.ok(state.scrollW<=width+2,tag+" horizontal scrolling: "+JSON.stringify(state));
-      assert.ok(state.scrollH<=height+2,tag+" vertical scrolling: "+JSON.stringify(state));
-      assert.ok(state.titleText.top>=state.bounds[".hero"].top-2&&state.titleText.bottom<=state.bounds[".hero"].bottom+2,
-        tag+" title ink clipped by hero: "+JSON.stringify(state));
-      for(const [sel,b] of Object.entries(state.bounds)){
-        assert.equal(b.visible,true,tag+" "+sel+" visible");
-        assert.ok(b.width>0&&b.height>0,tag+" "+sel+" dimensions");
-        assert.ok(b.left>=-2&&b.right<=width+2,tag+" "+sel+" horizontal viewport: "+JSON.stringify(b));
-        assert.ok(b.top>=-2&&b.bottom<=height+2,tag+" "+sel+" vertical viewport: "+JSON.stringify(b));
+      const value=await evaluate("\nconst keys=[\".header\",\".login-link\",\".hero\",\".hero-title\",\".intro\",\".benefits\",\".signup-section\",\".signup-button\",\".site-footer\"];\nconst bounds={};\nfor(const key of keys){const n=document.querySelector(key);if(!n)throw Error(\"missing \"+key);const r=n.getBoundingClientRect();bounds[key]={left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,visible:getComputedStyle(n).display!==\"none\"};}\nconst labels=[...document.querySelectorAll('.pictau-label')].map(n=>({\n text:n.textContent.trim(),\n border:getComputedStyle(n).borderTopWidth,\n borderColor:getComputedStyle(n).borderTopColor,\n align:getComputedStyle(n).alignItems,\n justify:getComputedStyle(n).justifyContent\n}));\nconst benefits=[...document.querySelectorAll('.benefit')].map(n=>{const r=n.getBoundingClientRect();const t=n.querySelector('strong').getBoundingClientRect();return{x:r.x,width:r.width,strongWidth:t.width,center:t.left+t.width/2,boxCenter:r.left+r.width/2,iconHeight:n.querySelector('.benefit-icon').getBoundingClientRect().height,fonts:Number.parseFloat(getComputedStyle(n.querySelector('strong')).fontSize)};});\nconst range=document.createRange();range.selectNodeContents(document.querySelector('.hero-title'));\nconst titleRect=range.getBoundingClientRect();\nreturn{width:innerWidth,height:innerHeight,scrollW:document.documentElement.scrollWidth,scrollH:document.documentElement.scrollHeight,bounds,labels,benefits,\n titleInk:{top:titleRect.top,bottom:titleRect.bottom},\n planCount:document.querySelectorAll('.plan').length,signupCount:document.querySelectorAll('.signup-button').length,\n signupHref:document.querySelector('.signup-button').getAttribute('href'),\n loginText:document.querySelector('.login-link').textContent.trim(),loginCount:document.querySelectorAll('.login-link').length,\n language:document.documentElement.lang,legal:document.querySelectorAll('.site-footer a').length,\n devicesDisplay:getComputedStyle(document.querySelector('.hero-visual')).display,\n unwantedLines:document.querySelectorAll('.laptop-lines,.phone-line,.laptop-subheading,.phone-heading').length};");
+      const name=lang+"-"+width+"x"+height;
+      assert.equal(value.language,lang,name+" language");
+      assert.equal(value.planCount,0,name+" no plan on home");
+      assert.equal(value.signupCount,1,name+" one signup CTA");
+      assert.equal(value.signupHref,"./forfait.html",name+" valid separate plan link");
+      assert.equal(value.loginCount,1,name+" one login");
+      assert.equal(value.loginText,lang==="fr"?"Connexion":"Sign in",name+" sign in direct");
+      assert.equal(value.legal,3,name+" three legal links");
+      assert.equal(value.unwantedLines,0,name+" no fake blue skeleton");
+      assert.ok(value.scrollW<=width+2,name+" horizontal overflow: "+JSON.stringify(value));
+      assert.ok(value.scrollH<=height+2,name+" vertical overflow: "+JSON.stringify(value));
+      for(const [selector,r] of Object.entries(value.bounds)){
+        assert.ok(r.visible&&r.width>0&&r.height>0,name+" "+selector+" visible");
+        assert.ok(r.left>=-2&&r.right<=width+2,name+" "+selector+" within horizontal viewport "+JSON.stringify(r));
+        assert.ok(r.top>=-2&&r.bottom<=height+2,name+" "+selector+" within vertical viewport "+JSON.stringify(r));
       }
-      const overlap=(a,b)=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>2 &&
-        Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>2;
-      assert.equal(overlap(state.bounds[".hero"],state.bounds[".benefits"]),false,tag+" hero/benefits");
-      assert.equal(overlap(state.bounds[".hero"],state.bounds[".plan"]),false,tag+" hero/plan");
-      assert.equal(overlap(state.bounds[".benefits"],state.bounds[".plan"]),false,tag+" benefits/plan");
-      assert.deepEqual(
-        await evaluate("return [...document.querySelectorAll('.laptop-picto span,.phone-picto span')].map(n=>n.textContent)"),
-        lang==="fr"?["collation","lire","bonjour","toilette","école"]:["snack","read","hello","bathroom","school"],
-        tag+" bilingual labels inside both conceptual devices"
-      );
-      assert.equal(state.deviceCount,2,tag+" both original devices exist");
-      if(mobile){
-        assert.equal(state.laptop,"none",tag+" decorative devices hidden on phone");
-        assert.equal(state.phone,"none",tag+" phone visual hidden so the offer remains readable");
-      }else{
-        assert.notEqual(state.laptop,"none",tag+" laptop visible on desktop/tablet");
-        assert.notEqual(state.phone,"none",tag+" phone visible on desktop/tablet");
+      assert.ok(value.titleInk.top>=value.bounds[".hero"].top-2&&value.titleInk.bottom<=value.bounds[".hero"].bottom+2,name+" title ink not clipped");
+      assert.equal(value.benefits.length,3,name+" three benefits");
+      for(const benefit of value.benefits){
+        assert.ok(benefit.iconHeight>=30,name+" benefit icon large enough");
+        assert.ok(benefit.fonts>=12,name+" benefit title readable");
+        assert.ok(Math.abs(benefit.center-benefit.boxCenter)<=3,name+" benefits properly centered: "+JSON.stringify(benefit));
       }
+      assert.equal(value.labels.length,5,name+" five examples from app");
+      assert.deepEqual(value.labels.map(x=>x.text),lang==="fr"?["toilette","collation","lire","école","pause"]:["toilet","snack","read","school","break"],name+" source labels bilingual");
+      for(const label of value.labels){
+        assert.ok(parseFloat(label.border)>0,name+" black separator line");
+        assert.match(label.borderColor,/rgb\(17, 17, 17\)/,name+" black separator ink");
+        assert.equal(label.align,"center",name+" label vertically centered");
+        assert.equal(label.justify,"center",name+" label horizontally centered");
+      }
+      if(width<=680)assert.equal(value.devicesDisplay,"none",name+" devices hidden on narrow mobile");
+      else assert.notEqual(value.devicesDisplay,"none",name+" laptop and phone visible");
       const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
-      await writeFile(join(screenshots,lang+"-"+width+"x"+height+".png"),Buffer.from(shot.data,"base64"));
-      console.log("PASS "+tag+" without overflow, all content visible");
+      await writeFile(join(screenshots,name+".png"),Buffer.from(shot.data,"base64"));
+      console.log("PASS "+name+" : page unique, deux actions, bénéfices et ligne noire");
     }
+  }
+  // Le CTA de l'accueil doit réellement ouvrir le forfait; pas de faux paiement.
+  for(const width of [320,768,1440]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height:width===320?568:width===768?1024:900,mobile:width===320,deviceScaleFactor:1});
+    await command("Page.navigate",{url:base+"/index.html"});
+    await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
+    await evaluate("document.querySelector('.signup-button').click();return true;");
+    await waitFor("return location.pathname.endsWith('/forfait.html') && !!document.querySelector('.plan-page')");
+    const p=await evaluate("return {plan:document.querySelectorAll('.plan-page').length,amount:document.querySelector('.plan-page-status strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.info-back').getAttribute('href')};");
+    assert.equal(p.plan,1,"One distinct plan page");
+    assert.match(p.amount,/Tarif à confirmer|Pricing to be confirmed/);
+    assert.equal(p.forms,0,"No fake account/payment form");
+    assert.equal(p.back,"./index.html","Valid navigation back");
+    const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
+    await writeFile(join(screenshots,"forfait-"+width+"px.png"),Buffer.from(shot.data,"base64"));
   }
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:640,mobile:true,deviceScaleFactor:1});
   await command("Page.navigate",{url:base+"/index.html"});
-  await waitFor("return document.readyState==='complete' && !!document.querySelector('.plan')");
+  await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
   const zoom=await evaluate("document.body.style.zoom='1.85';return {overflow:getComputedStyle(document.documentElement).overflowY,scroll:document.documentElement.scrollHeight,height:innerHeight,button:!!document.querySelector('.signup-button')};");
-  assert.equal(zoom.overflow,"auto","Zoom: scrolling remains possible");
-  assert.equal(zoom.button,true,"Zoom: CTA retained");
-  assert.ok(zoom.scroll>zoom.height,"Zoom: content may expand instead of being clipped");
+  assert.equal(zoom.overflow,"auto","Zoom: allow vertical scroll");
+  assert.equal(zoom.button,true,"Zoom: CTA still in DOM");
+  assert.ok(zoom.scroll>zoom.height,"Zoom: expanded content may scroll rather than clip");
   await evaluate("document.body.style.zoom='';return true;");
   for(const name of ["connexion","contact","conditions","confidentialite"]){
     await command("Page.navigate",{url:base+"/"+name+".html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.info-surface')");
-    const info=await evaluate("return {back:!!document.querySelector('a[href=\"./index.html\"]'),form:!!document.querySelector('form input')};");
-    assert.equal(info.back,true,name+" back link");
-    assert.equal(info.form,false,name+" no fake sign up or payment");
+    const info=await evaluate("return{back:!!document.querySelector('a[href=\"./index.html\"]'),forms:document.querySelectorAll('form').length};");
+    assert.equal(info.back,true,name+" return home");
+    assert.equal(info.forms,0,name+" no fake form");
   }
-  console.log("Vitrine: 10 viewports x FR/EN, zoom and information pages validated.");
+  console.log("Vitrine validée : 10 formats × FR/EN, 3 pages forfait, zoom et pages légales.");
 }catch(error){
   console.error(error);
   process.exitCode=1;
