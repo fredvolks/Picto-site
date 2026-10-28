@@ -131,7 +131,7 @@ const root = document.querySelector("#app");
 let pdfExportBusy=false;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
-const authStatus={user:null,working:false,error:""};
+const authStatus={user:null,working:false,ready:false,error:""};
 const clientFiles={items:[],total:0,page:0,query:"",type:"all",loading:false,busy:false,error:"",message:"",
  renameId:null,request:0,preview:null,draft:{title:"",documentType:"routine"}};
 function clearClientPreview(){
@@ -471,11 +471,11 @@ async function refreshGoogleUser(client){
   try{
     const verified=await currentVerifiedUser(client);
     const previousId=authStatus.user?.id;
-    authStatus.user=verified;authStatus.error="";authStatus.working=false;
+    authStatus.user=verified;authStatus.error="";authStatus.working=false;authStatus.ready=true;
     if(!verified){resetPrivateBank();render();return;}
     if(previousId!==verified.id){resetPrivateBank();render();void refreshPrivateBank(client,verified.id);if(state.page==="files")void fetchClientFiles(client,verified.id);return;}
   }catch(error){
-    authStatus.user=null;authStatus.error=String(error.message||error);
+    authStatus.user=null;authStatus.error=String(error.message||error);authStatus.ready=true;
     resetPrivateBank();
   }
   render();
@@ -484,14 +484,14 @@ async function initializeGoogle(){
   try{
     const client=await supabaseClient();
     client.auth.onAuthStateChange((event)=>{
-      if(event==="SIGNED_OUT"){authStatus.user=null;resetPrivateBank();render();}
+      if(event==="SIGNED_OUT"){authStatus.user=null;authStatus.ready=true;resetPrivateBank();render();}
       else if(["INITIAL_SESSION","SIGNED_IN","TOKEN_REFRESHED","USER_UPDATED"].includes(event)){
         // Ne pas appeler getUser directement dans le callback de changement de session.
         setTimeout(()=>{void refreshGoogleUser(client);},0);
       }
     });
     await refreshGoogleUser(client);
-  }catch(error){authStatus.error="Connexion Google indisponible.";render();}
+  }catch(error){authStatus.error="Connexion Google indisponible.";authStatus.ready=true;render();}
 }
 
 const initial = load("pictau-preset", DEFAULT_PRESET);
@@ -1021,11 +1021,42 @@ function renderAdmin(){
 function adminRange(key,label,value,min,max,step,unit){
   return '<div class="control full-span"><div class="range-header"><label for="admin-'+key+'">'+label+'</label><output id="out-'+key+'">'+fmt(value)+' '+unit+'</output></div><input id="admin-'+key+'" data-input="admin-range" data-key="'+key+'" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+value+'"></div>';
 }
+function renderHostedAccess(){
+  const fr=state.language==="fr";
+  const wait=!authStatus.ready;
+  return '<section class="hosted-access" aria-labelledby="hosted-access-title">'
+   +'<header class="hosted-access-header"><a class="hosted-access-brand" href="../index.html">'+brand()+'</a>'
+   +'<div class="lang-switch" role="group" aria-label="Language">'
+   +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
+   +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div></header>'
+   +'<main class="hosted-access-main"><div class="hosted-access-panel">'
+   +'<span class="hosted-access-eyebrow">'+esc(fr?'ESPACE PICT-AU':'YOUR PICT-AU SPACE')+'</span>'
+   +'<h1 id="hosted-access-title">'+esc(fr?'Accéder à mon espace':'Access my space')+'</h1>'
+   +'<p>'+esc(fr?'Connectez-vous pour retrouver vos fichiers et vos demandes. Aucune démonstration n’est ajoutée à votre compte.':'Sign in to access your files and requests. No sample content is added to your account.')+'</p>'
+   +(wait?'<p class="hosted-access-status" role="status">'+esc(fr?'Vérification de la session…':'Checking your session…')+'</p>':'<div class="hosted-access-action">'+googleButton()+'</div>')
+   +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'')
+   +'<a href="../index.html" class="hosted-access-back">'+esc(fr?'← Retour à l’accueil Pict-au':'← Back to Pict-au home')+'</a>'
+   +'</div></main></section>';
+}
+function renderHostedEmpty(){
+  const fr=state.language==="fr";
+  const library=state.page==="library";
+  const title=library?(fr?'Aucun pictogramme publié pour le moment':'No published pictograms yet')
+    :(state.page==="routines"?(fr?'Mes routines':'My routines'):(fr?'Mes tableaux':'My boards'));
+  const message=library?
+    (fr?'La bibliothèque de votre compte sera alimentée uniquement avec les vrais pictogrammes approuvés. Les images d’essai ne sont pas des pictogrammes publiés.':'Only approved pictograms will appear in your library. Test illustrations are not published pictograms.'):
+    (fr?'Aucun support n’est préchargé dans votre compte. La composition sera disponible lorsque les pictogrammes officiels seront publiés. Vos documents déjà sauvegardés restent accessibles dans Mes fichiers.':'Your account has no preloaded materials. You can create supports once official pictograms are published. Previously saved documents remain available in My files.');
+  return '<section class="hosted-library-empty" aria-labelledby="hosted-library-title">'
+    +'<span class="hosted-access-eyebrow">'+esc(fr?'MON ESPACE PICT-AU':'MY PICT-AU SPACE')+'</span>'
+    +'<h1 id="hosted-library-title">'+esc(title)+'</h1><p>'+esc(message)+'</p>'
+    +'<button type="button" class="btn btn-primary" data-action="nav" data-page="files">'+icon("file-text","btn-icon")+esc(fr?'Ouvrir Mes fichiers':'Open My files')+'</button>'
+    +'</section>'+(library?renderCustomerRequestCenter():'');
+}
 function render(){
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
-  root.innerHTML=state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
+  root.innerHTML=SITE_EMBEDDED&&!authStatus.user?renderHostedAccess():(SITE_EMBEDDED&&state.page!=="files"&&state.page!=="admin"?shell(renderHostedEmpty()):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary()));
   layoutArtwork(root);
   updateArtFeedback();
   observeBankThumbnails();
