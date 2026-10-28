@@ -78,3 +78,12 @@ test("Trio compact sans faux prix, et aucun second appel à l'inscription",()=>{
   assert.match(html,/Inscriptions à venir/);
   assert.doesNotMatch(html,/9,99|Stripe|\$\/mois|paiement sécurisé/i);
 });
+
+test("Le visuel conceptuel comprend un ordinateur et un téléphone complémentaires",()=>{
+  assert.equal((html.match(/class="laptop-screen"/g)||[]).length,1);
+  assert.equal((html.match(/class="phone-display"/g)||[]).length,1);
+  assert.equal((html.match(/class="phone-picto"/g)||[]).length,2);
+  assert.match(html,/class="hero-visual" aria-hidden="true"/);
+  assert.match(css,/@media\(max-width:680px\)\{\.phone\{display:none\}\}/);
+  assert.doesNotMatch(html,/vraie capture de l.application|démo interactive/);
+});
