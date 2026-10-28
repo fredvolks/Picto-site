@@ -138,6 +138,11 @@ try{
       assert.equal(overlap(state.bounds[".hero"],state.bounds[".benefits"]),false,tag+" hero/benefits");
       assert.equal(overlap(state.bounds[".hero"],state.bounds[".plan"]),false,tag+" hero/plan");
       assert.equal(overlap(state.bounds[".benefits"],state.bounds[".plan"]),false,tag+" benefits/plan");
+      assert.deepEqual(
+        await evaluate("return [...document.querySelectorAll('.laptop-picto span,.phone-picto span')].map(n=>n.textContent)"),
+        lang==="fr"?["collation","lire","bonjour","toilette","école"]:["snack","read","hello","bathroom","school"],
+        tag+" bilingual labels inside both conceptual devices"
+      );
       assert.equal(state.deviceCount,2,tag+" both original devices exist");
       if(mobile){
         assert.equal(state.laptop,"none",tag+" decorative devices hidden on phone");
