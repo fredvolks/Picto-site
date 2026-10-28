@@ -107,6 +107,27 @@ export async function listMyDocuments(client,uid,{page=0,query="",type="all",sor
   await verifiedUser(client,uid);
   return{items:result.data||[],total:result.count,page};
 }
+// Une suppression sur un autre appareil peut rendre la page courante vide alors
+// qu'il reste des PDF. Revenir au dernier feuillet réellement disponible.
+export function lastDocumentPage(total){
+  if(!Number.isSafeInteger(total)||total<0)throw Error("Décompte des fichiers indisponible.");
+  return Math.max(0,Math.ceil(total/DOCUMENTS_PAGE_SIZE)-1);
+}
+export async function listMyDocumentsAvailablePage(client,uid,filters={}){
+  let page=filters.page??0;
+  if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
+  // Les résultats sont toujours obtenus via les contrôles Auth et RLS du service
+  // initial. Limiter les relectures si un autre appareil modifie la liste sans cesse.
+  for(let attempt=0;attempt<3;attempt++){
+    const result=await listMyDocuments(client,uid,{...filters,page});
+    const last=lastDocumentPage(result.total);
+    if(page<=last)return {...result,page};
+    if(result.total===0)return {...result,page:0};
+    page=last;
+  }
+  throw Error("La liste a changé sur un autre appareil. Actualisez vos créations.");
+}
+
 export async function downloadMyDocument(client,uid,id){
   const path=documentPath(uid,id);
   await verifiedUser(client,uid);

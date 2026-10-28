@@ -16,7 +16,7 @@ import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./ar
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequests,listAdminPictogramRequests,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
 import {renderAdminRequestDesk} from "./request-ui.js";
-import {archivePdf,listMyDocuments,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
+import {archivePdf,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalog,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {listUsedPictograms,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices} from "./used-pictograms.js";
@@ -445,9 +445,9 @@ async function fetchClientFiles(client,uid){
  const ticket=++clientFiles.request;
  clientFiles.loading=true;clientFiles.error="";render();
  try{
-  const r=await listMyDocuments(client,uid,{page:clientFiles.page,query:clientFiles.query,type:clientFiles.type,sort:clientFiles.sort});
+  const r=await listMyDocumentsAvailablePage(client,uid,{page:clientFiles.page,query:clientFiles.query,type:clientFiles.type,sort:clientFiles.sort});
   if(ticket!==clientFiles.request||authStatus.user?.id!==uid)return;
-  clientFiles.items=r.items;clientFiles.total=r.total;
+  clientFiles.page=r.page;clientFiles.items=r.items;clientFiles.total=r.total;
  }catch(error){
   if(ticket!==clientFiles.request||authStatus.user?.id!==uid)return;
   clientFiles.error=String(error?.message||error);
