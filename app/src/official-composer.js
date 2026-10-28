@@ -30,10 +30,14 @@ export function canPrepareApproved({kind,items,widthCm,paper,columns=3}){
   return n*widthCm*10+gaps<=maxWidth+1e-6;
 }
 
-export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),busy=false,error="",pending="",escape:e,icon}){
+export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",escape:e,icon}){
  const fr=language==="fr",routine=kind==="routine";
  const label=(a,b)=>fr?a:b;
- const name=label(routine?"Ma routine":"Mon tableau",routine?"My routine":"My board");
+ const defaultName=label(routine?"Ma routine":"Mon tableau",routine?"My routine":"My board");
+ const name=typeof settings.title==="string"?settings.title:defaultName;
+ const width=typeof settings.widthCm==="string"?settings.widthCm:(routine?"3":"5");
+ const paper=settings.paper==="a4"?"a4":"letter";
+ const columns=["2","3","4"].includes(settings.columns)?settings.columns:"3";
  const content=items.map((item,i)=>{
   const title=fr?item.title_fr:(item.title_en||item.title_fr),src=imageUrls.get(item.id);
   return '<li class="pa-composer-item"><div class="pa-catalog-art"><div class="pa-catalog-art-body">'
@@ -58,9 +62,9 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
   +(error?'<p role="alert" class="pa-catalog-notice">'+e(error)+'</p>':'')
   +'<form data-form="approved-export" data-kind="'+kind+'" class="pa-composer-form">'
   +'<div class="control"><label for="official-name">'+e(label("Nom du document","Document name"))+'</label><input id="official-name" name="title" value="'+e(name)+'" maxlength="120" required></div>'
-  +'<div class="control"><label for="official-width">'+e(label("Largeur des cases en cm","Cell width in cm"))+'</label><input id="official-width" name="widthCm" type="number" min="2" max="10" step="0.5" value="'+(routine?3:5)+'" required></div>'
-  +'<div class="control"><label for="official-paper">'+e(label("Format papier","Paper"))+'</label><select id="official-paper" name="paper"><option value="letter">'+e(label("Lettre","Letter"))+'</option><option value="a4">A4</option></select></div>'
-  +(routine?'':'<div class="control"><label for="official-columns">'+e(label("Colonnes","Columns"))+'</label><select id="official-columns" name="columns"><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option></select></div>')
+  +'<div class="control"><label for="official-width">'+e(label("Largeur des cases en cm","Cell width in cm"))+'</label><input id="official-width" name="widthCm" type="number" min="2" max="10" step="0.5" value="'+e(width)+'" required></div>'
+  +'<div class="control"><label for="official-paper">'+e(label("Format papier","Paper"))+'</label><select id="official-paper" name="paper"><option value="letter"'+(paper==="letter"?" selected":"")+'>'+e(label("Lettre","Letter"))+'</option><option value="a4"'+(paper==="a4"?" selected":"")+'>A4</option></select></div>'
+  +(routine?'':'<div class="control"><label for="official-columns">'+e(label("Colonnes","Columns"))+'</label><select id="official-columns" name="columns"><option value="2"'+(columns==="2"?" selected":"")+'>2</option><option value="3"'+(columns==="3"?" selected":"")+'>3</option><option value="4"'+(columns==="4"?" selected":"")+'>4</option></select></div>')
   +'<button type="submit" class="btn btn-primary"'+(items.length<(routine?2:1)||busy||Boolean(pending)?' disabled':'')+'>'+icon("save","btn-icon")
   +e(label(busy?"Création et archivage…":"Créer et archiver le PDF",busy?"Creating and archiving…":"Create and archive PDF"))+'</button></form>'
   +'<p class="pa-client-context">'+e(label("Vérifiez les dimensions réelles sur papier avant utilisation.","Check actual printed dimensions before use."))+'</p></section>';

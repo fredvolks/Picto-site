@@ -135,10 +135,23 @@ let pdfExportBusy=false;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
-const officialComposer={routine:[],board:[],busy:false,error:"",request:0};
+function emptyComposerSettings(){
+  return {routine:{title:null,widthCm:"3",paper:"letter",columns:"3"},
+    board:{title:null,widthCm:"5",paper:"letter",columns:"3"}};
+}
+const officialComposer={routine:[],board:[],settings:emptyComposerSettings(),busy:false,error:"",request:0};
 function resetOfficialComposer(){
   officialComposer.request++;officialComposer.routine=[];officialComposer.board=[];
+  officialComposer.settings=emptyComposerSettings();
   officialComposer.busy=false;officialComposer.error="";
+}
+function recordComposerFormValue(target){
+  const form=target?.closest?.('form[data-form="approved-export"]'),kind=form?.dataset.kind;
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!["routine","board"].includes(kind))return false;
+  const field=target.name;
+  if(!["title","widthCm","paper","columns"].includes(field))return false;
+  officialComposer.settings[kind][field]=String(target.value).slice(0,120);
+  return true;
 }
 const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
   imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:""};
@@ -1389,7 +1402,9 @@ function render(){
   root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
      kind:state.page==="routines"?"routine":"board",
      items:officialComposer[state.page==="routines"?"routine":"board"],
-     language:state.language,imageUrls:publishedCatalog.imageUrls,busy:officialComposer.busy,error:officialComposer.error,
+     language:state.language,imageUrls:publishedCatalog.imageUrls,
+     settings:officialComposer.settings[state.page==="routines"?"routine":"board"],
+     busy:officialComposer.busy,error:officialComposer.error,
      pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,language:state.language,escape:esc,icon}),
      escape:esc,icon
     }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
@@ -1918,6 +1933,7 @@ root.addEventListener("click",function(event){
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
+  if(recordComposerFormValue(event.target))return;
   if(event.target.closest('form[data-form="admin-bank-rename"]')&&event.target.name==="adminName"){
     bankRename.value=event.target.value;bankRename.error="";return;
   }
@@ -2049,7 +2065,9 @@ root.addEventListener("submit",function(event){
         await archivePdf(client,uid,blob,{title,documentType:kind,pageCount});
         if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
-        officialComposer[kind]=[];state.page="files";
+        officialComposer[kind]=[];
+        officialComposer.settings[kind]=emptyComposerSettings()[kind];
+        state.page="files";
         clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
         clientFiles.message=state.language==="fr"?"PDF original créé et archivé dans votre compte.":"Original PDF created and saved in your account.";
         await fetchClientFiles(client,uid);
@@ -2294,6 +2312,7 @@ root.addEventListener("submit",function(event){
   })();
 });
 root.addEventListener("change",function(event){
+  if(recordComposerFormValue(event.target))return;
   if(event.target.closest('form[data-form="customer-request"]')&&event.target.name==="theme"){
     customerRequests.form.theme=event.target.value;return;
   }
