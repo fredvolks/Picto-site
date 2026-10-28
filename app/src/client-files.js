@@ -5,6 +5,18 @@ export const DOCUMENTS_PAGE_SIZE=20;
 export const MAX_PDF_BYTES=20*1024*1024; // garde technique du bucket, pas un quota commercial
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TYPES=["routine","sheet","board"];
+// Liste blanche : aucun nom de colonne reçu du navigateur n'est transmis à PostgREST.
+const DOCUMENT_SORT_ORDER=Object.freeze({
+  recent:["created_at",false],
+  oldest:["created_at",true],
+  "name-asc":["title",true],
+  "name-desc":["title",false]
+});
+export function normalizeDocumentSort(sort="recent"){
+  if(typeof sort!=="string"||!Object.hasOwn(DOCUMENT_SORT_ORDER,sort))
+    throw Error("Tri de documents invalide.");
+  return sort;
+}
 const COLUMNS="id,title,document_type,sha256,byte_size,page_count,created_at";
 export function normalizeDocumentTitle(title){
   if(typeof title!=="string"||/[\p{C}]/u.test(title))throw Error("Titre de document invalide.");
@@ -75,15 +87,16 @@ export async function archivePdf(client,uid,file,{title,documentType="routine",p
     throw error;
   }
 }
-export async function listMyDocuments(client,uid,{page=0,query="",type="all"}={}){
+export async function listMyDocuments(client,uid,{page=0,query="",type="all",sort="recent"}={}){
   if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
   const search=normalizeDocumentSearch(query);
   if(type!=="all"&&!TYPES.includes(type))throw Error("Filtre invalide.");
+  const order=DOCUMENT_SORT_ORDER[normalizeDocumentSort(sort)];
   await verifiedUser(client,uid);
   let q=client.from("pictau_documents").select(COLUMNS,{count:"exact"}).eq("owner_id",uid);
   if(type!=="all")q=q.eq("document_type",type);
   if(search)q=q.ilike("title","%"+search+"%");
-  const result=await q.order("created_at",{ascending:false}).order("id",{ascending:true})
+  const result=await q.order(order[0],{ascending:order[1]}).order("id",{ascending:true})
     .range(page*DOCUMENTS_PAGE_SIZE,(page+1)*DOCUMENTS_PAGE_SIZE-1);
   if(result.error)throw result.error;
   if(!Number.isSafeInteger(result.count)||result.count<0)throw Error("Décompte des fichiers indisponible.");

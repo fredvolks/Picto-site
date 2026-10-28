@@ -717,7 +717,7 @@
  .files-file-control small{color:#677f8b;font-size:11px;line-height:1.4}
  .files-upload-form>.btn{grid-column:1/-1;justify-self:start;min-height:44px}
  .files-history-head{display:flex;justify-content:space-between;align-items:center;gap:11px;margin-bottom:13px}
- .files-filters{grid-template-columns:minmax(0,1fr) minmax(110px,185px) auto;margin-bottom:15px}
+ .files-filters{grid-template-columns:minmax(0,1fr) minmax(110px,155px) minmax(150px,185px) auto;margin-bottom:15px}
  .files-filters .btn{min-height:43px}
  .files-list{display:grid;gap:10px}
  .files-entry{display:grid;grid-template-columns:56px minmax(0,1fr) minmax(170px,.55fr);gap:13px;align-items:center;border:1px solid #e0eaf0;border-radius:14px;padding:13px}

@@ -206,7 +206,7 @@ function observePublishedArtwork(){
     else catalogImageObserver.observe(node);
   });
 }
-const clientFiles={items:[],total:0,page:0,query:"",type:"all",loading:false,busy:false,error:"",message:"",
+const clientFiles={items:[],total:0,page:0,query:"",type:"all",sort:"recent",loading:false,busy:false,error:"",message:"",
  renameId:null,request:0,preview:null,draft:{title:"",documentType:"routine"}};
 function clearClientPreview(){
   if(clientFiles.preview?.url)URL.revokeObjectURL(clientFiles.preview.url);
@@ -225,7 +225,7 @@ function resetClientFiles(){
  clearClientPreview();
  pendingGeneratedPdf=null; // effacer toute copie du compte précédent au changement de session
  clientFiles.request++;clientFiles.items=[];clientFiles.total=0;clientFiles.page=0;
- clientFiles.query="";clientFiles.type="all";clientFiles.loading=false;clientFiles.busy=false;
+ clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.loading=false;clientFiles.busy=false;
  clientFiles.error="";clientFiles.message="";clientFiles.renameId=null;
  clientFiles.draft={title:"",documentType:"routine"};
 }
@@ -233,7 +233,7 @@ async function fetchClientFiles(client,uid){
  const ticket=++clientFiles.request;
  clientFiles.loading=true;clientFiles.error="";render();
  try{
-  const r=await listMyDocuments(client,uid,{page:clientFiles.page,query:clientFiles.query,type:clientFiles.type});
+  const r=await listMyDocuments(client,uid,{page:clientFiles.page,query:clientFiles.query,type:clientFiles.type,sort:clientFiles.sort});
   if(ticket!==clientFiles.request||authStatus.user?.id!==uid)return;
   clientFiles.items=r.items;clientFiles.total=r.total;
  }catch(error){
@@ -1482,7 +1482,7 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();}
+  if(a==="nav"){if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();}
   if(a==="client-search"){
     if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
     return;
@@ -1682,7 +1682,7 @@ root.addEventListener("click",function(event){
         if(pendingGeneratedPdf?.uid===uid&&pendingGeneratedPdf.blob===blob)
           pendingGeneratedPdf=null;
         if(authStatus.user?.id!==uid||clientFiles.request!==epoch)return;
-        state.page="files";clientFiles.page=0;clientFiles.query="";clientFiles.type="all";
+        state.page="files";clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
         clientFiles.message=state.language==="fr"?"PDF créé et archivé. Réimprimez le même original depuis Mes fichiers.":"PDF created and archived. Reprint the unchanged original from My files.";
         await fetchClientFiles(client,uid);
       }catch(error){
@@ -1995,7 +1995,8 @@ root.addEventListener("submit",function(event){
         if(authStatus.user?.id!==uid||clientFiles.request!==epoch)return;
         clientFiles.busy=false;clientFiles.draft={title:"",documentType:"routine"};
         clientFiles.message=state.language==="fr"?"PDF original archivé dans votre compte. Retrouvez-le sur tout appareil connecté.":"Original PDF archived in your account. Find it on any signed-in device.";
-        clientFiles.page=0;await fetchClientFiles(client,uid);
+        clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
+        await fetchClientFiles(client,uid);
       }catch(error){
         if(authStatus.user?.id===uid&&clientFiles.request===epoch)clientFiles.error=String(error?.message||error);
       }finally{
@@ -2009,6 +2010,7 @@ root.addEventListener("submit",function(event){
     const data=new FormData(filterForm);
     clientFiles.query=String(data.get("query")||"");
     clientFiles.type=String(data.get("type")||"all");
+    clientFiles.sort=String(data.get("sort")||"recent");
     clientFiles.page=0;clientFiles.renameId=null;refreshFilesForCurrentUser();return;
   }
   const renameForm=event.target.closest('form[data-form="files-rename"]');

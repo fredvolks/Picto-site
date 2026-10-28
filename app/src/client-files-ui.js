@@ -30,6 +30,13 @@ export function renderClientFiles({language,logged,files,escape:e,icon}){
    +'<div class="control"><label for="files-filter-type">'+t("Type","Type")+'</label>'
    +'<select id="files-filter-type" name="type"><option value="all">'+t("Tous les documents","All documents")+'</option>'
    +["routine","sheet","board"].map(key=>'<option value="'+key+'"'+(files.type===key?' selected':'')+'>'+e(typeName[key])+'</option>').join("")+'</select></div>'
+   +'<div class="control"><label for="files-sort">'+t("Trier par","Sort by")+'</label>'
+   +'<select id="files-sort" name="sort">'+[
+     ["recent",t("Plus récents","Newest first")],
+     ["oldest",t("Plus anciens","Oldest first")],
+     ["name-asc",t("Nom A à Z","Name A to Z")],
+     ["name-desc",t("Nom Z à A","Name Z to A")]
+    ].map(([key,label])=>'<option value="'+key+'"'+((files.sort||"recent")===key?' selected':'')+'>'+e(label)+'</option>').join("")+'</select></div>'
    +'<button type="submit" class="btn btn-light">'+icon("search","btn-icon")+t("Rechercher","Search")+'</button></form>';
  const list=files.loading?'<p class="files-feedback" role="status">'+t("Chargement des fichiers privés…","Loading private files…")+'</p>'
    :files.items.length?'<div class="files-list">'+files.items.map(doc=>{
