@@ -1,3 +1,5 @@
+> **ARCHIVE NON CANONIQUE — 28 octobre 2026** : le seul prompt maître Pict-au est `fredvolks/pictogram/docs/MASTER_PROMPT_PICTAU.md` sur la branche privée `setup/prompt-maitre-projet-picto`. Ce document public est conservé pour l'historique; aucune nouvelle décision ne doit être ajoutée ici. Les dernières décisions du fichier privé prévalent.
+
 # PROMPT MAÎTRE — PICT-AU · PROJET GLOBAL ET VITRINE
 
 **Adapté le 2026-10-28 depuis le [modèle universel](https://github.com/fredvolks/prompt-maitre-universel/blob/main/docs/MASTER_PROMPT.md).** Les directives Pict-au de la section 0 distinguent les décisions validées pour la vitrine et la vision plus large du produit, avec des points à confirmer; les autres sections conservent les six rôles, règles de sécurité et pratiques de vérification du modèle.

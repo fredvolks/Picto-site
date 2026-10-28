@@ -60,11 +60,11 @@ async function waitFor(predicate,timeout=9000){
   throw new Error("UI did not load: "+predicate);
 }
 try{
-  chrome=spawn(chromeBinary(),["--headless=new","--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--no-first-run","--no-default-browser-check","--user-data-dir="+profile,"--remote-debugging-port=0","about:blank"],{stdio:["ignore","ignore","pipe"]});
+  chrome=spawn(chromeBinary(),["--headless=new","--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-background-networking","--disable-extensions","--no-first-run","--no-default-browser-check","--user-data-dir="+profile,"--remote-debugging-port=0","about:blank"],{stdio:["ignore","ignore","pipe"],env:{...process.env,DBUS_SESSION_BUS_ADDRESS:""}});
   chrome.stderr.on("data",chunk=>{chromeErrors += String(chunk).slice(-2500);});
   chrome.on("error",err=>{chromeErrors += "\n"+String(err);});
   let endpoint;
-  for(let attempt=0;attempt<120;attempt++){
+  for(let attempt=0;attempt<300;attempt++){
     try{
       const portFile=await readFile(join(profile,"DevToolsActivePort"),"utf8");
       const devtoolsPort=Number(portFile.split("\n")[0]);
@@ -91,7 +91,7 @@ try{
   await command("Page.enable");
   await command("Runtime.enable");
   await mkdir(screenshots,{recursive:true});
-  for(const viewport of [{width:320,height:568,mobile:true},{width:360,height:640,mobile:true},{width:390,height:844,mobile:true},{width:412,height:915,mobile:true},{width:768,height:1024,mobile:true},{width:1024,height:768,mobile:false},{width:1440,height:900,mobile:false}]){
+  for(const viewport of [{width:320,height:568,mobile:true},{width:360,height:640,mobile:true},{width:390,height:844,mobile:true},{width:412,height:915,mobile:true},{width:768,height:1024,mobile:true},{width:1024,height:768,mobile:false},{width:1366,height:768,mobile:false},{width:1440,height:900,mobile:false},{width:1920,height:1080,mobile:false}]){
     await command("Emulation.setDeviceMetricsOverride",{...viewport,deviceScaleFactor:1});
     await command("Page.navigate",{url:base});
     await waitFor("return !!document.querySelector('.site .hero') && !!document.querySelector('.benefits') && !!document.querySelector('.plan')");
@@ -101,7 +101,7 @@ try{
       const expr=[
         "const box=(s)=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();const st=getComputedStyle(e);return {x:r.left,y:r.top,right:r.right,bottom:r.bottom,w:r.width,h:r.height,scrollH:e.scrollHeight,clientH:e.clientHeight,display:st.display}};",
         "const label=document.querySelector('.kicker>span:last-child');const range=document.createRange();range.selectNodeContents(label);const tb=range.getBoundingClientRect();",
-        "return {vw:innerWidth,vh:innerHeight,scrollW:document.documentElement.scrollWidth,scrollH:document.documentElement.scrollHeight,hero:box('.hero'),features:box('.benefits'),plan:box('.plan'),title:box('.hero-title'),kicker:box('.kicker'),kickerText:{bottom:tb.bottom,right:tb.right},intro:box('.intro'),cta:box('.hero-cta'),price:box('.price'),availability:box('.availability'),planFeatures:box('.plan-features'),lang:document.documentElement.lang};"
+        "return {vw:innerWidth,vh:innerHeight,scrollW:document.documentElement.scrollWidth,scrollH:document.documentElement.scrollHeight,hero:box('.hero'),features:box('.benefits'),plan:box('.plan'),title:box('.hero-title'),kicker:box('.kicker'),kickerText:{bottom:tb.bottom,right:tb.right},intro:box('.intro'),signup:box('.signup-button'),login:box('.login-link'),footer:box('.site-footer'),price:box('.price'),availability:box('.availability'),planFeatures:box('.plan-features'),lang:document.documentElement.lang};"
       ].join("\n");
       const metrics=await evaluate(expr);
       const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
@@ -109,14 +109,16 @@ try{
       assert.equal(metrics.lang,lang,"Bilinguisme");
       assert.ok(metrics.scrollW<=viewport.width+1,"Débordement horizontal "+JSON.stringify(metrics));
       assert.ok(metrics.scrollH<=viewport.height+1,"Débordement vertical "+JSON.stringify(metrics));
-      for(const part of ["hero","features","plan","title","cta","price","availability"]){
+      for(const part of ["hero","features","plan","title","signup","login","footer","price","availability"]){
         const b=metrics[part];
         assert.ok(b&&b.w>0&&b.h>0&&b.y>=0&&b.bottom<=viewport.height+1&&b.x>=0&&b.right<=viewport.width+1,"Partie cachée: "+part+" "+JSON.stringify(metrics));
       }
       assert.ok(metrics.title.y>=metrics.kickerText.bottom+4,"L'accroche chevauche le titre "+JSON.stringify(metrics));
       assert.ok(metrics.intro.y>=metrics.title.bottom+2,"La description chevauche le titre "+JSON.stringify(metrics));
-      assert.ok(metrics.cta.y>=metrics.intro.bottom+2,"Le CTA chevauche la description "+JSON.stringify(metrics));
-      assert.ok(metrics.cta.bottom<=metrics.hero.bottom-2,"CTA coupé par le héros "+JSON.stringify(metrics));
+      assert.ok(metrics.intro.bottom<=metrics.hero.bottom-2,"La description est coupée "+JSON.stringify(metrics));
+      assert.ok(metrics.signup.y>=metrics.plan.y&&metrics.signup.bottom<=metrics.plan.bottom-2,"Inscription hors du forfait "+JSON.stringify(metrics));
+      assert.ok(metrics.login.right<=viewport.width-2,"Connexion masquée "+JSON.stringify(metrics));
+      assert.equal(await evaluate("return document.querySelectorAll('.signup-button').length"),1,"Un seul bouton inscription");
       assert.ok(metrics.availability.bottom<=metrics.plan.bottom-2,"Inscription coupée "+JSON.stringify(metrics));
       if(metrics.planFeatures?.display!=="none")assert.ok(metrics.planFeatures.bottom<=metrics.plan.bottom-2,"Détails du forfait coupés "+JSON.stringify(metrics));
       console.log("UNIQUE VUE OK",viewport.width,viewport.height,lang);
