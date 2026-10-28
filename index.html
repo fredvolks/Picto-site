@@ -1,20 +1,125 @@
 <!doctype html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f5f5f2" />
-    <meta name="description" content="Pict-au — bibliothèque de pictogrammes et routines visuelles." />
-    <title>Pict-au — Pictogrammes et routines</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./src/styles.css" />
-    <link rel="stylesheet" href="./src/landing.css" />
-  </head>
-  <body>
-    <div id="app"></div>
-    <noscript>Activez JavaScript pour utiliser la démonstration de Pict-au.</noscript>
-    <script type="module" src="./src/app.js"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Pict-au : des pictogrammes et routines visuelles simples, personnalisables et pensés pour le quotidien. Découvrez notre forfait unique.">
+  <title>Pict-au — Pictogrammes et routines visuelles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/site.css">
+  <script type="module" src="./src/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#page-main" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
+<div class="home-site">
+  <header class="home-header">
+    <a href="#accueil" class="home-logo" aria-label="Pict-au, accueil">
+      <span class="home-logo-symbol" aria-hidden="true">P</span>
+      <span class="home-logo-word">Pict-<span class="home-hand">a</span>u</span>
+    </a>
+    <nav class="home-header-links" aria-label="Navigation principale">
+      <a href="#fonctionnalites" data-fr="Fonctionnalités" data-en="Features">Fonctionnalités</a>
+      <a href="#avantages" data-fr="Pourquoi Pict-au" data-en="Why Pict-au">Pourquoi Pict-au</a>
+      <a href="#forfait" data-fr="Notre forfait" data-en="Our plan">Notre forfait</a>
+    </nav>
+    <div class="home-header-right">
+      <div class="home-lang" role="group" aria-label="Langue / Language">
+        <button type="button" data-lang="fr" aria-pressed="true" class="active">FR</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <a href="#forfait" class="home-btn primary home-open" data-fr="Voir notre forfait" data-en="View our plan">Voir notre forfait</a>
+    </div>
+  </header>
+  <main id="page-main">
+    <section class="home-hero" id="accueil" aria-labelledby="landing-title">
+      <div class="home-hero-copy">
+        <div class="home-kicker"><span></span><span data-fr="PICTOGRAMMES ET ROUTINES VISUELLES" data-en="PICTOGRAMS AND VISUAL ROUTINES">PICTOGRAMMES ET ROUTINES VISUELLES</span></div>
+        <h1 id="landing-title" data-fr="Les pictogrammes et les routines, simplement." data-en="Pictograms and routines, made simple.">Les pictogrammes et les routines, simplement.</h1>
+        <p data-fr="Des repères visuels clairs pour accompagner chaque étape du quotidien. Une bibliothèque organisée, des routines personnalisables et des supports faciles à imprimer." data-en="Clear visual cues for everyday moments. An organized pictogram library, customizable routines and visual materials made for printing.">Des repères visuels clairs pour accompagner chaque étape du quotidien. Une bibliothèque organisée, des routines personnalisables et des supports faciles à imprimer.</p>
+        <div class="home-hero-actions">
+          <a class="home-btn primary" href="#forfait" data-fr="Découvrir le forfait" data-en="Discover the plan">Découvrir le forfait</a>
+          <a class="home-btn secondary" href="#fonctionnalites" data-fr="Voir les fonctionnalités" data-en="Explore features">Voir les fonctionnalités</a>
+        </div>
+      </div>
+      <div class="home-art" role="img" aria-label="Illustration de l'interface Pict-au sur ordinateur et téléphone">
+        <div class="home-art-circle"></div>
+        <div class="home-device">
+          <div class="home-device-screen">
+            <div class="home-device-header">
+              <span class="home-device-symbol">P<span class="home-hand">a</span></span>
+              <span class="home-device-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.4"/><path d="m16 16 5 5"/></svg><span data-fr="Rechercher..." data-en="Search...">Rechercher...</span></span>
+              <span class="home-device-avatar" aria-hidden="true">●</span>
+            </div>
+            <div class="home-device-body">
+              <p data-fr="Mes pictogrammes" data-en="My pictograms">Mes pictogrammes</p>
+              <div class="home-device-routine-title" data-fr="Routine du matin" data-en="Morning routine">Routine du matin</div>
+              <div class="home-device-pictos">
+                <div class="home-mock-picto"><div class="home-mock-art"><svg viewBox="0 0 120 120" role="presentation"><g stroke="#111" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M37 26h18v31H37zM55 50h40v14c0 13-10 22-23 22H59c-10 0-17-8-17-17v-6M55 58H40M57 86v12M85 86v12M50 99h44"/></g></svg></div><span data-fr="toilette" data-en="toilet">toilette</span></div>
+                <div class="home-mock-picto"><div class="home-mock-art"><svg viewBox="0 0 120 120" role="presentation"><g stroke="#111" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M33 81h54M45 81V44M75 81V44M39 43c10-5 16-13 21-21 5 8 12 16 21 21M27 89h66M48 97h24M35 56l-10 10M85 56l10 10M28 72l10-2M92 72l-10-2"/></g></svg></div><span data-fr="se laver" data-en="wash up">se laver</span></div>
+                <div class="home-mock-picto"><div class="home-mock-art"><svg viewBox="0 0 120 120" role="presentation"><g stroke="#111" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M43 24h34v12l-8 8v12l11 15v29H40V71l11-15V44l-8-8zM50 24v-9h20v9M43 80h34"/></g></svg></div><span data-fr="boire" data-en="drink">boire</span></div>
+                <div class="home-mock-picto"><div class="home-mock-art"><svg viewBox="0 0 120 120" role="presentation"><g stroke="#111" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"><circle cx="60" cy="33" r="14"/><path d="M46 56h28l8 21H38l8-21zM48 77v23M72 77v23M38 100h44M38 61l-12 19M82 61l12 19"/></g></svg></div><span data-fr="s'habiller" data-en="get dressed">s'habiller</span></div>
+              </div>
+              <div class="home-device-placeholder" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+          <div class="home-device-base"></div>
+        </div>
+        <div class="home-phone" aria-hidden="true">
+          <div class="home-phone-notch"></div>
+          <div class="home-phone-name">Pict-<span class="home-hand">a</span>u</div>
+          <div class="home-phone-text" data-fr="Ma routine" data-en="My routine">Ma routine</div>
+          <div class="home-phone-pictos">
+            <div class="home-mock-picto"><div class="home-mock-art"><svg viewBox="0 0 120 120"><g stroke="#111" stroke-width="4" fill="none" stroke-linejoin="round"><path d="M37 26h18v31H37zM55 50h40v14c0 13-10 22-23 22H59c-10 0-17-8-17-17v-6M55 58H40M57 86v12M85 86v12M50 99h44"/></g></svg></div><span>toilette</span></div>
+            <div class="home-mock-picto"><div class="home-mock-art"><svg viewBox="0 0 120 120"><g stroke="#111" stroke-width="4" fill="none" stroke-linejoin="round"><path d="M43 24h34v12l-8 8v12l11 15v29H40V71l11-15V44l-8-8zM50 24v-9h20v9M43 80h34"/></g></svg></div><span>boire</span></div>
+          </div>
+          <div class="home-phone-tabs" aria-hidden="true">● &nbsp; ◻ &nbsp; ○</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="avantages" class="home-benefits" aria-label="Avantages de Pict-au">
+      <div class="home-benefit"><span class="home-benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span><div><strong data-fr="Simple à utiliser" data-en="Easy to use">Simple à utiliser</strong><small data-fr="Une interface claire et intuitive" data-en="A clear and intuitive experience">Une interface claire et intuitive</small></div></div>
+      <div class="home-benefit"><span class="home-benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7h.01"/></svg></span><div><strong data-fr="Facile à lire" data-en="Easy to read">Facile à lire</strong><small data-fr="Des visuels principalement en noir et blanc" data-en="Mostly black-and-white visuals">Des visuels principalement en noir et blanc</small></div></div>
+      <div class="home-benefit"><span class="home-benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></svg></span><div><strong data-fr="Personnalisable" data-en="Customizable">Personnalisable</strong><small data-fr="Des routines selon vos besoins" data-en="Routines that fit your needs">Des routines selon vos besoins</small></div></div>
+    </section>
+
+    <section id="fonctionnalites" class="home-features">
+      <div class="home-section-label" data-fr="DES OUTILS POUR LE QUOTIDIEN" data-en="EVERYDAY VISUAL SUPPORT">DES OUTILS POUR LE QUOTIDIEN</div>
+      <h2 data-fr="Tout ce qu'il faut, au même endroit." data-en="Everything you need, in one place.">Tout ce qu'il faut, au même endroit.</h2>
+      <div class="home-feature-grid">
+        <article><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></span><h3 data-fr="Une bibliothèque organisée" data-en="An organized library">Une bibliothèque organisée</h3><p data-fr="Recherchez les pictogrammes par thème et trouvez rapidement l'image adaptée." data-en="Browse pictograms by theme and quickly find the right visual.">Recherchez les pictogrammes par thème et trouvez rapidement l'image adaptée.</p></article>
+        <article><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></span><h3 data-fr="Des routines visuelles" data-en="Visual routines">Des routines visuelles</h3><p data-fr="Choisissez les pictogrammes, organisez-les dans l'ordre et adaptez leur disposition." data-en="Choose pictograms, set their order and customize the layout.">Choisissez les pictogrammes, organisez-les dans l'ordre et adaptez leur disposition.</p></article>
+        <article><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4V9h16v9h-2M7 15h10v6H7z"/></svg></span><h3 data-fr="Des supports imprimables" data-en="Printable materials">Des supports imprimables</h3><p data-fr="Ajustez le format de vos pictogrammes et préparez vos routines pour l'impression." data-en="Adjust pictogram formats and prepare visual routines for printing.">Ajustez le format de vos pictogrammes et préparez vos routines pour l'impression.</p></article>
+      </div>
+    </section>
+
+    <section id="forfait" class="home-pricing">
+      <div class="home-section-label" data-fr="NOTRE FORFAIT" data-en="OUR PLAN">NOTRE FORFAIT</div>
+      <h2 data-fr="Un seul forfait. Tout simplement." data-en="One plan. Keep it simple.">Un seul forfait. Tout simplement.</h2>
+      <p class="home-pricing-intro" data-fr="Une offre unique pour accéder aux outils Pict-au, sans forfaits compliqués." data-en="One simple offer for Pict-au tools, without complicated tiers.">Une offre unique pour accéder aux outils Pict-au, sans forfaits compliqués.</p>
+      <div class="home-plan">
+        <div class="home-plan-top"><span class="home-plan-emblem" aria-hidden="true">✳</span><span class="home-plan-badge" data-fr="1 FORFAIT" data-en="1 PLAN">1 FORFAIT</span></div>
+        <h3 data-fr="Pict-au Essentiel" data-en="Pict-au Essential">Pict-au Essentiel</h3>
+        <p data-fr="Vos pictogrammes et vos routines en un seul endroit" data-en="All your pictograms and routines in one place">Vos pictogrammes et vos routines en un seul endroit</p>
+        <div class="home-plan-price" data-fr="Tarif à venir" data-en="Pricing coming soon">Tarif à venir</div>
+        <div class="home-plan-price-note" data-fr="Les abonnements ouvriront dès que l'application sera disponible." data-en="Subscriptions will open when the application is ready.">Les abonnements ouvriront dès que l'application sera disponible.</div>
+        <ul>
+          <li data-fr="Accès à la bibliothèque de pictogrammes au lancement" data-en="Access to the pictogram library at launch">Accès à la bibliothèque de pictogrammes au lancement</li>
+          <li data-fr="Création de routines visuelles personnalisées" data-en="Create personalized visual routines">Création de routines visuelles personnalisées</li>
+          <li data-fr="Mise en page et impression" data-en="Layout and printing tools">Mise en page et impression</li>
+        </ul>
+        <p class="home-plan-availability" data-fr="Ouverture des inscriptions prochainement" data-en="Registration opening soon">Ouverture des inscriptions prochainement</p>
+      </div>
+    </section>
+  </main>
+  <footer class="home-footer">
+    <a href="#accueil" class="home-logo" aria-label="Pict-au, accueil"><span class="home-logo-symbol" aria-hidden="true">P</span><span class="home-logo-word">Pict-<span class="home-hand">a</span>u</span></a>
+    <p data-fr="Des repères visuels pour chaque jour." data-en="Visual cues for every day.">Des repères visuels pour chaque jour.</p>
+    <small data-fr="© 2026 Pict-au · Site officiel" data-en="© 2026 Pict-au · Official website">© 2026 Pict-au · Site officiel</small>
+  </footer>
+</div>
+</body>
 </html>

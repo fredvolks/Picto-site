@@ -1,0 +1,24 @@
+name: Vérifier le site officiel Pict-au
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check src/site.js
+      - run: node --test tests/site.test.mjs
+      - name: Vérifier les seuls fichiers servis
+        run: |
+          test -f index.html
+          test -f src/site.css
+          test ! -e src/app.js
+          test ! -e src/google-auth.js
+          test ! -e src/core.js
+          test ! -e src/data.js
+          test ! -e docs/MASTER_PROMPT.md

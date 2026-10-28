@@ -1,20 +1,23 @@
-# Pict-au — démo publique et connexion Google
+# Pict-au — site officiel public
 
-Accueil responsive avec un seul forfait, pictogrammes fictifs de démonstration et routines visuelles. **Le prix de l'abonnement n'est pas fixé; aucun paiement n'est actif.**
+Ce dépôt héberge **uniquement le véritable site de présentation et de vente Pict-au** sur GitHub Pages. Il ne s'agit pas de l'application client.
 
-## Connexion Google
+- Page d'accueil bilingue FR/EN, responsive mobile, tablette et ordinateur.
+- Présentation de Pict-au, illustrations explicatives, avantages et fonctionnalités.
+- **Un seul forfait Pict-au Essentiel**, dont le tarif n'est pas encore annoncé.
+- Aucune simulation d'achat : tant que l'abonnement n'est pas configuré, les inscriptions sont indiquées comme à venir.
+- Aucun module client, connexion Google, outil super admin, base Supabase, jeton ou secret dans ce dépôt.
+- HTML statique directement indexable, JS minimal pour basculer la langue, CSS responsive. Les représentations de l'application dans les appareils sont illustratives.
 
-- Bouton « Continuer avec Google » dans la page d'accueil et dans la bibliothèque, via Supabase Auth PKCE.
-- La clé présente dans `src/google-auth.js` est une clé **publiable** Supabase, sans secret Google ni service_role.
-- Pour que le retour fonctionne, autoriser `https://fredvolks.github.io/Picto-site/` dans **Supabase Authentication → URL Configuration → Redirect URLs**.
-- Le client Google doit autoriser `https://hwgarcmyhmmovbxdngwc.supabase.co/auth/v1/callback` comme URI de redirection.
-- Vérifier une connexion réelle avec Google et la déconnexion avant de qualifier l'authentification de validée.
-- Les utilisateurs qui se connectent n'obtiennent **jamais** automatiquement des droits super admin ; le super admin réel reste hors de ce dépôt public.
+## Mise en ligne
 
-## Hébergement
+GitHub Pages sur la branche `main`, dossier `/(root)`.
+Adresse : https://fredvolks.github.io/Picto-site/
 
-GitHub Pages, branche `main`, `/(root)`. Adresse attendue après déploiement : https://fredvolks.github.io/Picto-site/
+## Développement de l'application
 
-## Sécurité et limites
+Le code applicatif, la banque Supabase, les outils du super admin, l'extension Chrome et le prompt maître sont conservés dans **le dépôt privé `fredvolks/pictogram`**. Leur mise en ligne est un projet séparé, avec authentification et contrôle des accès.
 
-Ce dépôt ne comporte pas de vraie interface de publication administrateur. Les images utilisées dans la démo ne sont pas celles de la bibliothèque privée Supabase. Aucun abonnement n'est activé.
+## Contrôles
+
+Exécuter `node --check src/site.js` et `node --test tests/site.test.mjs` si les tests du dépôt sont présents. Vérifier manuellement les rendus à 375, 768 et 1440 pixels avant mise en production commerciale.
