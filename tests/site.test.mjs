@@ -25,7 +25,7 @@ test("La page distincte de forfait est honnête et bilingue, sans paiement ficti
 });
 test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
  assert.equal((html.match(/class="login-link"/g)||[]).length,1);
- assert.match(html,/<a class="login-link" href="\.\/connexion\.html">/);
+ assert.match(html,/<a class="login-link" href="\.\/app\/">/);
  assert.doesNotMatch(html,/hamburger|menu-toggle|google-login|supabase/i);
  assert.doesNotMatch(css,/\.login-link\s*\{[^}]*display\s*:\s*none/);
  const loginPage=read("connexion.html");
