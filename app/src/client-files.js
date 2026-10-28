@@ -54,16 +54,88 @@ export async function validatePdfBlob(file){
     throw Error("Ce fichier ne commence pas par une signature PDF valide.");
   return{sha256:await sha256Hex(file),byte_size:file.size};
 }
-export async function archivePdf(client,uid,file,{title,documentType="routine",pageCount=null,sourceDraftId=null}){
+// Identité stable d'un PDF *déjà généré*. Elle reste en mémoire uniquement pour
+// toutes les tentatives de ce même original (pas de clé publique ni localStorage).
+const IDEMPOTENT_COLUMNS=COLUMNS+",storage_path";
+function assertSameArchivedPdf(row,{id,path,title,documentType,pageCount,sourceDraftId,fingerprint}){
+  if(!row||row.id!==id||row.storage_path!==path||row.title!==title||
+     row.document_type!==documentType||row.sha256!==fingerprint.sha256||
+     row.byte_size!==fingerprint.byte_size||
+     (row.page_count??null)!==pageCount||
+     (row.source_draft_id??null)!==sourceDraftId){
+    const error=Error("Ce numéro de PDF existe avec un autre contenu. Ne remplacez pas l'original.");
+    error.code="PDF_ARCHIVE_ID_CONFLICT";
+    throw error;
+  }
+  return row;
+}
+async function findArchivedPdf(client,uid,id){
+  await verifiedUser(client,uid);
+  const q=await client.from("pictau_documents").select(IDEMPOTENT_COLUMNS)
+    .eq("owner_id",uid).eq("id",id).maybeSingle();
+  if(q.error)throw q.error;
+  await verifiedUser(client,uid);
+  return q.data||null;
+}
+async function archivePdfWithStableId(client,uid,file,metadata){
+  const {id,fingerprint}=metadata,path=documentPath(uid,id);
+  // D'abord la preuve SQL privée. Si l'accusé de réception initial a été
+  // perdu, ne JAMAIS refaire un upload ni créer une nouvelle ligne.
+  const known=await findArchivedPdf(client,uid,id);
+  if(known)return assertSameArchivedPdf(known,{...metadata,path});
+  const bucket=client.storage.from(FILES_BUCKET);
+  const upload=await bucket.upload(path,file,{
+    contentType:"application/pdf",upsert:false,cacheControl:"0"
+  });
+  if(upload.error){
+    // Une réponse d'upload peut être perdue, ou l'objet peut déjà exister.
+    // Ne jamais upsert et ne jamais faire confiance à un simple code 409.
+    const already=await findArchivedPdf(client,uid,id);
+    if(already)return assertSameArchivedPdf(already,{...metadata,path});
+    const stored=await bucket.download(path);
+    if(stored.error||!stored.data)throw upload.error;
+    const savedHash=await validatePdfBlob(stored.data);
+    if(savedHash.sha256!==fingerprint.sha256||
+       savedHash.byte_size!==fingerprint.byte_size){
+      const error=Error("Le PDF déjà stocké sous cet identifiant ne correspond pas aux octets originaux.");
+      error.code="PDF_ARCHIVE_ID_CONFLICT";
+      throw error;
+    }
+    await verifiedUser(client,uid);
+  }
+  // Le chemin UID/UUID contient soit le Blob envoyé maintenant, soit les
+  // mêmes octets privés contrôlés par SHA-256 après un refus d'upload.
+  // Pas de suppression compensatoire ici : un échec SQL ambigu peut masquer
+  // un insert COMMIT réussi. L'objet reste récupérable au prochain essai.
+  const row=await client.from("pictau_documents").insert({
+    id,owner_id:uid,title:metadata.title,document_type:metadata.documentType,
+    storage_path:path,...fingerprint,
+    ...(metadata.pageCount===null?{}:{page_count:metadata.pageCount}),
+    ...(metadata.sourceDraftId===null?{}:{source_draft_id:metadata.sourceDraftId})
+  }).select(IDEMPOTENT_COLUMNS).single();
+  if(row.error||!row.data){
+    const later=await findArchivedPdf(client,uid,id);
+    if(later)return assertSameArchivedPdf(later,{...metadata,path});
+    throw row.error||Error("L'archivage n'a pas été confirmé par le serveur.");
+  }
+  await verifiedUser(client,uid);
+  return assertSameArchivedPdf(row.data,{...metadata,path});
+}
+export async function archivePdf(client,uid,file,{title,documentType="routine",pageCount=null,sourceDraftId=null,documentId=null}){
   const cleanTitle=normalizeDocumentTitle(title);
   if(!TYPES.includes(documentType))throw Error("Type de document invalide.");
   if(sourceDraftId!==null&&(!UUID.test(sourceDraftId)||!["routine","board"].includes(documentType)))
     throw Error("Source modifiable de document invalide.");
   if(pageCount!==null&&(!Number.isSafeInteger(pageCount)||pageCount<1||pageCount>100))
     throw Error("Nombre de pages PDF invalide.");
+  if(documentId!==null&&!UUID.test(documentId))
+    throw Error("Identifiant stable de PDF invalide.");
   // Lire et valider le PDF AVANT d'envoyer des octets vers le stockage.
   const fingerprint=await validatePdfBlob(file);
   await verifiedUser(client,uid);
+  if(documentId!==null)return archivePdfWithStableId(client,uid,file,{
+    id:documentId,title:cleanTitle,documentType,pageCount,sourceDraftId,fingerprint
+  });
   if(typeof crypto==="undefined"||typeof crypto.randomUUID!=="function")
     throw Error("Génération d’identifiant sécurisé indisponible.");
   const id=crypto.randomUUID(),path=documentPath(uid,id);

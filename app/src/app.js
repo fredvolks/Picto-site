@@ -2501,9 +2501,11 @@ root.addEventListener("click",function(event){
         const {blob,pageCount}=await createPreparedPdf(options);
         if(authStatus.user?.id!==uid||clientFiles.request!==epoch)return;
         // La copie demeure disponible si la connexion, l'envoi ou la confirmation échoue.
-        pendingGeneratedPdf={blob,pageCount,uid,title:options.title,documentType:kind};
+        pendingGeneratedPdf={blob,pageCount,uid,title:options.title,documentType:kind,
+          documentId:crypto.randomUUID()};
         const client=await supabaseClient();
-        await archivePdf(client,uid,blob,{title:options.title,documentType:kind,pageCount});
+        await archivePdf(client,uid,blob,{title:options.title,documentType:kind,pageCount,
+          documentId:pendingGeneratedPdf.documentId});
         // L'archivage peut être confirmé alors que la navigation a changé :
         // ne jamais annoncer à tort un document archivé comme « non archivé ».
         if(pendingGeneratedPdf?.uid===uid&&pendingGeneratedPdf.blob===blob)
@@ -2534,7 +2536,8 @@ root.addEventListener("click",function(event){
         const client=await supabaseClient();
         await archivePdf(client,uid,pending.blob,{
           title:pending.title,documentType:pending.documentType,
-          pageCount:pending.pageCount,sourceDraftId:pending.sourceDraftId||null
+          pageCount:pending.pageCount,sourceDraftId:pending.sourceDraftId||null,
+          documentId:pending.documentId
         });
         if(authStatus.user?.id!==uid||token!==pdfRecoveryRequest||
           pendingGeneratedPdf!==pending)return;
@@ -2955,8 +2958,10 @@ root.addEventListener("submit",function(event){
         });
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
         pdfRecoveryError="";
-        pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind,sourceDraftId:savedDraft.id};
-        await archivePdf(client,uid,blob,{title,documentType:kind,pageCount,sourceDraftId:savedDraft.id});
+        pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind,sourceDraftId:savedDraft.id,
+          documentId:crypto.randomUUID()};
+        await archivePdf(client,uid,blob,{title,documentType:kind,pageCount,
+          sourceDraftId:savedDraft.id,documentId:pendingGeneratedPdf.documentId});
         if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
         // L'archivage a réellement réussi, même si l'utilisateur s'est déplacé.
