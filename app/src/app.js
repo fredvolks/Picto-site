@@ -137,6 +137,9 @@ function icon(name,extraClass) {
 }
 const root = document.querySelector("#app");
 let pdfExportBusy=false;
+// Annule une lecture privée tardive dès que l'utilisateur choisit un autre écran,
+// même s'il revient ensuite à la même page avant le retour du serveur.
+let clientNavigationEpoch=0;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
@@ -1895,7 +1898,7 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;resetSingleApprovedAdd();if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
+  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;clientNavigationEpoch++;resetSingleApprovedAdd();if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
   if(a==="draft-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.loading&&!editableDrafts.busy){
     const direction=Number(el.dataset.direction),next=editableDrafts.page+direction;
     if(![-1,1].includes(direction)||!Number.isSafeInteger(next)||next<0||
@@ -1980,7 +1983,8 @@ root.addEventListener("click",function(event){
         "A draft is being saved. Try again after the save is complete.")
     });
     if(!opening)return;
-    const uid=authStatus.user.id,epoch=++clientFiles.request;
+    const uid=authStatus.user.id,epoch=++clientFiles.request,
+      originPage=state.page,navigation=clientNavigationEpoch;
     // Invalider les anciennes lectures qui sont déjà en cours; leur callback
     // ne doit pas réécrire l'écran pendant le chargement de la source.
     clientFiles.busy=true;clientFiles.loading=false;clientFiles.error="";render();
@@ -1988,7 +1992,10 @@ root.addEventListener("click",function(event){
       try{
         const client=await supabaseClient();
         const draft=await loadEditableDraft(client,uid,file.source_draft_id);
-        if(authStatus.user?.id!==uid||epoch!==clientFiles.request)return;
+        // Une navigation vers un autre écran annule l'intention d'ouverture.
+        // Ne jamais faire quitter un écran choisi pendant une réponse réseau.
+        if(authStatus.user?.id!==uid||epoch!==clientFiles.request||
+          state.page!==originPage||clientNavigationEpoch!==navigation)return;
         if(draft.kind!==file.document_type)throw Error("La source de ce PDF ne correspond pas au type de document.");
         if(!opening.complete())throw Error("Cette composition a changé pendant son chargement. Réessayez.");
         officialComposer[draft.kind]=draft.content.items.map(item=>({...item}));
@@ -2026,13 +2033,17 @@ root.addEventListener("click",function(event){
         "A draft is being saved. Try again after the save is complete.")
     });
     if(!opening)return;
-    const uid=authStatus.user.id,request=++editableDrafts.request;
+    const uid=authStatus.user.id,request=++editableDrafts.request,
+      originPage=state.page,navigation=clientNavigationEpoch;
     editableDrafts.busy=true;editableDrafts.error="";render();
     void(async()=>{
       let stale=false;
       try{
         const client=await supabaseClient(),doc=await loadEditableDraft(client,uid,id);
-        if(authStatus.user?.id!==uid||request!==editableDrafts.request)return;
+        // Ne pas rouvrir une routine après navigation vers l'accueil,
+        // ni après un aller-retour à Mes brouillons pendant la requête.
+        if(authStatus.user?.id!==uid||request!==editableDrafts.request||
+          state.page!==originPage||clientNavigationEpoch!==navigation)return;
         if(doc.kind!==row.kind){
           const error=Error("Le type de brouillon a changé. Rechargez la liste.");
           error.code="DRAFT_ROW_CHANGED";throw error;
