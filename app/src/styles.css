@@ -240,37 +240,37 @@
 
 
 /* Parcours de demandes : distinct du catalogue de démonstration et privé par RLS. */
-.request-center,.request-admin-panel{background:#fff;border:1px solid #e1e9ed;border-radius:16px;padding:20px;margin:20px 0;min-width:0}
+.request-center,.request-admin-panel{background:var(--pictau-ui-surface);border:1px solid var(--pictau-ui-line);border-radius:16px;padding:20px;margin:20px 0;min-width:0}
 .request-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
-.request-heading h2{font-size:18px;color:#2b4654;margin:0 0 7px}
-.request-heading h3{font-size:14px;color:#2b4654;margin:0}
-.request-heading p{font-size:13px;line-height:1.55;color:#677b84;margin:0}
+.request-heading h2{font-size:18px;color:var(--pictau-ui-ink);margin:0 0 7px}
+.request-heading h3{font-size:14px;color:var(--pictau-ui-ink);margin:0}
+.request-heading p{font-size:13px;line-height:1.55;color:var(--pictau-ui-muted);margin:0}
 .request-controls{display:flex;gap:9px;flex-wrap:wrap}
-.request-center .btn,.request-admin-panel .btn{min-height:39px}
+.request-center .btn,.request-admin-panel .btn{min-height:44px}
 .request-form{margin-top:18px;display:grid;gap:14px;max-width:660px}
 .request-form .control,.request-filter .control,.request-admin-detail .control{min-width:0;display:flex;flex-direction:column;gap:6px}
-.request-center label,.request-admin-panel label{font-size:12px;font-weight:750;color:#3b5260}
-.request-center input,.request-center textarea,.request-center select,.request-admin-panel input,.request-admin-panel textarea,.request-admin-panel select{width:100%;min-width:0;border:1px solid #ccdae1;border-radius:9px;padding:10px 12px;background:#fff;color:#223b49;font:inherit;font-size:13px}
+.request-center label,.request-admin-panel label{font-size:12px;font-weight:750;color:var(--pictau-ui-ink)}
+.request-center input,.request-center textarea,.request-center select,.request-admin-panel input,.request-admin-panel textarea,.request-admin-panel select{width:100%;min-width:0;border:1px solid var(--pictau-ui-line);border-radius:9px;padding:10px 12px;background:var(--pictau-ui-surface);color:var(--pictau-ui-ink);font:inherit;font-size:13px}
 .request-form textarea,.request-admin-detail textarea{resize:vertical;min-height:90px}
 .request-form .btn{justify-self:start}
-.request-callout,.request-help,.request-meta,.request-empty{font-size:12px;line-height:1.6;color:#647987}
+.request-callout,.request-help,.request-meta,.request-empty{font-size:12px;line-height:1.6;color:var(--pictau-ui-muted)}
 .request-callout,.request-empty{margin:17px 0 0}
 .request-success,.request-error{padding:11px 13px;border-radius:9px;margin:13px 0;font-size:12px;line-height:1.55}
 .request-success{background:#eff9f4;color:#29634a}
 .request-error{background:#fff0ee;color:#874034}
 .request-list{display:grid;gap:12px;margin-top:15px}
-.request-entry{border:1px solid #e2e9ed;border-radius:11px;padding:14px;background:#fdfefe;min-width:0}
+.request-entry{border:1px solid var(--pictau-ui-line);border-radius:11px;padding:14px;background:var(--pictau-ui-surface);min-width:0}
 .request-entry-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:7px}
-.request-entry strong{font-size:14px;color:#253c4b;overflow-wrap:anywhere}
-.request-entry p{font-size:12px;line-height:1.6;color:#526976;margin:6px 0;overflow-wrap:anywhere;white-space:pre-wrap}
+.request-entry strong{font-size:14px;color:var(--pictau-ui-ink);overflow-wrap:anywhere}
+.request-entry p{font-size:12px;line-height:1.6;color:var(--pictau-ui-muted);margin:6px 0;overflow-wrap:anywhere;white-space:pre-wrap}
 .request-entry .btn{margin-top:8px}
-.request-status{border-radius:8px;background:#e8f2f7;color:#375b70;font-size:11px;font-weight:800;padding:5px 9px;white-space:nowrap}
-.request-note{border-left:3px solid #aac6d6;padding:8px 10px;background:#f1f7f9}
-.request-history{padding:10px;background:#f5f8f9;border-radius:8px;margin-top:10px}
+.request-status{border-radius:8px;background:var(--pictau-ui-soft);color:var(--pictau-ui-ink);font-size:11px;font-weight:800;padding:5px 9px;white-space:nowrap}
+.request-note{border-left:3px solid var(--pictau-ui-ink);padding:8px 10px;background:var(--pictau-ui-soft)}
+.request-history{padding:10px;background:var(--pictau-ui-soft);border-radius:8px;margin-top:10px}
 .request-history p{margin:3px 0}
 .request-admin-panel{margin-top:6px}
 .request-filter{display:grid;grid-template-columns:minmax(150px,2fr) repeat(2,minmax(100px,1fr)) auto;align-items:end;gap:11px;margin:15px 0}
-.request-admin-detail{margin-top:22px;padding:18px;border-top:2px solid #ccdee7;background:#f8fafb;border-radius:10px}
+.request-admin-detail{margin-top:22px;padding:18px;border-top:2px solid var(--pictau-ui-line);background:var(--pictau-ui-soft);border-radius:10px}
 .request-admin-detail h3{font-size:17px;margin:0 0 12px}
 .request-admin-detail form{display:grid;gap:13px;max-width:660px;margin:15px 0}
 .request-admin-detail p{font-size:12px;line-height:1.6}
@@ -279,8 +279,14 @@
 @media(max-width:520px){.request-center,.request-admin-panel{padding:14px;margin:15px 0}.request-heading h2{font-size:16px}.request-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.request-controls .btn{font-size:11px;padding:10px 7px;min-width:0}.request-filter{grid-template-columns:minmax(0,1fr)}.request-filter>.control:first-child{grid-column:1}.request-entry{padding:11px}.request-status{font-size:10px}.request-form .btn{width:100%;justify-self:stretch}.admin-tabs{gap:5px}.admin-tab{min-width:0}}
 
 
+/* Les champs restent lisibles sans zoom automatique du navigateur iOS. */
+@media screen and (max-width:520px){
+  .request-center input,.request-center textarea,.request-center select,
+  .request-admin-panel input,.request-admin-panel textarea,.request-admin-panel select{font-size:16px}
+}
+
 /* Accès aux demandes immédiatement sous l'introduction, sur mobile aussi. */
-.request-shortcut{margin:-5px 0 15px;min-height:39px;max-width:100%;font-size:12px}
+.request-shortcut{margin:-5px 0 15px;min-height:44px;max-width:100%;font-size:12px}
 @media(max-width:520px){.request-shortcut{width:100%;justify-content:center;margin:0 0 14px}}
 
 
