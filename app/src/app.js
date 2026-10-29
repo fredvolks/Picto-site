@@ -14,7 +14,7 @@ import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
-import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequests,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
+import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
@@ -536,19 +536,29 @@ async function fetchCustomerRequests(client,uid,{announcePage=false}={}){
     }
   }
 }
-async function fetchAdminRequests(client,uid){
+function renderAdminRequestsKeepingPageFocus(){
+  const pageFocused=document.activeElement?.id==="pa-admin-requests-page-status";
+  render();
+  if(pageFocused&&state.adminTab==="requests")
+    root.querySelector("#pa-admin-requests-page-status")?.focus({preventScroll:true});
+}
+async function fetchAdminRequests(client,uid,{announcePage=false}={}){
   const ticket=++adminRequests.request;
-  adminRequests.loading=true;adminRequests.error="";render();
+  adminRequests.loading=true;adminRequests.error="";renderAdminRequestsKeepingPageFocus();
+  if(announcePage)root.querySelector("#pa-admin-requests-page-status")?.focus({preventScroll:true});
   try{
-    const result=await listAdminPictogramRequests(client,uid,{page:adminRequests.page,status:adminRequests.status,query:adminRequests.query,sort:adminRequests.sort});
-    if(ticket!==adminRequests.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-    adminRequests.items=result.items;adminRequests.total=result.total;
+    const result=await listAdminPictogramRequestsAvailablePage(client,uid,{page:adminRequests.page,status:adminRequests.status,query:adminRequests.query,sort:adminRequests.sort});
+    if(ticket!==adminRequests.request||authStatus.user?.id!==uid||!canOpenAdmin()||state.adminTab!=="requests")return;
+    adminRequests.items=result.items;adminRequests.total=result.total;adminRequests.page=result.page;
     if(adminRequests.selectedId&&!result.items.some(x=>x.id===adminRequests.selectedId))adminRequests.selectedId=null;
   }catch(error){
-    if(ticket!==adminRequests.request||authStatus.user?.id!==uid)return;
+    if(ticket!==adminRequests.request||authStatus.user?.id!==uid||state.adminTab!=="requests")return;
     adminRequests.error=String(error?.message||error);
   }finally{
-    if(ticket===adminRequests.request){adminRequests.loading=false;render();}
+    if(ticket===adminRequests.request){
+      adminRequests.loading=false;
+      if(state.adminTab==="requests")renderAdminRequestsKeepingPageFocus();
+    }
   }
 }
 function requestStatusLabel(status){return REQUEST_LABELS[status]?.[state.language]||status;}
@@ -2674,6 +2684,9 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
+    if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
+      adminRequests.request++;adminRequests.loading=false;
+    }
     if(el.dataset.tab!=="bank"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
     if(state.adminTab==="settings"&&authStatus.user)void fetchCaptionFeature();
@@ -2755,14 +2768,14 @@ root.addEventListener("click",function(event){
     return;
   }
   if(a==="admin-requests-refresh"&&canOpenAdmin()&&authStatus.user){
-    void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id));return;
+    void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id,{announcePage:true}));return;
   }
   if(a==="admin-request-page"&&canOpenAdmin()&&authStatus.user&&!adminRequests.loading){
     const next=adminRequests.page+Number(el.dataset.direction);
     const last=Math.max(0,Math.ceil(adminRequests.total/REQUEST_PAGE_SIZE)-1);
     if(!Number.isInteger(next)||next<0||next>last)return;
     adminRequests.page=next;adminRequests.selectedId=null;
-    void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id));return;
+    void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id,{announcePage:true}));return;
   }
   if(a==="admin-request-open"&&canOpenAdmin()){
     const found=adminRequests.items.find(x=>x.id===el.dataset.id);if(!found)return;

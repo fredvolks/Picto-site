@@ -88,6 +88,22 @@ export async function listAdminPictogramRequests(client,uid,{page=0,status="all"
  await verifyAdmin(client,uid);
  return {items:r.data||[],total:r.count,page,pageSize:REQUEST_PAGE_SIZE};
 }
+// Un autre administrateur peut modifier les demandes pendant la consultation.
+// Reprendre la dernière page encore existante, en revérifiant le rôle à chaque lecture.
+export async function listAdminPictogramRequestsAvailablePage(client,uid,{page=0,status="all",query="",sort="recent"}={}){
+ validPage(page);
+ let current=page;
+ for(let attempt=0;attempt<3;attempt++){
+  const result=await listAdminPictogramRequests(client,uid,{page:current,status,query,sort});
+  const last=Math.max(0,Math.ceil(result.total/REQUEST_PAGE_SIZE)-1);
+  if(current<=last && (result.items.length>0||result.total===0))
+   return {...result,page:current};
+  if(result.total===0)return {...result,items:[],page:0};
+  if(current<=last)continue;
+  current=last;
+ }
+ throw Error("La liste de demandes administrateur a changé. Actualisez.");
+}
 export async function updateAdminPictogramRequest(client,uid,id,{status,adminNote="",linkedAssetId=null}={}){
  if(!UUID.test(id||"")||!REQUEST_STATUSES.includes(status)||status==="submitted")
    throw Error("Demande ou nouveau statut invalide.");

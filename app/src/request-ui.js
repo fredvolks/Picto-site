@@ -32,7 +32,9 @@ export function renderAdminRequestDesk({fr,requests,labels,escape:esc,dateLabel}
    '<button class="btn btn-light" data-action="admin-requests-refresh">'+esc(fr?"Actualiser":"Refresh")+'</button></div>'+
    filters+(r.error?'<p class="request-error" role="alert">'+esc(r.error)+'</p>':"")+(r.saved?'<p class="request-success" role="status">'+esc(r.saved)+'</p>':"")+
    (r.loading?'<p role="status">'+esc(fr?"Chargement…":"Loading…")+'</p>':
-    '<p class="request-meta">'+esc(r.total+" "+(fr?"résultat(s)":"result(s)"))+'</p>'+(rows?'<div class="request-list">'+rows+'</div>':'<p>'+esc(fr?"Aucune demande trouvée.":"No requests found.")+'</p>')+
-    '<div class="admin-bank-pagination"><button data-action="admin-request-page" data-direction="-1" class="btn btn-light btn-small"'+(r.page===0?' disabled':'')+'>'+esc(fr?"Précédent":"Previous")+'</button><span>'+esc((r.page+1)+"/"+(last+1))+'</span>'+
-    '<button data-action="admin-request-page" data-direction="1" class="btn btn-light btn-small"'+(r.page>=last?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></div>')+detail+'</section>';
+    '<p class="request-meta">'+esc(r.total+" "+(fr?"résultat(s)":"result(s)"))+'</p>'+(rows?'<div class="request-list">'+rows+'</div>':'<p>'+esc(fr?"Aucune demande trouvée.":"No requests found.")+'</p>'))+
+    '<div class="admin-bank-pagination"><button data-action="admin-request-page" data-direction="-1" class="btn btn-light btn-small"'+(r.loading||r.page===0?' disabled':'')+'>'+esc(fr?"Précédent":"Previous")+'</button>'+
+    '<span id="pa-admin-requests-page-status" role="status" aria-live="polite" tabindex="-1">'+
+      esc(r.loading?(fr?"Chargement de la page…":"Loading page…"):(r.page+1)+"/"+(last+1))+'</span>'+
+    '<button data-action="admin-request-page" data-direction="1" class="btn btn-light btn-small"'+(r.loading||r.page>=last?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></div>'+detail+'</section>';
 }
