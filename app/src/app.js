@@ -492,15 +492,20 @@ function refreshFilesForCurrentUser(){
 }
 
 const customerRequests={view:"closed",items:[],total:0,page:0,loading:false,submitting:false,error:"",message:"",request:0,form:{subject:"",description:"",theme:""},historyId:null,history:[],historyLoading:false,historyError:"",historyRequest:0};
-const adminRequests={items:[],total:0,page:0,status:"all",query:"",sort:"recent",loading:false,error:"",request:0,selectedId:null,historyId:null,history:[],saving:false,saved:"",draft:{status:"in_progress",adminNote:"",linkedAssetId:""}};
+const adminRequests={items:[],total:0,page:0,status:"all",query:"",sort:"recent",loading:false,error:"",request:0,selectedId:null,historyId:null,history:[],historyLoading:false,historyError:"",historyRequest:0,saving:false,saved:"",draft:{status:"in_progress",adminNote:"",linkedAssetId:""}};
 function clearCustomerRequestHistory(){
   customerRequests.historyRequest++;customerRequests.historyId=null;customerRequests.history=[];
   customerRequests.historyLoading=false;customerRequests.historyError="";
 }
+function clearAdminRequestHistory(){
+  adminRequests.historyRequest++;
+  adminRequests.historyId=null;adminRequests.history=[];
+  adminRequests.historyLoading=false;adminRequests.historyError="";
+}
 function resetRequests(){
   customerRequests.request++;customerRequests.items=[];customerRequests.total=0;customerRequests.page=0;customerRequests.loading=false;customerRequests.submitting=false;
   clearCustomerRequestHistory();customerRequests.error="";customerRequests.message="";customerRequests.form={subject:"",description:"",theme:""};
-  adminRequests.request++;adminRequests.items=[];adminRequests.total=0;adminRequests.page=0;adminRequests.status="all";adminRequests.query="";adminRequests.sort="recent";adminRequests.loading=false;adminRequests.error="";adminRequests.selectedId=null;adminRequests.historyId=null;adminRequests.history=[];adminRequests.saving=false;adminRequests.saved="";
+  adminRequests.request++;adminRequests.items=[];adminRequests.total=0;adminRequests.page=0;adminRequests.status="all";adminRequests.query="";adminRequests.sort="recent";adminRequests.loading=false;adminRequests.error="";adminRequests.selectedId=null;clearAdminRequestHistory();adminRequests.saving=false;adminRequests.saved="";
 }
 function renderCustomerRequestsKeepingFocus(){
   // Le rafraîchissement asynchrone reconstruit le DOM ; ne restaurer que le
@@ -550,7 +555,9 @@ async function fetchAdminRequests(client,uid,{announcePage=false}={}){
     const result=await listAdminPictogramRequestsAvailablePage(client,uid,{page:adminRequests.page,status:adminRequests.status,query:adminRequests.query,sort:adminRequests.sort});
     if(ticket!==adminRequests.request||authStatus.user?.id!==uid||!canOpenAdmin()||state.adminTab!=="requests")return;
     adminRequests.items=result.items;adminRequests.total=result.total;adminRequests.page=result.page;
-    if(adminRequests.selectedId&&!result.items.some(x=>x.id===adminRequests.selectedId))adminRequests.selectedId=null;
+    if(adminRequests.selectedId&&!result.items.some(x=>x.id===adminRequests.selectedId)){
+      adminRequests.selectedId=null;clearAdminRequestHistory();
+    }
   }catch(error){
     if(ticket!==adminRequests.request||authStatus.user?.id!==uid||state.adminTab!=="requests")return;
     adminRequests.error=String(error?.message||error);
@@ -2685,7 +2692,7 @@ root.addEventListener("click",function(event){
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
-      adminRequests.request++;adminRequests.loading=false;
+      adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
     }
     if(el.dataset.tab!=="bank"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
@@ -2774,26 +2781,57 @@ root.addEventListener("click",function(event){
     const next=adminRequests.page+Number(el.dataset.direction);
     const last=Math.max(0,Math.ceil(adminRequests.total/REQUEST_PAGE_SIZE)-1);
     if(!Number.isInteger(next)||next<0||next>last)return;
-    adminRequests.page=next;adminRequests.selectedId=null;
+    adminRequests.page=next;adminRequests.selectedId=null;clearAdminRequestHistory();
     void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id,{announcePage:true}));return;
   }
   if(a==="admin-request-open"&&canOpenAdmin()){
     const found=adminRequests.items.find(x=>x.id===el.dataset.id);if(!found)return;
-    adminRequests.selectedId=found.id;adminRequests.historyId=null;adminRequests.history=[];
+    adminRequests.selectedId=found.id;clearAdminRequestHistory();
     adminRequests.draft={status:found.status==="submitted"?"in_progress":found.status,adminNote:found.admin_note||"",linkedAssetId:found.linked_asset_id||""};
-    adminRequests.saved="";render();return;
-  }
-  if(a==="admin-request-history"&&canOpenAdmin()&&authStatus.user){
-    const uid=authStatus.user.id,id=adminRequests.selectedId,epoch=adminRequests.request;
-    if(!id)return;
-    adminRequests.historyId=id;adminRequests.history=[];render();
-    void supabaseClient().then(c=>listPictogramRequestHistory(c,uid,id)).then(events=>{
-      if(authStatus.user?.id!==uid||adminRequests.request!==epoch||adminRequests.selectedId!==id)return;
-      adminRequests.history=events;render();
-    }).catch(error=>{if(authStatus.user?.id===uid){adminRequests.error=String(error?.message||error);render();}});
+    adminRequests.saved="";render();
+    root.querySelector("#pa-admin-request-detail-title")?.focus({preventScroll:true});
     return;
   }
-  if(a==="admin-request-close"){adminRequests.selectedId=null;adminRequests.historyId=null;adminRequests.history=[];render();return;}
+  if(a==="admin-request-history"&&canOpenAdmin()&&authStatus.user&&state.adminTab==="requests"){
+    const uid=authStatus.user.id,id=adminRequests.selectedId;
+    if(!id||!adminRequests.items.some(item=>item.id===id))return;
+    const focusHistory=()=>{
+      const button=root.querySelector('.request-admin-history [data-action="admin-request-history"]');
+      button?.focus({preventScroll:true});
+    };
+    if(adminRequests.historyId===id){
+      clearAdminRequestHistory();render();focusHistory();return;
+    }
+    clearAdminRequestHistory();
+    const ticket=adminRequests.historyRequest;
+    adminRequests.historyId=id;adminRequests.historyLoading=true;render();focusHistory();
+    const updateHistory=(change)=>{
+      if(authStatus.user?.id!==uid||!canOpenAdmin()||
+         state.adminTab!=="requests"||ticket!==adminRequests.historyRequest||
+         adminRequests.historyId!==id||adminRequests.selectedId!==id)return;
+      const wasFocused=document.activeElement?.dataset?.action==="admin-request-history";
+      change();render();
+      if(wasFocused)focusHistory();
+    };
+    void supabaseClient().then(c=>listPictogramRequestHistory(c,uid,id)).then(events=>{
+      updateHistory(()=>{adminRequests.history=events;adminRequests.historyLoading=false;});
+    }).catch(error=>{
+      updateHistory(()=>{
+        adminRequests.historyError=String(error?.message||error);
+        adminRequests.historyLoading=false;
+      });
+    });
+    return;
+  }
+  if(a==="admin-request-close"){
+    const id=adminRequests.selectedId;adminRequests.selectedId=null;
+    clearAdminRequestHistory();render();
+    const opener=[...root.querySelectorAll('[data-action="admin-request-open"]')]
+      .find(button=>button.dataset.id===id);
+    if(opener)opener.focus({preventScroll:true});
+    else root.querySelector("#pa-admin-requests-page-status")?.focus({preventScroll:true});
+    return;
+  }
   if(a==="admin-theme-asset"){
     if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id))return;
     themeUI.assetId=el.dataset.id;themeUI.error="";themeUI.message="";
@@ -3251,7 +3289,7 @@ root.addEventListener("submit",function(event){
     adminRequests.query=String(form.get("query")||"");
     adminRequests.status=String(form.get("status")||"all");
     adminRequests.sort=String(form.get("sort")||"recent");
-    adminRequests.page=0;adminRequests.selectedId=null;adminRequests.saved="";
+    adminRequests.page=0;adminRequests.selectedId=null;clearAdminRequestHistory();adminRequests.saved="";
     void supabaseClient().then(client=>fetchAdminRequests(client,authStatus.user.id));return;
   }
   const adminUpdate=event.target.closest('form[data-form="admin-request-update"]');
@@ -3263,6 +3301,7 @@ root.addEventListener("submit",function(event){
       linkedAssetId:String(data.get("linkedAssetId")||"").trim()||null};
     adminRequests.draft={status:body.status,adminNote:body.adminNote,linkedAssetId:body.linkedAssetId||""};
     const ticket=++adminRequests.request;
+    clearAdminRequestHistory();
     adminRequests.saving=true;adminRequests.error="";adminRequests.saved="";render();
     void (async()=>{
       try{

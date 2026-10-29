@@ -13,7 +13,7 @@ export function renderAdminRequestDesk({fr,requests,labels,escape:esc,dateLabel}
  const rows=r.items.map(x=>'<article class="request-entry"><div class="request-entry-head"><strong>'+esc(x.subject)+'</strong><span class="request-status">'+esc(statusName(x.status))+'</span></div>'+
    '<p class="request-meta">'+esc(dateLabel(x.created_at))+' · '+esc(x.requester_id)+'</p><p>'+esc(x.description)+'</p>'+
    '<button type="button" class="btn btn-light btn-small" data-action="admin-request-open" data-id="'+esc(x.id)+'">'+esc(fr?"Examiner":"Review")+'</button></article>').join("");
- const detail=selected?'<section class="request-admin-detail"><h3>'+esc(fr?"Traitement de la demande":"Review request")+'</h3>'+
+ const detail=selected?'<section class="request-admin-detail" aria-labelledby="pa-admin-request-detail-title"><h3 id="pa-admin-request-detail-title" tabindex="-1">'+esc(fr?"Traitement de la demande":"Review request")+'</h3>'+
    '<strong>'+esc(selected.subject)+'</strong><p>'+esc(selected.description)+'</p>'+
    '<form data-form="admin-request-update">'+
    el(fr?"Décision":"Decision","request-decision",choices("status",statusOpts.filter(x=>x[0]!=="all"&&x[0]!=="submitted"),r.draft.status,"request-decision"))+
@@ -22,10 +22,14 @@ export function renderAdminRequestDesk({fr,requests,labels,escape:esc,dateLabel}
    '<p class="request-help">'+esc(fr?"« Acceptée » ne signifie pas « Publiée ». Un statut Publiée ou Déjà disponible exige un pictogramme effectivement publié, vérifié dans Supabase.":
     "Accepted is not Published. Published and Already available require a genuinely published pictogram, verified by Supabase.")+'</p>'+
    '<button type="submit" class="btn btn-primary"'+(r.saving?' disabled':'')+'>'+esc(r.saving?(fr?"Enregistrement…":"Saving…"):(fr?"Enregistrer le suivi":"Save follow-up"))+'</button></form>'+
-   '<div class="request-admin-history"><button class="btn btn-light btn-small" data-action="admin-request-history">'+esc(fr?"Voir l’historique":"View history")+'</button>'+
-   (r.historyId===selected.id?'<div class="request-history">'+(r.history.length?r.history.map(event=>
-      '<p>'+esc(dateLabel(event.created_at))+' · '+esc(statusName(event.old_status)||"—")+' → '+esc(statusName(event.new_status))+'</p>').join(""):
-      esc(fr?"Aucun événement affiché.":"No events to display."))+'</div>':"")+'</div>'+
+   '<div class="request-admin-history"><button type="button" class="btn btn-light btn-small" data-action="admin-request-history" aria-expanded="'+(r.historyId===selected.id)+'"'+
+   (r.historyId===selected.id?' aria-controls="pa-admin-request-history-'+esc(selected.id)+'"':'')+'>'+esc(fr?"Voir l’historique":"View history")+'</button>'+
+   (r.historyId===selected.id?'<div id="pa-admin-request-history-'+esc(selected.id)+'" class="request-history" role="region" aria-label="'+esc(fr?"Historique de la demande":"Request history")+'">'+
+      (r.historyLoading?'<p role="status">'+esc(fr?"Chargement de l’historique…":"Loading history…")+'</p>':
+       r.historyError?'<p role="alert">'+esc(r.historyError)+'</p>':
+       r.history.length?r.history.map(event=>
+        '<p>'+esc(dateLabel(event.created_at))+' · '+esc(statusName(event.old_status)||"—")+' → '+esc(statusName(event.new_status))+'</p>').join(""):
+        '<p>'+esc(fr?"Aucun événement affiché.":"No events to display.")+'</p>')+'</div>':"")+'</div>'+
    '<button class="btn btn-quiet btn-small" data-action="admin-request-close">'+esc(fr?"Fermer":"Close")+'</button></section>':"";
  const last=Math.max(0,Math.ceil(r.total/20)-1);
  return '<section class="admin-surface request-admin-panel"><div class="admin-surface-head"><div><h2>'+esc(fr?"Demandes des clients":"Customer requests")+'</h2><p>'+esc(fr?"Suivi privé, aucune publication automatique.":"Private follow-up; no automatic publishing.")+'</p></div>'+
