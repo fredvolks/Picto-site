@@ -813,24 +813,27 @@
 @media print{.files-preview-pagination,.files-preview-page-label{display:none!important}}
 
 
+/* Contrat Design System Pict-au : tokens neutres communs ; le client et l'admin conservent des espaces distincts. */
+:root{--pictau-ui-ink:#111;--pictau-ui-muted:#555;--pictau-ui-line:#e5e5e5;--pictau-ui-surface:#fff;--pictau-ui-soft:#f8f8f8}
+
 /* Site Pict-au officiel : aucun catalogue fictif avant la connexion réelle. */
 @media screen{
-  .hosted-access{min-height:100dvh;background:#f7fafb;color:#243744;display:flex;flex-direction:column;font-family:"DM Sans",system-ui,sans-serif}
-  .hosted-access-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px clamp(20px,5vw,60px);background:#fff;border-bottom:1px solid #e1ebef}
+  .hosted-access{min-height:100dvh;background:var(--pictau-ui-soft);color:var(--pictau-ui-ink);display:flex;flex-direction:column;font-family:"DM Sans",system-ui,sans-serif}
+  .hosted-access-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px clamp(20px,5vw,60px);background:var(--pictau-ui-surface);border-bottom:1px solid var(--pictau-ui-line)}
   .hosted-access-brand{color:inherit;text-decoration:none;display:inline-flex;align-items:center}
   .hosted-access-main{flex:1;display:flex;align-items:center;justify-content:center;padding:28px 20px 54px}
-  .hosted-access-panel{width:min(100%,490px);background:#fff;border:1px solid #dce8ee;border-radius:25px;padding:clamp(24px,5vw,44px);box-shadow:0 18px 50px rgba(40,77,96,.06)}
-  .hosted-access-eyebrow{display:block;color:#436f88;font-size:11px;letter-spacing:.13em;font-weight:700;text-transform:uppercase;margin-bottom:12px}
+  .hosted-access-panel{width:min(100%,490px);background:var(--pictau-ui-surface);border:1px solid var(--pictau-ui-line);border-radius:25px;padding:clamp(24px,5vw,44px);box-shadow:0 18px 50px rgba(0,0,0,.06)}
+  .hosted-access-eyebrow{display:block;color:var(--pictau-ui-muted);font-size:11px;letter-spacing:.13em;font-weight:700;text-transform:uppercase;margin-bottom:12px}
   .hosted-access-panel h1{font-size:clamp(27px,5vw,37px);letter-spacing:-.04em;line-height:1.15;margin:0 0 14px}
-  .hosted-access-panel p{color:#476171;font-size:15px;line-height:1.65;margin:0 0 22px}
+  .hosted-access-panel p{color:var(--pictau-ui-muted);font-size:15px;line-height:1.65;margin:0 0 22px}
   .hosted-access-action{margin:18px 0 26px}
-  .hosted-access-action .login-google{min-height:49px;padding:12px 18px;border:1px solid #cbdfe8;border-radius:13px;font-size:15px;font-weight:650;background:#fff;color:#294d60}
-  .hosted-access-status{color:#42647a}
+  .hosted-access-action .login-google{min-height:49px;padding:12px 18px;border:1px solid var(--pictau-ui-line);border-radius:13px;font-size:15px;font-weight:650;background:var(--pictau-ui-surface);color:var(--pictau-ui-ink)}
+  .hosted-access-status{color:var(--pictau-ui-muted)}
   .hosted-access-panel .hosted-access-error{color:#922f31}
-  .hosted-access-back{display:inline-block;font-size:14px;font-weight:650;color:#256887;text-underline-offset:3px}
-  .hosted-library-empty{max-width:780px;margin:12px auto 26px;padding:clamp(24px,5vw,42px);border:1px solid #dce8ed;background:#fff;border-radius:23px}
-  .hosted-library-empty h1{font-size:clamp(24px,3vw,33px);letter-spacing:-.03em;line-height:1.18;margin:0 0 12px;color:#263b48}
-  .hosted-library-empty p{max-width:580px;line-height:1.65;font-size:15px;color:#486274;margin:0 0 22px}
+  .hosted-access-back{display:inline-block;font-size:14px;font-weight:650;color:var(--pictau-ui-ink);text-underline-offset:3px}
+   .hosted-library-empty{max-width:780px;margin:12px auto 26px;padding:clamp(24px,5vw,42px);border:1px solid var(--pictau-ui-line);background:var(--pictau-ui-surface);border-radius:23px}
+  .hosted-library-empty h1{font-size:clamp(24px,3vw,33px);letter-spacing:-.03em;line-height:1.18;margin:0 0 12px;color:var(--pictau-ui-ink)}
+  .hosted-library-empty p{max-width:580px;line-height:1.65;font-size:15px;color:var(--pictau-ui-muted);margin:0 0 22px}
   .hosted-library-empty .btn{min-height:46px}
 }
 @media screen and (max-width:780px){
@@ -932,7 +935,7 @@
 /* 28 octobre 2026 — Boutique Pict-au : identité noir & blanc exclusive au client.
    Aucune de ces règles n'affecte le gabarit imprimé ni le véritable back-office. */
 @media screen{
-.pa-client-workspace{--pa-ink:#111111;--pa-grey:#686868;--pa-soft:#f7f7f7;--pa-line:#e5e5e5;color:var(--pa-ink);background:#fff;min-height:100dvh;font-family:"DM Sans",system-ui,Arial,sans-serif}
+.pa-client-workspace{--pa-ink:var(--pictau-ui-ink);--pa-grey:#686868;--pa-soft:#f7f7f7;--pa-line:var(--pictau-ui-line);color:var(--pa-ink);background:#fff;min-height:100dvh;font-family:"DM Sans",system-ui,Arial,sans-serif}
 .pa-client-workspace,.pa-client-workspace *{box-sizing:border-box}
 .pa-client-header{position:sticky;z-index:30;top:0;background:#fff;border-bottom:1px solid var(--pa-line);min-height:82px;padding:14px clamp(20px,3.1vw,58px);display:flex;align-items:center;justify-content:space-between;gap:24px}
 .pa-client-brand{font:800 29px/1 "DM Sans",Arial,sans-serif;letter-spacing:-.07em;white-space:nowrap;background:none;border:0;color:var(--pa-ink);padding:3px;cursor:pointer}
@@ -1027,7 +1030,7 @@
 }
 /* Sidebar Super Admin : palette neutre distincte sans décor coloré superflu. */
 @media screen{
-.admin-workspace{--admin-ink:#111;--admin-blue:#111;--admin-border:#e5e5e5;background:#f8f8f8;color:#111}
+.admin-workspace{--admin-ink:var(--pictau-ui-ink);--admin-blue:var(--pictau-ui-ink);--admin-border:var(--pictau-ui-line);background:var(--pictau-ui-soft);color:var(--pictau-ui-ink)}
 .admin-sidebar{border-color:#e5e5e5}
 .admin-brand-mark{background:#111;color:#fff}
 .admin-brand-identity strong{color:#111}
