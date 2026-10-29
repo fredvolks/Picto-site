@@ -77,12 +77,40 @@ async function findArchivedPdf(client,uid,id){
   await verifiedUser(client,uid);
   return q.data||null;
 }
+// Une ligne SQL peut subsister après la perte/suppression du vrai PDF Storage.
+// La ligne seule ne constitue PAS une preuve suffisante de récupération.
+async function confirmExistingPdfBytes(client,uid,row,metadata){
+  const path=documentPath(uid,metadata.id);
+  const confirmed=assertSameArchivedPdf(row,{...metadata,path});
+  await verifiedUser(client,uid);
+  const result=await client.storage.from(FILES_BUCKET).download(path);
+  if(result.error||!result.data){
+    const error=Error("L'original PDF est absent du stockage privé. La copie temporaire reste disponible; contactez le support avant de réarchiver.");
+    error.code="PDF_ARCHIVE_STORAGE_MISSING";
+    throw error;
+  }
+  let fingerprint;
+  try{fingerprint=await validatePdfBlob(result.data);}
+  catch{
+    const error=Error("L'original PDF stocké ne peut plus être vérifié. Conservez la copie temporaire.");
+    error.code="PDF_ARCHIVE_STORAGE_CORRUPT";
+    throw error;
+  }
+  if(fingerprint.sha256!==metadata.fingerprint.sha256||
+     fingerprint.byte_size!==metadata.fingerprint.byte_size){
+    const error=Error("L'original PDF stocké ne correspond plus au document archivé. Aucun remplacement automatique.");
+    error.code="PDF_ARCHIVE_STORAGE_CORRUPT";
+    throw error;
+  }
+  await verifiedUser(client,uid);
+  return confirmed;
+}
 async function archivePdfWithStableId(client,uid,file,metadata){
   const {id,fingerprint}=metadata,path=documentPath(uid,id);
   // D'abord la preuve SQL privée. Si l'accusé de réception initial a été
   // perdu, ne JAMAIS refaire un upload ni créer une nouvelle ligne.
   const known=await findArchivedPdf(client,uid,id);
-  if(known)return assertSameArchivedPdf(known,{...metadata,path});
+  if(known)return confirmExistingPdfBytes(client,uid,known,metadata);
   const bucket=client.storage.from(FILES_BUCKET);
   const upload=await bucket.upload(path,file,{
     contentType:"application/pdf",upsert:false,cacheControl:"0"
@@ -91,7 +119,7 @@ async function archivePdfWithStableId(client,uid,file,metadata){
     // Une réponse d'upload peut être perdue, ou l'objet peut déjà exister.
     // Ne jamais upsert et ne jamais faire confiance à un simple code 409.
     const already=await findArchivedPdf(client,uid,id);
-    if(already)return assertSameArchivedPdf(already,{...metadata,path});
+    if(already)return confirmExistingPdfBytes(client,uid,already,metadata);
     const stored=await bucket.download(path);
     if(stored.error||!stored.data)throw upload.error;
     const savedHash=await validatePdfBlob(stored.data);
@@ -115,7 +143,7 @@ async function archivePdfWithStableId(client,uid,file,metadata){
   }).select(IDEMPOTENT_COLUMNS).single();
   if(row.error||!row.data){
     const later=await findArchivedPdf(client,uid,id);
-    if(later)return assertSameArchivedPdf(later,{...metadata,path});
+    if(later)return confirmExistingPdfBytes(client,uid,later,metadata);
     throw row.error||Error("L'archivage n'a pas été confirmé par le serveur.");
   }
   await verifiedUser(client,uid);
