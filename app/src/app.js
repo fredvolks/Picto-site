@@ -491,11 +491,15 @@ function refreshFilesForCurrentUser(){
  });
 }
 
-const customerRequests={view:"closed",items:[],total:0,page:0,loading:false,submitting:false,error:"",message:"",request:0,form:{subject:"",description:"",theme:""},historyId:null,history:[]};
+const customerRequests={view:"closed",items:[],total:0,page:0,loading:false,submitting:false,error:"",message:"",request:0,form:{subject:"",description:"",theme:""},historyId:null,history:[],historyLoading:false,historyError:"",historyRequest:0};
 const adminRequests={items:[],total:0,page:0,status:"all",query:"",sort:"recent",loading:false,error:"",request:0,selectedId:null,historyId:null,history:[],saving:false,saved:"",draft:{status:"in_progress",adminNote:"",linkedAssetId:""}};
+function clearCustomerRequestHistory(){
+  customerRequests.historyRequest++;customerRequests.historyId=null;customerRequests.history=[];
+  customerRequests.historyLoading=false;customerRequests.historyError="";
+}
 function resetRequests(){
   customerRequests.request++;customerRequests.items=[];customerRequests.total=0;customerRequests.page=0;customerRequests.loading=false;customerRequests.submitting=false;
-  customerRequests.historyId=null;customerRequests.history=[];customerRequests.error="";customerRequests.message="";customerRequests.form={subject:"",description:"",theme:""};
+  clearCustomerRequestHistory();customerRequests.error="";customerRequests.message="";customerRequests.form={subject:"",description:"",theme:""};
   adminRequests.request++;adminRequests.items=[];adminRequests.total=0;adminRequests.page=0;adminRequests.status="all";adminRequests.query="";adminRequests.sort="recent";adminRequests.loading=false;adminRequests.error="";adminRequests.selectedId=null;adminRequests.historyId=null;adminRequests.history=[];adminRequests.saving=false;adminRequests.saved="";
 }
 function renderCustomerRequestsKeepingFocus(){
@@ -504,9 +508,12 @@ function renderCustomerRequestsKeepingFocus(){
   const active=document.activeElement;
   const action=active?.closest?.(".request-center")?.contains(active)?active?.dataset?.action:null;
   const view=action==="request-view"?active.dataset.view:null;
+  const historyId=action==="request-history"?active.dataset.id:null;
   const target=view==="mine"||view==="form"?
     '.request-center [data-action="request-view"][data-view="'+view+'"]':
-    action==="request-refresh"?'.request-center [data-action="request-refresh"]':null;
+    action==="request-refresh"?'.request-center [data-action="request-refresh"]':
+    historyId&&/^[0-9a-f-]{36}$/i.test(historyId)?
+      '.request-center [data-action="request-history"][data-id="'+historyId+'"]':null;
   render();
   if(target)root.querySelector(target)?.focus({preventScroll:true});
 }
@@ -932,9 +939,16 @@ function renderCustomerRequestCenter(){
       '<article class="request-entry"><div class="request-entry-head"><strong>'+esc(item.subject)+'</strong><span class="request-status">'+esc(requestStatusLabel(item.status))+'</span></div>'+
       '<p class="request-meta">'+esc(requestDate(item.created_at))+'</p><p>'+esc(item.description)+'</p>'+
       (item.admin_note?'<p class="request-note">'+esc(fr?"Réponse du Super Admin : ":"Super Admin reply: ")+esc(item.admin_note)+'</p>':"")+
-      '<button type="button" class="btn btn-light btn-small" data-action="request-history" data-id="'+esc(item.id)+'">'+esc(fr?"Historique":"History")+'</button>'+
-      (customerRequests.historyId===item.id?'<div class="request-history">'+(customerRequests.history.length?customerRequests.history.map(h=>
-         '<p>'+esc(requestDate(h.created_at))+' · '+esc(requestStatusLabel(h.new_status))+'</p>').join(""):esc(fr?"Aucun événement affiché.":"No events to display."))+'</div>':"")+
+      '<button type="button" class="btn btn-light btn-small" data-action="request-history" data-id="'+esc(item.id)+'" aria-expanded="'+(customerRequests.historyId===item.id)+'"'+
+      (customerRequests.historyId===item.id?' aria-controls="pa-request-history-'+esc(item.id)+'"':'')+'>'+
+      esc(fr?"Historique":"History")+'</button>'+
+      (customerRequests.historyId===item.id?
+        '<div id="pa-request-history-'+esc(item.id)+'" class="request-history" role="region" aria-label="'+esc(fr?"Historique de la demande":"Request history")+'">'+
+        (customerRequests.historyLoading?'<p role="status">'+esc(fr?"Chargement de l’historique…":"Loading history…")+'</p>':
+         customerRequests.historyError?'<p role="alert">'+esc(customerRequests.historyError)+'</p>':
+         customerRequests.history.length?customerRequests.history.map(h=>
+         '<p>'+esc(requestDate(h.created_at))+' · '+esc(requestStatusLabel(h.new_status))+'</p>').join(""):
+         '<p>'+esc(fr?"Aucun événement affiché.":"No events to display.")+'</p>')+'</div>':"")+
       '</article>').join("")+'</div>':'<p class="request-empty">'+esc(fr?"Aucune demande pour le moment.":"No requests yet.")+'</p>')+
       '<div class="admin-bank-pagination"><button class="btn btn-light btn-small" data-action="request-page" data-direction="-1"'+(customerRequests.loading||customerRequests.page===0?' disabled':'')+'>'+esc(fr?"Précédent":"Previous")+'</button>'+
       '<span>'+esc((customerRequests.page+1)+"/"+(last+1)+" · "+customerRequests.total)+'</span>'+
@@ -2677,6 +2691,7 @@ root.addEventListener("click",function(event){
     const requested=el.dataset.view;
     if(!["mine","form"].includes(requested))return;
     customerRequests.view=customerRequests.view===requested?"closed":requested;
+    clearCustomerRequestHistory();
     customerRequests.error="";customerRequests.message="";render();
     if(customerRequests.view==="closed"){
       // Rendre le focus à l'action déclenchante après fermeture du panneau.
@@ -2697,16 +2712,31 @@ root.addEventListener("click",function(event){
     const next=customerRequests.page+Number(el.dataset.direction);
     const last=Math.max(0,Math.ceil(customerRequests.total/REQUEST_PAGE_SIZE)-1);
     if(!Number.isInteger(next)||next<0||next>last)return;
-    customerRequests.page=next;customerRequests.historyId=null;customerRequests.history=[];
+    customerRequests.page=next;clearCustomerRequestHistory();
     void supabaseClient().then(c=>fetchCustomerRequests(c,authStatus.user.id));return;
   }
-  if(a==="request-history"&&authStatus.user){
-    const id=el.dataset.id,uid=authStatus.user.id,epoch=++customerRequests.request;
-    customerRequests.historyId=id;customerRequests.history=[];customerRequests.error="";render();
+  if(a==="request-history"&&authStatus.user&&customerRequests.view==="mine"){
+    const id=el.dataset.id,uid=authStatus.user.id;
+    const focusHistory=()=>root.querySelectorAll('.request-center [data-action="request-history"]')
+      .forEach(button=>{if(button.dataset.id===id)button.focus({preventScroll:true});});
+    if(customerRequests.historyId===id){
+      clearCustomerRequestHistory();renderCustomerRequestsKeepingFocus();focusHistory();return;
+    }
+    clearCustomerRequestHistory();
+    const epoch=customerRequests.historyRequest;
+    customerRequests.historyId=id;customerRequests.historyLoading=true;
+    renderCustomerRequestsKeepingFocus();focusHistory();
     void supabaseClient().then(c=>listPictogramRequestHistory(c,uid,id)).then(history=>{
-      if(authStatus.user?.id!==uid||epoch!==customerRequests.request)return;
-      customerRequests.history=history;render();
-    }).catch(error=>{if(authStatus.user?.id===uid&&epoch===customerRequests.request){customerRequests.error=String(error?.message||error);render();}});
+      if(authStatus.user?.id!==uid||epoch!==customerRequests.historyRequest||
+         customerRequests.historyId!==id||customerRequests.view!=="mine")return;
+      customerRequests.history=history;customerRequests.historyLoading=false;
+      renderCustomerRequestsKeepingFocus();
+    }).catch(error=>{
+      if(authStatus.user?.id!==uid||epoch!==customerRequests.historyRequest||
+         customerRequests.historyId!==id||customerRequests.view!=="mine")return;
+      customerRequests.historyError=String(error?.message||error);
+      customerRequests.historyLoading=false;renderCustomerRequestsKeepingFocus();
+    });
     return;
   }
   if(a==="admin-requests-refresh"&&canOpenAdmin()&&authStatus.user){
