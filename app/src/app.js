@@ -1580,8 +1580,8 @@ function renderClientLibrary(){
        +'<button data-action="nav" data-page="boards" type="button">'+esc(fr?'Tableau':'Board')+' · '+officialComposer.board.length+'</button></div>':'')
      +renderSingleApprovedAddFeedback("library")
     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
-    +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="">'+esc(fr?'Toutes':'All')+'</button>'
-    +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'">'
+    +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="" aria-pressed="'+(!state.clientCategory)+'">'+esc(fr?'Toutes':'All')+'</button>'
+    +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'" aria-pressed="'+(state.clientCategory===key)+'">'
       +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>';
 }
 function renderClientUsed(){
@@ -1671,7 +1671,7 @@ function renderClientUsed(){
       '<div class="pa-catalog-grid">'+usedCards+'</div>'
       +(pages>1?'<nav class="pa-catalog-pages" aria-label="'+esc(fr?"Pages":"Pages")+'">'
         +'<button type="button" data-action="used-page" data-direction="-1"'+(!u.page?' disabled':'')+'>'+esc(fr?"Précédent":"Previous")+'</button>'
-        +'<span>'+(u.page*USED_PAGE_SIZE+1)+'–'+Math.min(u.total,(u.page+1)*USED_PAGE_SIZE)+' / '+u.total+'</span>'
+        +'<span role="status" aria-live="polite">'+(u.page*USED_PAGE_SIZE+1)+'–'+Math.min(u.total,(u.page+1)*USED_PAGE_SIZE)+' / '+u.total+'</span>'
         +'<button type="button" data-action="used-page" data-direction="1"'+(u.page>=pages-1?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></nav>':''))
     +'</section>';
 }
