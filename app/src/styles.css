@@ -241,6 +241,9 @@
 
 /* Parcours de demandes : distinct du catalogue de démonstration et privé par RLS. */
 .request-center,.request-admin-panel{background:var(--pictau-ui-surface);border:1px solid var(--pictau-ui-line);border-radius:16px;padding:20px;margin:20px 0;min-width:0}
+/* Focus et ancrage de la demande client : ne pas masquer le titre sous l'en-tête fixe. */
+.pa-client-workspace #pa-client-request-center{scroll-margin-top:94px}
+#pa-client-requests-title:focus-visible{outline:3px solid var(--pictau-ui-ink);outline-offset:4px;border-radius:4px}
 .request-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
 .request-heading h2{font-size:18px;color:var(--pictau-ui-ink);margin:0 0 7px}
 .request-heading h3{font-size:14px;color:var(--pictau-ui-ink);margin:0}

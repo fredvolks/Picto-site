@@ -498,9 +498,21 @@ function resetRequests(){
   customerRequests.historyId=null;customerRequests.history=[];customerRequests.error="";customerRequests.message="";customerRequests.form={subject:"",description:"",theme:""};
   adminRequests.request++;adminRequests.items=[];adminRequests.total=0;adminRequests.page=0;adminRequests.status="all";adminRequests.query="";adminRequests.sort="recent";adminRequests.loading=false;adminRequests.error="";adminRequests.selectedId=null;adminRequests.historyId=null;adminRequests.history=[];adminRequests.saving=false;adminRequests.saved="";
 }
+function renderCustomerRequestsKeepingFocus(){
+  // Le rafraîchissement asynchrone reconstruit le DOM ; ne restaurer que le
+  // contrôle de Demandes encore activement ciblé, sans voler un focus déplacé.
+  const active=document.activeElement;
+  const action=active?.closest?.(".request-center")?.contains(active)?active?.dataset?.action:null;
+  const view=action==="request-view"?active.dataset.view:null;
+  const target=view==="mine"||view==="form"?
+    '.request-center [data-action="request-view"][data-view="'+view+'"]':
+    action==="request-refresh"?'.request-center [data-action="request-refresh"]':null;
+  render();
+  if(target)root.querySelector(target)?.focus({preventScroll:true});
+}
 async function fetchCustomerRequests(client,uid){
   const ticket=++customerRequests.request;
-  customerRequests.loading=true;customerRequests.error="";render();
+  customerRequests.loading=true;customerRequests.error="";renderCustomerRequestsKeepingFocus();
   try{
     const result=await listMyPictogramRequests(client,uid,{page:customerRequests.page});
     if(ticket!==customerRequests.request||authStatus.user?.id!==uid)return;
@@ -509,7 +521,7 @@ async function fetchCustomerRequests(client,uid){
     if(ticket!==customerRequests.request||authStatus.user?.id!==uid)return;
     customerRequests.error=String(error?.message||error);
   }finally{
-    if(ticket===customerRequests.request){customerRequests.loading=false;render();}
+    if(ticket===customerRequests.request){customerRequests.loading=false;renderCustomerRequestsKeepingFocus();}
   }
 }
 async function fetchAdminRequests(client,uid){
@@ -890,9 +902,9 @@ function renderCard(item){
 }
 function renderCustomerRequestCenter(){
  const fr=state.language==="fr",v=customerRequests.view,logged=Boolean(authStatus.user);
- const controls='<div class="request-controls"><button type="button" class="btn '+(v==="form"?"btn-primary":"btn-light")+'" data-action="request-view" data-view="form">'+
+ const controls='<div class="request-controls"><button type="button" class="btn '+(v==="form"?"btn-primary":"btn-light")+'" data-action="request-view" data-view="form" aria-pressed="'+(v==="form")+'">'+
    icon("plus","btn-icon")+esc(fr?"Demander un pictogramme":"Request a pictogram")+'</button>'+
-   '<button type="button" class="btn '+(v==="mine"?"btn-primary":"btn-light")+'" data-action="request-view" data-view="mine">'+
+   '<button type="button" class="btn '+(v==="mine"?"btn-primary":"btn-light")+'" data-action="request-view" data-view="mine" aria-pressed="'+(v==="mine")+'">'+
    icon("library","btn-icon")+esc(fr?"Mes demandes":"My requests")+'</button></div>';
  let content="";
  if(v!=="closed"&&!logged)content='<p class="request-callout" role="status">'+esc(fr?
@@ -928,7 +940,7 @@ function renderCustomerRequestCenter(){
       '<span>'+esc((customerRequests.page+1)+"/"+(last+1)+" · "+customerRequests.total)+'</span>'+
       '<button class="btn btn-light btn-small" data-action="request-page" data-direction="1"'+(customerRequests.loading||customerRequests.page>=last?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></div>';
  }
- return '<section class="request-center" aria-label="'+esc(fr?"Demandes de pictogrammes":"Pictogram requests")+'"><div class="request-heading"><div><h2>'+esc(fr?"Un pictogramme vous manque ?":"Missing a pictogram?")+'</h2>'+
+ return '<section id="pa-client-request-center" class="request-center" aria-labelledby="pa-client-requests-title"><div class="request-heading"><div><h2 id="pa-client-requests-title" tabindex="-1">'+esc(fr?"Un pictogramme vous manque ?":"Missing a pictogram?")+'</h2>'+
    '<p>'+esc(fr?"Proposez une nouvelle image ou retrouvez les demandes liées à votre compte.":"Suggest a new image or review requests linked to your account.")+'</p></div></div>'+
    controls+(customerRequests.message?'<p class="request-success" role="status">'+esc(customerRequests.message)+'</p>':"")+
    (customerRequests.error?'<p class="request-error" role="alert">'+esc(customerRequests.error)+'</p>':"")+
@@ -1570,7 +1582,7 @@ function renderClientLibrary(){
     +(f.loaded?'<span class="pa-client-section-meta">'+f.total+' '+esc(fr?'résultats approuvés':'approved results')+'</span>':'')+'</div>'
     +'<div class="pa-client-discovery-actions">'
     +'<button type="button" class="btn btn-light pa-used-discovery" data-action="nav" data-page="used">'+esc(fr?"Mes pictogrammes utilisés":"My used pictograms")+'</button>'
-    +'<button type="button" class="btn btn-light pa-request-discovery" data-action="request-open" aria-expanded="'+(customerRequests.view!=="closed")+'">'+icon("plus","btn-icon")+esc(fr?"Demander un pictogramme":"Request a pictogram")+'</button></div>'
+    +'<button type="button" class="btn btn-light pa-request-discovery" data-action="request-open" aria-expanded="'+(customerRequests.view!=="closed")+'" aria-label="'+esc(fr?"Ouvrir une demande de pictogramme":"Open pictogram request")+'">'+icon("plus","btn-icon")+esc(fr?"Demander un pictogramme":"Request a pictogram")+'</button></div>'
     +'<form data-form="catalog-filter" class="pa-client-search-wrap" role="search">'
     +'<label for="pa-client-search">'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</label>'
     +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="80"'
@@ -2652,7 +2664,13 @@ root.addEventListener("click",function(event){
   if(a==="request-open"){
     customerRequests.view="form";customerRequests.error="";customerRequests.message="";
     render();
-    document.querySelector(".request-center")?.scrollIntoView({behavior:"smooth",block:"start"});
+    // Le bouton a été remplacé par render() : déplacer le focus vers le contenu
+    // sans ouvrir automatiquement le clavier virtuel sur téléphone.
+    root.querySelector("#pa-client-requests-title")?.focus({preventScroll:true});
+    root.querySelector("#pa-client-request-center")?.scrollIntoView({
+      behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",
+      block:"start"
+    });
     return;
   }
   if(a==="request-view"){
@@ -2660,9 +2678,15 @@ root.addEventListener("click",function(event){
     if(!["mine","form"].includes(requested))return;
     customerRequests.view=customerRequests.view===requested?"closed":requested;
     customerRequests.error="";customerRequests.message="";render();
+    if(customerRequests.view==="closed"){
+      // Rendre le focus à l'action déclenchante après fermeture du panneau.
+      root.querySelector('.pa-client-discovery-actions [data-action="request-open"]')?.focus({preventScroll:true});
+    }else{
+      root.querySelector('.request-center [data-action="request-view"][data-view="'+requested+'"]')?.focus({preventScroll:true});
+    }
     if(customerRequests.view==="mine"&&authStatus.user)
       void supabaseClient().then(c=>fetchCustomerRequests(c,authStatus.user.id))
-       .catch(error=>{customerRequests.error=String(error?.message||error);render();});
+       .catch(error=>{customerRequests.error=String(error?.message||error);renderCustomerRequestsKeepingFocus();});
     return;
   }
   if(a==="request-refresh"&&authStatus.user){
