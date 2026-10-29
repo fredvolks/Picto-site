@@ -16,7 +16,7 @@ import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./ar
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequests,listAdminPictogramRequests,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
 import {renderAdminRequestDesk} from "./request-ui.js";
-import {archivePdf,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
+import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
@@ -1484,7 +1484,7 @@ function renderClientWorkspace(content){
     +'<main class="pa-client-main" id="pa-client-main">'
     +((pendingGeneratedPdf&&!["routines","boards"].includes(state.page))?renderPdfRecovery({
       pending:pendingGeneratedPdf,uid:authStatus.user?.id,
-      busy:officialComposer.busy,retrying:pdfRecoveryBusy,error:pdfRecoveryError,
+      busy:officialComposer.busy||clientFiles.busy,retrying:pdfRecoveryBusy,error:pdfRecoveryError,
       language:state.language,escape:esc,icon}):"")
     +content+'</main>'
     +'<nav class="pa-client-mobile-nav" aria-label="'+esc(fr?'Navigation mobile client':'Client mobile navigation')+'">'
@@ -1769,7 +1769,8 @@ function render(){
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):
     clientTitle?clientTitle[state.language==="fr"?0:1]:
     T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
-  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,uid:authStatus.user?.id,escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
+  root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,uid:authStatus.user?.id,
+    pendingPdf:Boolean(authStatus.user&&pendingGeneratedPdf?.uid===authStatus.user.id),escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
      kind:state.page==="routines"?"routine":"board",
      items:officialComposer[state.page==="routines"?"routine":"board"],
      language:state.language,imageUrls:publishedCatalog.imageUrls,
@@ -1781,10 +1782,11 @@ function render(){
      draftStatus:draftAutosaveLabel(state.page==="routines"?"routine":"board",
        draftAutosave.status(state.page==="routines"?"routine":"board")),
      allowCaptionEdit:captionFeature.loaded&&captionFeature.enabled,
-     pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy,
+     pending:renderPdfRecovery({pending:pendingGeneratedPdf,uid:authStatus.user.id,busy:officialComposer.busy||clientFiles.busy,
         retrying:pdfRecoveryBusy,error:pdfRecoveryError,language:state.language,escape:esc,icon}),
      escape:esc,icon
-    }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,uid:authStatus.user?.id,escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
+    }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,uid:authStatus.user?.id,
+    pendingPdf:Boolean(authStatus.user&&pendingGeneratedPdf?.uid===authStatus.user.id),escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
   updateArtFeedback();
   observeBankThumbnails();
@@ -2526,7 +2528,7 @@ root.addEventListener("click",function(event){
   if(a==="retry-unarchived-pdf"){
     const pending=pendingGeneratedPdf,uid=authStatus.user?.id;
     if(!SITE_EMBEDDED||!uid||canOpenAdmin()||!pending||pending.uid!==uid||
-      pdfRecoveryBusy||pdfExportBusy||officialComposer.busy)return;
+      pdfRecoveryBusy||pdfExportBusy||officialComposer.busy||clientFiles.busy)return;
     const token=++pdfRecoveryRequest;
     pdfRecoveryBusy=true;pdfRecoveryError="";state.toast="";render();
     void(async()=>{
@@ -2560,7 +2562,7 @@ root.addEventListener("click",function(event){
     })();return;
   }
   if(a==="discard-unarchived-pdf"){
-    if(!pendingGeneratedPdf||pendingGeneratedPdf.uid!==authStatus.user?.id||pdfExportBusy||pdfRecoveryBusy)return;
+    if(!pendingGeneratedPdf||pendingGeneratedPdf.uid!==authStatus.user?.id||pdfExportBusy||pdfRecoveryBusy||clientFiles.busy)return;
     const fr=state.language==="fr";
     if(window.confirm(fr
       ?"Cette copie n'est pas archivée. Avez-vous téléchargé le PDF ? L'écarter ici est irréversible."
@@ -2573,7 +2575,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="download-unarchived-pdf"){
     const pending=pendingGeneratedPdf;
-    if(!pending||pending.uid!==authStatus.user?.id||pdfExportBusy||pdfRecoveryBusy)return;
+    if(!pending||pending.uid!==authStatus.user?.id||pdfExportBusy||pdfRecoveryBusy||clientFiles.busy)return;
     let url=null;
     try{
       url=URL.createObjectURL(pending.blob);
@@ -2999,7 +3001,10 @@ root.addEventListener("submit",function(event){
   const uploadForm=event.target.closest('form[data-form="archive-pdf"]');
   if(uploadForm){
     event.preventDefault();
-    if(!authStatus.user||clientFiles.busy)return;
+    // Tant qu'un original attend sa confirmation, ne pas remplacer sa copie
+    // en mémoire par un nouveau fichier ni créer un UUID concurrent.
+    if(!authStatus.user||clientFiles.busy||pdfRecoveryBusy||
+      pendingGeneratedPdf?.uid===authStatus.user.id)return;
     const data=new FormData(uploadForm),file=data.get("pdf"),
       title=String(data.get("title")||""),documentType=String(data.get("documentType")||"routine"),
       uid=authStatus.user.id,epoch=++clientFiles.request;
@@ -3007,15 +3012,29 @@ root.addEventListener("submit",function(event){
     clientFiles.busy=true;render();
     void(async()=>{
       try{
-        const client=await supabaseClient();
-        await archivePdf(client,uid,file,{title,documentType});
+        // Ne conserver un fichier récupérable que s'il s'agit bien d'un PDF.
+        // Le transfert normal et toutes les reprises gardent le même ID privé.
+        await validatePdfBlob(file);
+        const cleanTitle=normalizeDocumentTitle(title);
+        if(!["routine","board","sheet"].includes(documentType))
+          throw Error("Type de PDF invalide.");
         if(authStatus.user?.id!==uid||clientFiles.request!==epoch)return;
+        const pending={blob:file,uid,title:cleanTitle,documentType,pageCount:null,
+          sourceDraftId:null,documentId:crypto.randomUUID(),imported:true};
+        pendingGeneratedPdf=pending;pdfRecoveryError="";
+        const client=await supabaseClient();
+        await archivePdf(client,uid,file,{title:cleanTitle,documentType,documentId:pending.documentId});
+        if(authStatus.user?.id!==uid||clientFiles.request!==epoch)return;
+        if(pendingGeneratedPdf===pending)pendingGeneratedPdf=null;
         clientFiles.busy=false;clientFiles.draft={title:"",documentType:"routine"};
-        clientFiles.message=state.language==="fr"?"PDF original archivé dans votre compte. Retrouvez-le sur tout appareil connecté.":"Original PDF archived in your account. Find it on any signed-in device.";
+        clientFiles.message=state.language==="fr"?
+          "PDF original archivé dans votre compte. Retrouvez-le sur tout appareil connecté.":
+          "Original PDF archived in your account. Find it on any signed-in device.";
         clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
         await fetchClientFiles(client,uid);
       }catch(error){
-        if(authStatus.user?.id===uid&&clientFiles.request===epoch)clientFiles.error=String(error?.message||error);
+        if(authStatus.user?.id===uid&&clientFiles.request===epoch)
+          clientFiles.error=String(error?.message||error);
       }finally{
         if(authStatus.user?.id===uid&&clientFiles.request===epoch){clientFiles.busy=false;render();}
       }

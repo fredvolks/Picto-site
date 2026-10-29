@@ -15,7 +15,7 @@ export function renderVerifiedPdfRetry({retry,uid,language="fr",escape:e}){
 }
 
 // Vue pure « Mes fichiers ». Aucune écriture, aucune clé API, aucun HTML PDF tiers.
-export function renderClientFiles({language,logged,files,uid=null,escape:e,icon}){
+export function renderClientFiles({language,logged,files,uid=null,pendingPdf=false,escape:e,icon}){
  const fr=language==="fr";
  const t=(a,b)=>fr?a:b;
  const typeName={routine:t("Routine","Routine"),sheet:t("Feuille","Sheet"),board:t("Tableau","Board")};
@@ -40,7 +40,11 @@ export function renderClientFiles({language,logged,files,uid=null,escape:e,icon}
    +'<div class="control files-file-control"><label for="files-pdf">'+t("Fichier PDF de votre appareil","PDF file from your device")+'</label>'
    +'<input id="files-pdf" name="pdf" type="file" accept=".pdf,application/pdf" required>'
    +'<small>'+t("PDF d’origine : copie privée non modifiée (limite technique 20 Mo).","Original PDF: unchanged private copy (technical limit 20 MB).")+'</small></div>'
-   +'<button type="submit" class="btn btn-primary"'+(files.busy?' disabled':'')+'>'+icon("save","btn-icon")+t(files.busy?"Archivage…":"Archiver le PDF",files.busy?"Archiving…":"Archive PDF")+'</button></form></div></details>';
+   +(pendingPdf?'<p class="files-feedback" role="status">'
+    +t("Une copie attend sa confirmation. Utilisez Réessayer l’archivage ou Écarter cette copie avant d’importer un autre PDF.",
+       "A PDF is awaiting confirmation. Retry archiving or discard that copy before importing another PDF.")
+    +'</p>':'')
+   +'<button type="submit" class="btn btn-primary"'+(files.busy||pendingPdf?' disabled':'')+'>'+icon("save","btn-icon")+t(files.busy?"Archivage…":"Archiver le PDF",files.busy?"Archiving…":"Archive PDF")+'</button></form></div></details>';
  const filters='<form data-form="files-filter" class="files-filters"><div class="control"><label for="files-search">'+t("Rechercher par nom","Search by name")+'</label>'
    +'<input id="files-search" name="query" type="search" maxlength="80" value="'+e(files.query)+'" placeholder="'+t("Ex. routine du soir","E.g. evening routine")+'"></div>'
    +'<div class="control"><label for="files-filter-type">'+t("Type","Type")+'</label>'
