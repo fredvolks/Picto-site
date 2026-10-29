@@ -14,7 +14,7 @@ import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
-import {submitPictogramRequest,listMyPictogramRequests,listAdminPictogramRequests,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
+import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequests,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
@@ -511,24 +511,29 @@ function renderCustomerRequestsKeepingFocus(){
   const historyId=action==="request-history"?active.dataset.id:null;
   const target=view==="mine"||view==="form"?
     '.request-center [data-action="request-view"][data-view="'+view+'"]':
-    action==="request-refresh"?'.request-center [data-action="request-refresh"]':
+    active?.id==="pa-client-requests-page-status"||action==="request-refresh"?
+      "#pa-client-requests-page-status":
     historyId&&/^[0-9a-f-]{36}$/i.test(historyId)?
       '.request-center [data-action="request-history"][data-id="'+historyId+'"]':null;
   render();
   if(target)root.querySelector(target)?.focus({preventScroll:true});
 }
-async function fetchCustomerRequests(client,uid){
+async function fetchCustomerRequests(client,uid,{announcePage=false}={}){
   const ticket=++customerRequests.request;
   customerRequests.loading=true;customerRequests.error="";renderCustomerRequestsKeepingFocus();
+  if(announcePage)root.querySelector("#pa-client-requests-page-status")?.focus({preventScroll:true});
   try{
-    const result=await listMyPictogramRequests(client,uid,{page:customerRequests.page});
-    if(ticket!==customerRequests.request||authStatus.user?.id!==uid)return;
-    customerRequests.items=result.items;customerRequests.total=result.total;
+    const result=await listMyPictogramRequestsAvailablePage(client,uid,{page:customerRequests.page});
+    if(ticket!==customerRequests.request||authStatus.user?.id!==uid||customerRequests.view!=="mine")return;
+    customerRequests.items=result.items;customerRequests.total=result.total;customerRequests.page=result.page;
   }catch(error){
-    if(ticket!==customerRequests.request||authStatus.user?.id!==uid)return;
+    if(ticket!==customerRequests.request||authStatus.user?.id!==uid||customerRequests.view!=="mine")return;
     customerRequests.error=String(error?.message||error);
   }finally{
-    if(ticket===customerRequests.request){customerRequests.loading=false;renderCustomerRequestsKeepingFocus();}
+    if(ticket===customerRequests.request){
+      customerRequests.loading=false;
+      if(customerRequests.view==="mine")renderCustomerRequestsKeepingFocus();
+    }
   }
 }
 async function fetchAdminRequests(client,uid){
@@ -951,7 +956,9 @@ function renderCustomerRequestCenter(){
          '<p>'+esc(fr?"Aucun événement affiché.":"No events to display.")+'</p>')+'</div>':"")+
       '</article>').join("")+'</div>':'<p class="request-empty">'+esc(fr?"Aucune demande pour le moment.":"No requests yet.")+'</p>')+
       '<div class="admin-bank-pagination"><button class="btn btn-light btn-small" data-action="request-page" data-direction="-1"'+(customerRequests.loading||customerRequests.page===0?' disabled':'')+'>'+esc(fr?"Précédent":"Previous")+'</button>'+
-      '<span>'+esc((customerRequests.page+1)+"/"+(last+1)+" · "+customerRequests.total)+'</span>'+
+      '<span id="pa-client-requests-page-status" role="status" aria-live="polite" tabindex="-1">'+
+      esc(customerRequests.loading?(fr?"Chargement de la page…":"Loading page…"):
+        (customerRequests.page+1)+"/"+(last+1)+" · "+customerRequests.total)+'</span>'+
       '<button class="btn btn-light btn-small" data-action="request-page" data-direction="1"'+(customerRequests.loading||customerRequests.page>=last?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></div>';
  }
  return '<section id="pa-client-request-center" class="request-center" aria-labelledby="pa-client-requests-title"><div class="request-heading"><div><h2 id="pa-client-requests-title" tabindex="-1">'+esc(fr?"Un pictogramme vous manque ?":"Missing a pictogram?")+'</h2>'+
@@ -2691,6 +2698,7 @@ root.addEventListener("click",function(event){
     const requested=el.dataset.view;
     if(!["mine","form"].includes(requested))return;
     customerRequests.view=customerRequests.view===requested?"closed":requested;
+    if(customerRequests.view!=="mine")customerRequests.request++;
     clearCustomerRequestHistory();
     customerRequests.error="";customerRequests.message="";render();
     if(customerRequests.view==="closed"){
@@ -2704,16 +2712,23 @@ root.addEventListener("click",function(event){
        .catch(error=>{customerRequests.error=String(error?.message||error);renderCustomerRequestsKeepingFocus();});
     return;
   }
-  if(a==="request-refresh"&&authStatus.user){
-    void supabaseClient().then(c=>fetchCustomerRequests(c,authStatus.user.id))
-     .catch(error=>{customerRequests.error=String(error?.message||error);render();});return;
+  if(a==="request-refresh"&&authStatus.user&&customerRequests.view==="mine"){
+    const uid=authStatus.user.id;
+    void supabaseClient().then(c=>fetchCustomerRequests(c,uid,{announcePage:true}))
+     .catch(error=>{if(authStatus.user?.id===uid&&customerRequests.view==="mine"){
+       customerRequests.error=String(error?.message||error);renderCustomerRequestsKeepingFocus();
+     }});return;
   }
   if(a==="request-page"&&authStatus.user&&!customerRequests.loading){
     const next=customerRequests.page+Number(el.dataset.direction);
     const last=Math.max(0,Math.ceil(customerRequests.total/REQUEST_PAGE_SIZE)-1);
     if(!Number.isInteger(next)||next<0||next>last)return;
     customerRequests.page=next;clearCustomerRequestHistory();
-    void supabaseClient().then(c=>fetchCustomerRequests(c,authStatus.user.id));return;
+    const uid=authStatus.user.id;
+    void supabaseClient().then(c=>fetchCustomerRequests(c,uid,{announcePage:true}))
+     .catch(error=>{if(authStatus.user?.id===uid&&customerRequests.view==="mine"){
+       customerRequests.error=String(error?.message||error);renderCustomerRequestsKeepingFocus();
+     }});return;
   }
   if(a==="request-history"&&authStatus.user&&customerRequests.view==="mine"){
     const id=el.dataset.id,uid=authStatus.user.id;

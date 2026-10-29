@@ -271,6 +271,14 @@
 .request-note{border-left:3px solid var(--pictau-ui-ink);padding:8px 10px;background:var(--pictau-ui-soft)}
 .request-history{padding:10px;background:var(--pictau-ui-soft);border-radius:8px;margin-top:10px}
 .request-history p{margin:3px 0}
+
+/* Les pages de demandes ne reprennent pas les accents anciens de la banque admin. */
+.request-center .admin-bank-pagination{border-top-color:var(--pictau-ui-line)}
+.request-center .admin-bank-pagination>span{color:var(--pictau-ui-ink);font-size:13px}
+.request-center .admin-bank-pagination>span:focus-visible{outline:3px solid var(--pictau-ui-ink);outline-offset:4px;border-radius:4px}
+.request-center .admin-bank-pagination .btn{min-height:44px;min-width:88px}
+@media(max-width:520px){.request-center .admin-bank-pagination .btn{min-width:0}}
+
 .request-admin-panel{margin-top:6px}
 .request-filter{display:grid;grid-template-columns:minmax(150px,2fr) repeat(2,minmax(100px,1fr)) auto;align-items:end;gap:11px;margin:15px 0}
 .request-admin-detail{margin-top:22px;padding:18px;border-top:2px solid var(--pictau-ui-line);background:var(--pictau-ui-soft);border-radius:10px}

@@ -57,6 +57,22 @@ export async function listMyPictogramRequests(client,uid,{page=0}={}){
  await verifyUser(client,uid);
  return {items:result.data||[],total:result.count,page,pageSize:REQUEST_PAGE_SIZE};
 }
+// Une demande peut être retirée pendant qu'un client consulte un feuillet avancé.
+// Revenir à la dernière page encore disponible, sans sortir du périmètre RLS.
+export async function listMyPictogramRequestsAvailablePage(client,uid,{page=0}={}){
+ validPage(page);
+ let current=page;
+ for(let attempt=0;attempt<3;attempt++){
+  const result=await listMyPictogramRequests(client,uid,{page:current});
+  const last=Math.max(0,Math.ceil(result.total/REQUEST_PAGE_SIZE)-1);
+  if(current<=last && (result.items.length>0||result.total===0))
+   return {...result,page:current};
+  if(result.total===0)return {...result,items:[],page:0};
+  if(current<=last)continue; // données modifiées entre le total et les lignes
+  current=last;
+ }
+ throw Error("La liste de demandes a changé. Actualisez Mes demandes.");
+}
 export async function listAdminPictogramRequests(client,uid,{page=0,status="all",query="",sort="recent"}={}){
  validPage(page);if(status!=="all"&&!REQUEST_STATUSES.includes(status))throw Error("Statut invalide.");
  if(!["recent","oldest"].includes(sort))throw Error("Tri invalide.");
