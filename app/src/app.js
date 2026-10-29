@@ -1568,7 +1568,9 @@ function renderClientLibrary(){
     +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'BIBLIOTHÈQUE':'LIBRARY')+'</span>'
     +'<h1 id="pa-catalog-title">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</h1></div>'
     +(f.loaded?'<span class="pa-client-section-meta">'+f.total+' '+esc(fr?'résultats approuvés':'approved results')+'</span>':'')+'</div>'
+    +'<div class="pa-client-discovery-actions">'
     +'<button type="button" class="btn btn-light pa-used-discovery" data-action="nav" data-page="used">'+esc(fr?"Mes pictogrammes utilisés":"My used pictograms")+'</button>'
+    +'<button type="button" class="btn btn-light pa-request-discovery" data-action="request-open" aria-expanded="'+(customerRequests.view!=="closed")+'">'+icon("plus","btn-icon")+esc(fr?"Demander un pictogramme":"Request a pictogram")+'</button></div>'
     +'<form data-form="catalog-filter" class="pa-client-search-wrap" role="search">'
     +'<label for="pa-client-search">'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'</label>'
     +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="80"'
@@ -1582,7 +1584,8 @@ function renderClientLibrary(){
     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="" aria-pressed="'+(!state.clientCategory)+'">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'" aria-pressed="'+(state.clientCategory===key)+'">'
-      +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>';
+      +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>'
+    +(customerRequests.view!=="closed"?renderCustomerRequestCenter():"");
 }
 function renderClientUsed(){
   const fr=state.language==="fr",u=usedPictos;

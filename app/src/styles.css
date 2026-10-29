@@ -276,7 +276,7 @@
 .request-admin-detail p{font-size:12px;line-height:1.6}
 .admin-tabs{flex-wrap:wrap}
 @media(max-width:800px){.request-filter{grid-template-columns:repeat(2,minmax(0,1fr))}.request-filter>.control:first-child{grid-column:1/-1}.request-filter>.btn{align-self:end}}
-@media(max-width:520px){.request-center,.request-admin-panel{padding:14px;margin:15px 0}.request-heading h2{font-size:16px}.request-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.request-controls .btn{font-size:11px;padding:10px 7px;min-width:0}.request-filter{grid-template-columns:minmax(0,1fr)}.request-filter>.control:first-child{grid-column:1}.request-entry{padding:11px}.request-status{font-size:10px}.request-form .btn{width:100%;justify-self:stretch}.admin-tabs{gap:5px}.admin-tab{min-width:0}}
+@media(max-width:520px){.request-center,.request-admin-panel{padding:14px;margin:15px 0}.request-heading h2{font-size:16px}.request-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.request-controls .btn{font-size:11px;padding:10px 7px;min-width:0;white-space:normal;overflow-wrap:anywhere}.request-filter{grid-template-columns:minmax(0,1fr)}.request-filter>.control:first-child{grid-column:1}.request-entry{padding:11px}.request-status{font-size:10px}.request-form .btn{width:100%;justify-self:stretch}.admin-tabs{gap:5px}.admin-tab{min-width:0}}
 
 
 /* Les champs restent lisibles sans zoom automatique du navigateur iOS. */
@@ -1381,6 +1381,11 @@
 /* Pictogrammes déjà utilisés : recherche simple et sélection tactile responsive. */
 @media screen {
   .pa-used-discovery{margin:6px 0 18px;min-height:44px}
+  /* Deux parcours complémentaires : retrouver les images utilisées ou demander un ajout. */
+  .pa-client-discovery-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:6px 0 18px}
+  .pa-client-discovery-actions .pa-used-discovery,
+  .pa-client-discovery-actions .pa-request-discovery{margin:0;min-height:44px;max-width:100%;white-space:normal}
+
   .pa-used-filters{display:grid;grid-template-columns:minmax(180px,2fr) repeat(2,minmax(130px,1fr)) auto;
     align-items:end;gap:12px;margin:18px 0 22px;padding:16px;
     border:1px solid #e3e3e3;border-radius:17px;background:#fff}
@@ -1421,6 +1426,10 @@
   .pa-used-selection-list button:focus-visible{outline:3px solid #444;outline-offset:2px}
 }
 @media screen and (max-width:880px){.pa-used-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media screen and (max-width:599px){
+  .pa-client-discovery-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+  .pa-client-discovery-actions .btn{width:100%}
+}
 @media screen and (max-width:520px){.pa-used-filters{grid-template-columns:minmax(0,1fr);gap:11px;padding:13px}
   .pa-used-filters>.btn{width:100%}}
 @media print{.pa-used-discovery,.pa-used-filters{display:none!important}}
