@@ -287,22 +287,22 @@
 /* Banque Super Admin réelle : vue liste, petites vignettes, images moyennes.
    Sources chargées uniquement via stockage privé authentifié et Blob temporaire. */
 .admin-bank-view-controls{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 16px}
-.admin-bank-view-controls .btn{font-size:11px;min-height:37px}
-.admin-bank-view-controls .btn.is-active{background:#243f50;color:#fff;border-color:#243f50}
-.admin-bank-view-controls .btn:focus-visible,.admin-bank-rename input:focus-visible{outline:3px solid #77b2d4;outline-offset:2px}
+.admin-bank-view-controls .btn{font-size:12px;min-height:44px}
+.admin-workspace .admin-bank-view-controls .btn.is-active{background:var(--pictau-ui-ink)!important;color:#fff!important;border-color:var(--pictau-ui-ink)!important}
+.admin-bank-view-controls .btn:focus-visible,.admin-bank-rename input:focus-visible{outline:3px solid var(--pictau-ui-ink);outline-offset:2px}
 .admin-bank-grid.admin-bank-view-small{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:11px}
 .admin-bank-grid.admin-bank-view-medium{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:16px}
 .admin-bank-grid.admin-bank-view-list{display:flex;flex-direction:column;gap:9px}
 .admin-bank-item{display:flex;flex-direction:column;align-items:center;gap:9px;min-width:0;text-align:left}
 .admin-bank-item-meta{width:100%;min-width:0}
-.admin-bank-item-meta strong{display:block;margin:0;font-size:13px;font-weight:800;white-space:normal;overflow-wrap:anywhere;color:#243e4f}
-.admin-bank-item-meta small,.admin-bank-secondary{display:block;margin-top:5px;font-size:11px;color:#617987;line-height:1.5;overflow-wrap:anywhere}
+.admin-bank-item-meta strong{display:block;margin:0;font-size:13px;font-weight:800;white-space:normal;overflow-wrap:anywhere;color:var(--pictau-ui-ink)}
+.admin-bank-item-meta small,.admin-bank-secondary{display:block;margin-top:5px;font-size:11px;color:var(--pictau-ui-muted);line-height:1.5;overflow-wrap:anywhere}
 .admin-bank-item-actions{width:100%;display:flex;flex-direction:column;gap:6px}
-.admin-bank-item-actions .btn{width:100%;min-width:0;min-height:35px;font-size:11px;justify-content:center}
-.admin-bank-thumb{width:100%;aspect-ratio:1;min-height:60px;border:1px solid #dbe6eb;border-radius:9px;display:grid;place-items:center;overflow:hidden;background:#f5f8fa;position:relative}
+.admin-bank-item-actions .btn{width:100%;min-width:0;min-height:44px;font-size:11px;justify-content:center}
+.admin-bank-thumb{width:100%;aspect-ratio:1;min-height:60px;border:1px solid var(--pictau-ui-line);border-radius:9px;display:grid;place-items:center;overflow:hidden;background:var(--pictau-ui-soft);position:relative}
 .admin-bank-thumb img[data-private-thumb]{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;display:block;background:white}
 .admin-bank-thumb img[hidden]{display:none!important}
-.admin-bank-thumb-placeholder{width:100%;height:100%;display:grid;place-items:center;color:#91a9b8}
+.admin-bank-thumb-placeholder{width:100%;height:100%;display:grid;place-items:center;color:var(--pictau-ui-muted)}
 .admin-bank-thumb-placeholder[hidden]{display:none!important}
 .admin-bank-thumb-placeholder svg{width:24px;height:24px}
 .admin-bank-view-medium .admin-bank-thumb{max-height:240px}
@@ -311,12 +311,12 @@
 .admin-bank-view-list .admin-bank-item-actions{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:flex-end}
 .admin-bank-view-list .admin-bank-item-actions .btn{width:auto;flex:1;min-width:92px}
 .admin-bank-rename{margin-top:20px}
-.admin-bank-rename h3{font-size:16px;margin:0 0 8px;color:#2e4d5b}
-.admin-bank-rename p{font-size:12px;line-height:1.55;color:#607987;margin-bottom:14px}
+.admin-bank-rename h3{font-size:16px;margin:0 0 8px;color:var(--pictau-ui-ink)}
+.admin-bank-rename p{font-size:12px;line-height:1.55;color:var(--pictau-ui-muted);margin-bottom:14px}
 .admin-bank-rename form{display:grid;gap:9px;max-width:610px}
 .admin-bank-rename label{font-size:12px;font-weight:750}
-.admin-bank-rename input{width:100%;padding:10px 12px;border:1px solid #cddde5;border-radius:9px;font-size:14px}
-.admin-bank-rename small{font-size:11px;color:#6d818f}
+.admin-bank-rename input{width:100%;padding:10px 12px;border:1px solid var(--pictau-ui-line);border-radius:9px;font-size:14px}
+.admin-bank-rename small{font-size:11px;color:var(--pictau-ui-muted)}
 .admin-bank-rename .admin-import-actions{margin-top:8px;display:flex;gap:9px;flex-wrap:wrap}
 @media(max-width:700px){
  .admin-bank-grid.admin-bank-view-list .admin-bank-item{grid-template-columns:62px minmax(0,1fr);gap:10px}
@@ -329,35 +329,35 @@
  .admin-bank-grid.admin-bank-view-medium{grid-template-columns:1fr}
  .admin-bank-view-controls .btn{flex:1;font-size:10px;padding:8px 5px}
  .admin-bank-item{padding:9px}
- .admin-bank-item-actions .btn{font-size:10px;min-height:33px}
+ .admin-bank-item-actions .btn{font-size:12px;min-height:44px}
 }
 
 
 /* Super Admin : associations multiples et catalogue des thèmes, sans exposer les PNG. */
 .admin-theme-manager{margin-top:18px}
-.admin-theme-details{border-top:1px solid #dbe6eb;padding:12px 0}
-.admin-theme-details summary{cursor:pointer;font-weight:750;color:#2b526a;font-size:13px;line-height:1.5}
-.admin-theme-details summary:focus-visible{outline:2px solid #4e91b9;outline-offset:3px}
+.admin-theme-details{border-top:1px solid var(--pictau-ui-line);padding:12px 0}
+.admin-theme-details summary{cursor:pointer;font-weight:750;color:var(--pictau-ui-ink);font-size:13px;line-height:1.5}
+.admin-theme-details summary:focus-visible{outline:3px solid var(--pictau-ui-ink);outline-offset:3px}
 .admin-theme-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:770px;margin:14px 0 6px}
 .admin-theme-form .control{display:grid;gap:6px;min-width:0}
-.admin-theme-form .control label{font-size:11px;font-weight:750;color:#425e70}
-.admin-theme-form input,.admin-theme-form select,.admin-theme-inline select{width:100%;min-width:0;padding:9px 11px;border:1px solid #ccdce4;border-radius:8px;background:#fff;color:#2a4757;font-size:12px}
+.admin-theme-form .control label{font-size:12px;font-weight:750;color:var(--pictau-ui-muted)}
+.admin-theme-form input,.admin-theme-form select,.admin-theme-inline select{width:100%;min-width:0;padding:9px 11px;border:1px solid var(--pictau-ui-line);border-radius:8px;background:#fff;color:var(--pictau-ui-ink);font-size:12px}
 .admin-theme-form>.btn{grid-column:1/-1;justify-self:start}
 .admin-theme-form h3{grid-column:1/-1;font-size:14px}
 .admin-theme-picker{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}
-.admin-theme-picker>.btn{min-height:34px}
-.admin-theme-confirm{grid-column:1/-1;display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.55;color:#425b68}
-.admin-theme-confirm input{flex:none;width:16px;height:16px;margin-top:2px;accent-color:#3373a3}
+.admin-theme-picker>.btn{min-height:44px}
+.admin-theme-confirm{grid-column:1/-1;display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.55;color:var(--pictau-ui-muted)}
+.admin-theme-confirm input{flex:none;width:16px;height:16px;margin-top:2px;accent-color:var(--pictau-ui-ink)}
 .admin-theme-assign{margin:18px 0}
 .admin-theme-assign .admin-preview-heading{align-items:center;gap:10px}
 .admin-theme-assign h3{font-size:15px;overflow-wrap:anywhere}
 .admin-theme-chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
-.admin-theme-chip{display:inline-flex;gap:7px;align-items:center;border-radius:999px;padding:4px 5px 4px 11px;background:#e8f3f8;color:#355d70;font-size:12px;font-weight:750}
-.admin-theme-chip button{display:grid;place-items:center;width:22px;height:22px;border-radius:999px;background:#fff;border:1px solid #c3d8e3;color:#385f70;font-weight:bold}
+.admin-theme-chip{display:inline-flex;gap:7px;align-items:center;border-radius:999px;padding:4px 5px 4px 11px;background:var(--pictau-ui-soft);color:var(--pictau-ui-ink);font-size:12px;font-weight:750}
+.admin-theme-chip button{display:grid;place-items:center;min-width:44px;min-height:44px;border-radius:999px;background:#fff;border:1px solid var(--pictau-ui-line);color:var(--pictau-ui-ink);font-weight:bold}
 .admin-theme-chip button:disabled{opacity:.4;cursor:default}
 .admin-theme-inline{display:grid;grid-template-columns:auto minmax(140px,1fr) auto;align-items:end;gap:8px;margin:10px 0}
 .admin-theme-inline label{font-size:12px;font-weight:750;align-self:center}
-.admin-theme-inline .btn{min-height:36px}
+.admin-theme-inline .btn{min-height:44px}
 @media(max-width:620px){
  .admin-theme-form{grid-template-columns:1fr}
  .admin-theme-inline{grid-template-columns:1fr}
