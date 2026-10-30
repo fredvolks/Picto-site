@@ -2,6 +2,8 @@
 // Ne publie rien, ne téléverse rien et n'écrit pas dans Supabase.
 export const MAX_SCAN_SIDE=768;
 export const MAX_DECODE_PIXELS=16_000_000;
+export const MAX_PNG_CROP_BYTES=10*1024*1024;
+const PNG_MAGIC=[137,80,78,71,13,10,26,10];
 
 export function findInkBoundsRGBA(data,width,height,{alphaMinimum=32,maxChannelAverage=180}={}){
   if(!Number.isSafeInteger(width)||width<1||!Number.isSafeInteger(height)||height<1||
@@ -26,6 +28,15 @@ export async function createLocalInkCrop(blob,{width,height}={}){
   if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||
      width<1||height<1||width*height>MAX_DECODE_PIXELS)
     throw new Error("PNG trop grand pour une analyse locale sûre.");
+  // Le module doit protéger le décodage indépendamment des contrôles Storage.
+  // Le stockage privé peut fournir un type MIME PNG, octet-stream ou vide.
+  if(!(blob instanceof Blob)||!Number.isSafeInteger(blob.size)||
+     blob.size<33||blob.size>MAX_PNG_CROP_BYTES||
+     !["image/png","application/octet-stream",""].includes(blob.type))
+    throw new Error("Le PNG est absent, invalide ou trop volumineux.");
+  const signature=new Uint8Array(await blob.slice(0,8).arrayBuffer());
+  if(!PNG_MAGIC.every((byte,index)=>signature[index]===byte))
+    throw new Error("Signature PNG invalide.");
   if(typeof createImageBitmap!=="function"||typeof document==="undefined")
     throw new Error("Décodage PNG local indisponible dans ce navigateur.");
   const bitmap=await createImageBitmap(blob);
