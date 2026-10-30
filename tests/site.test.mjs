@@ -30,6 +30,14 @@ test("Page de création Design 3, tarif mensuel et parcours non transactionnel",
  assert.doesNotMatch(plan,/auth\.signUp\(|checkout\.sessions|stripe\.redirectToCheckout|fetch\(/i);
  assert.doesNotMatch(plan,/type="checkbox" checked/);
 });
+test("Le bouton Créer un compte de la connexion mène à la vraie page Design 3",()=>{
+ const app=read("app/src/app.js");
+ assert.match(app,/class="hosted-signup"/);
+ assert.match(app,/href="\.\.\/forfait\.html"/);
+ assert.doesNotMatch(app,/href="\.\.\/index\.html#forfait"/);
+ assert.match(plan,/class="signup-page"/);
+ assert.match(plan,/9,99/);
+});
 test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
  assert.equal((html.match(/class="login-link"/g)||[]).length,1);
  assert.match(html,/<a class="login-link" href="\.\/app\/">/);
