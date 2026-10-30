@@ -9,6 +9,18 @@ const PNG_COLOR_NAMES={
   6:{fr:"RVB avec transparence",en:"RGBA",depth:[8,16]}
 };
 
+// CRC32 standard PNG sur le type IHDR et ses 13 octets de données.
+// Ne lit pas les pixels et ne prétend pas valider les chunks IDAT/IEND.
+function pngIhdrCrc(bytes){
+  let crc=0xffffffff;
+  for(let i=12;i<29;i++){
+    crc^=bytes[i];
+    for(let bit=0;bit<8;bit++)
+      crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+  }
+  return (crc^0xffffffff)>>>0;
+}
+
 export function inspectPngHeader(bytes){
   if(!(bytes instanceof Uint8Array)||bytes.length<33)
     throw new Error("En-tête PNG incomplet.");
@@ -21,6 +33,8 @@ export function inspectPngHeader(bytes){
   if(!width||!height||!color||!color.depth.includes(bitDepth)||
      bytes[26]!==0||bytes[27]!==0||![0,1].includes(bytes[28]))
     throw new Error("Paramètres PNG (dimensions/couleur) invalides.");
+  if(read32(29)!==pngIhdrCrc(bytes))
+    throw new Error("Intégrité PNG : CRC du bloc IHDR invalide.");
   return {width,height,bitDepth,colorType,hasAlpha:[4,6].includes(colorType),interlaced:bytes[28]===1};
 }
 
