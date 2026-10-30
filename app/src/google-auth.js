@@ -31,7 +31,17 @@ export async function loginGoogle(href){
 // Courriel : connexion à un compte EXISTANT, sans créer de compte ni attribuer de rôle.
 export function validEmailAddress(value){
   const email=String(value||"").trim();
-  if(email.length>254||!/^\S+@\S+\.\S+$/.test(email))throw Error("Adresse courriel invalide.");
+  const at=email.indexOf("@"),local=email.slice(0,at),domain=email.slice(at+1);
+  const labels=domain.split(".");
+  // Validation pratique de l'interface : éviter les erreurs manifestes avant
+  // tout appel Auth, sans imposer un domaine particulier ou une casse.
+  if(email.length>254||at<1||at!==email.lastIndexOf("@")||
+     local.length>64||!local||/[.\s]$/.test(local)||local.startsWith(".")||
+     local.includes("..")||!/^[^\s@<>()\[\]:;,"\\]+$/u.test(local)||
+     domain.length>253||labels.length<2||
+     labels.some(label=>!label||label.length>63||
+       !/^[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?$/u.test(label)))
+    throw Error("Adresse courriel invalide.");
   return email;
 }
 export async function loginWithEmail(email,password,client){
