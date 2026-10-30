@@ -158,12 +158,15 @@ try{
     await command("Page.navigate",{url:base+"/index.html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
     await evaluate("document.querySelector('.signup-button').click();return true;");
-    await waitFor("return location.pathname.endsWith('/forfait.html') && !!document.querySelector('.plan-page')");
-    const p=await evaluate("return {plan:document.querySelectorAll('.plan-page').length,amount:document.querySelector('.plan-page-status strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.info-back').getAttribute('href')};");
-    assert.equal(p.plan,1,"One distinct plan page");
-    assert.match(p.amount,/Tarif à confirmer|Pricing to be confirmed/);
-    assert.equal(p.forms,0,"No fake account/payment form");
+    await waitFor("return location.pathname.endsWith('/forfait.html') && !!document.querySelector('.signup-page')");
+    const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked};");
+    assert.equal(p.plan,1,"One distinct signup plan page");
+    assert.match(p.price,/9,99/);
+    assert.equal(p.forms,1,"Preparatory form, no account or payment creation");
+    assert.equal(p.consent,false,"Consent is never prechecked");
     assert.equal(p.back,"./index.html","Valid navigation back");
+    assert.ok(p.docWidth<=width+1,"Signup has no horizontal scroll");
+    assert.ok(p.docHeight<=(width===320?568:width===768?1024:900)+1,"Signup fits the mobile viewport at rest");
     const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
     await writeFile(join(screenshots,"forfait-"+width+"px.png"),Buffer.from(shot.data,"base64"));
   }
@@ -182,7 +185,7 @@ try{
     assert.equal(info.back,true,name+" return home");
     assert.equal(info.forms,0,name+" no fake form");
   }
-  console.log("Vitrine validée : 10 formats × FR/EN, 3 pages forfait, zoom et pages légales.");
+  console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 3, zoom et pages légales.");
 }catch(error){
   console.error(error);
   process.exitCode=1;
