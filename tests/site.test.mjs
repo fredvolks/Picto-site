@@ -30,7 +30,7 @@ test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
  assert.doesNotMatch(css,/\.login-link\s*\{[^}]*display\s*:\s*none/);
  const loginPage=read("connexion.html");
  assert.match(loginPage,/href="\.\/app\/"/);
- assert.match(loginPage,/connectez-vous avec Google/);
+ assert.match(loginPage,/connectez-vous par courriel ou avec Google/);
  assert.match(loginPage,/uniquement les pictogrammes approuvés/);
  assert.doesNotMatch(loginPage,/utiliser les pictogrammes d.exemple et accéder à la connexion Google/);
  assert.match(loginPage,/Super Admin nécessite un compte expressément autorisé/);
