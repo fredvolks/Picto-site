@@ -35,16 +35,23 @@ async function getVerifiedId(client) {
   return data?.user?.id || null;
 }
 
-export async function importPrivateDraft(client,verifiedUserId,file,metadata,makeId=()=>globalThis.crypto.randomUUID()) {
-  if(!uuid.test(verifiedUserId||""))throw new Error("Connexion administrateur requise.");
-  const user=await getVerifiedId(client);
-  if(user!==verifiedUserId)throw new Error("Session administrateur expirée ou modifiée.");
+async function requireAdmin(client,verifiedUserId,inProgress=false) {
+  if(await getVerifiedId(client)!==verifiedUserId)
+    throw new Error(inProgress?"Session modifiée pendant l'importation.":"Session administrateur expirée ou modifiée.");
   const role=await client.from("pictau_admins").select("user_id").eq("user_id",verifiedUserId).maybeSingle();
   if(role.error)throw role.error;
-  if(role.data?.user_id!==verifiedUserId)throw new Error("Ce compte ne possède pas l'autorisation Super Admin.");
+  if(role.data?.user_id!==verifiedUserId)
+    throw new Error("Ce compte ne possède pas l'autorisation Super Admin.");
+}
+
+export async function importPrivateDraft(client,verifiedUserId,file,metadata,makeId=()=>globalThis.crypto.randomUUID()) {
+  if(!uuid.test(verifiedUserId||""))throw new Error("Connexion administrateur requise.");
+  await requireAdmin(client,verifiedUserId);
 
   const normalized=validateDraftMetadata(metadata);
   await validateDraftPng(file);
+  // La lecture du fichier est asynchrone : revalider les droits avant tout upload.
+  await requireAdmin(client,verifiedUserId,true);
   const identifier=makeId();
   if(!uuid.test(identifier))throw new Error("Identifiant d'importation invalide.");
   const imagePath=`imports/${verifiedUserId}/${identifier}.png`;
@@ -53,9 +60,9 @@ export async function importPrivateDraft(client,verifiedUserId,file,metadata,mak
   if(upload.error)throw upload.error;
 
   try{
-    // Protection contre un changement de compte pendant le transfert.
-    if(await getVerifiedId(client)!==verifiedUserId)
-      throw new Error("Session modifiée pendant l'importation.");
+    // Le transfert peut durer : refuser la création d'une fiche si la session
+    // ou le rôle Super Admin a été révoqué, puis nettoyer uniquement cet upload.
+    await requireAdmin(client,verifiedUserId,true);
     const record={
       ...normalized,
       image_path:imagePath,
