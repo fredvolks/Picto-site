@@ -28,8 +28,11 @@ function safeImage(item){
     return item.pngBlob;
   }
   const s=item?.image;
+  // Ces SVG d'essai sont des dessins statiques : interdire tout contenu
+  // événementiel, CSS ou animé avant de le confier au décodeur d'image.
   if(typeof s!=="string"||!/^<svg[\s>]/i.test(s)||!/<\/svg>\s*$/i.test(s)||
-    /<script|<foreignObject|<image|(?:href|src)\s*=|<!doctype|<!entity/iu.test(s))
+    /<script|<foreignObject|<image|(?:href|src)\s*=|<!doctype|<!entity/iu.test(s)||
+    /(?:\son[a-z][a-z0-9_-]*\s*=|\sstyle\s*=|<\s*(?:style|animate[a-z]*|set|mpath|feimage)\b|url\s*\(|@import\b)/iu.test(s))
     throw Error("La source vectorielle ne peut pas être intégrée au PDF.");
   return s;
 }
