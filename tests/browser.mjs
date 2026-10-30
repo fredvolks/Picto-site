@@ -180,7 +180,7 @@ try{
   await evaluate("document.body.style.zoom='';return true;");
   // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 3.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
-  await command("Page.navigate",{url:base+"/app/"});
+  await command("Page.navigate",{url:base+"/app/index.html"});
   await waitFor("return !!document.querySelector('.hosted-signup a')");
   const createLink=await evaluate("return document.querySelector('.hosted-signup a').getAttribute('href')");
   assert.equal(createLink,"../forfait.html","The sign-up action must link to the actual registration page");
