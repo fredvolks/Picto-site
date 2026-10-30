@@ -1810,7 +1810,7 @@ function renderHostedAccess(){
     +'<button class="hosted-access-link hosted-forgot" type="button" data-action="auth-forgot">'+t('Mot de passe oublié ?','Forgot password?')+'</button>'
     +'<button class="hosted-access-submit" type="submit"'+(busy||!authStatus.ready?' disabled':'')+'>'+t('Se connecter','Sign in')+'</button></form>'
     +'<div class="hosted-auth-divider">'+t('ou','or')+'</div><div class="hosted-access-action">'+googleButton()+'</div>'
-    +feedback+'<p class="hosted-signup">'+t('Pas encore de compte ?','New to Pict-au?')+' <a href="../index.html#forfait">'+t('Créer un compte','Create an account')+'</a></p>';
+    +feedback+'<p class="hosted-signup">'+t('Pas encore de compte ?','New to Pict-au?')+' <a href="../forfait.html">'+t('Créer un compte','Create an account')+'</a></p>';
   return '<section class="hosted-access hosted-access-v4" aria-labelledby="hosted-access-title">'+side
     +'<main class="hosted-access-main">'+art +'<div class="hosted-access-welcome">'+
     '<span class="hosted-access-eyebrow">'+t('ESPACE PERSONNEL','PERSONAL SPACE')+'</span><h2>'+t('Bonjour, bienvenue !','Hello, welcome!')+'</h2><p>'+t('Retrouvez vos routines, fichiers et pictogrammes.','Find your routines, files and pictograms.')+'</p></div>'

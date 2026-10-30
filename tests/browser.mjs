@@ -178,6 +178,18 @@ try{
   assert.equal(zoom.button,true,"Zoom: CTA still in DOM");
   assert.ok(zoom.scroll>zoom.height,"Zoom: expanded content may scroll rather than clip");
   await evaluate("document.body.style.zoom='';return true;");
+  // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 3.
+  await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
+  await command("Page.navigate",{url:base+"/app/index.html"});
+  await waitFor("return !!document.querySelector('.hosted-signup a')");
+  const createLink=await evaluate("return document.querySelector('.hosted-signup a').getAttribute('href')");
+  assert.equal(createLink,"../forfait.html","The sign-up action must link to the actual registration page");
+  await evaluate("document.querySelector('.hosted-signup a').click();return true;");
+  await waitFor("return location.pathname.endsWith('/forfait.html') && !!document.querySelector('.signup-page')");
+  const actualSignup=await evaluate("return {hasForm:!!document.querySelector('#signup-form'),price:document.querySelector('.signup-plan-price strong').textContent.trim()}");
+  assert.equal(actualSignup.hasForm,true,"The account-creation form must be shown");
+  assert.match(actualSignup.price,/9,99/);
+  console.log("PASS connexion vers inscription Design 3 sur mobile");
   for(const name of ["connexion","contact","conditions","confidentialite"]){
     await command("Page.navigate",{url:base+"/"+name+".html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.info-surface')");
