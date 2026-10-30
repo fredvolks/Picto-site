@@ -197,6 +197,19 @@ try{
     assert.equal(info.back,true,name+" return home");
     assert.equal(info.forms,0,name+" no fake form");
   }
+  // La connexion publique doit mener à la vraie création de compte, pas revenir à la connexion.
+  await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
+  await command("Page.navigate",{url:base+"/connexion.html"});
+  await waitFor("return document.readyState==='complete' && !!document.querySelector('a[href=\"./forfait.html\"]')");
+  const publicSignup=await evaluate("return {links:document.querySelectorAll('a[href=\"./forfait.html\"]').length,text:document.querySelector('a[href=\"./forfait.html\"]').textContent.trim()}");
+  assert.equal(publicSignup.links,1,"Connexion publique : un seul lien de création de compte");
+  assert.ok(["Créer un compte","Create an account"].includes(publicSignup.text),"Libellé localisé du bouton création");
+  await evaluate("document.querySelector('a[href=\"./forfait.html\"]').click();return true;");
+  await waitFor("return location.pathname.endsWith('/forfait.html') && document.readyState==='complete' && !!document.querySelector('#signup-form')");
+  const publicForm=await evaluate("return {form:!!document.querySelector('#signup-form'),price:document.querySelector('.signup-plan-price strong').textContent.trim()}");
+  assert.equal(publicForm.form,true,"Lien création → formulaire du forfait");
+  assert.match(publicForm.price,/9,99/,"Tarif mensuel actuel");
+  console.log("PASS connexion publique → création de compte Design 3");
   console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 3, zoom et pages légales.");
 }catch(error){
   console.error(error);
