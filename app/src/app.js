@@ -144,7 +144,7 @@ let clientNavigationEpoch=0;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 let pdfRecoveryBusy=false,pdfRecoveryRequest=0,pdfRecoveryError="";
-const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
+const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",emailView:"login",showPassword:false,error:""};
 function emptyComposerSettings(){
   return {routine:{title:null,widthCm:"3",paper:"letter",columns:"3"},
     board:{title:null,widthCm:"5",paper:"letter",columns:"3"}};
@@ -1782,22 +1782,41 @@ function renderNewPassword(){
    +'</div></div></section>';
 }
 function renderHostedAccess(){
-  const fr=state.language==="fr";
-  const wait=!authStatus.ready;
-  return '<section class="hosted-access" aria-labelledby="hosted-access-title">'
-   +'<header class="hosted-access-header"><a class="hosted-access-brand" href="../index.html">'+brand()+'</a>'
-   +'<div class="lang-switch" role="group" aria-label="Language">'
-   +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
-   +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div></header>'
-   +'<main class="hosted-access-main"><div class="hosted-access-panel">'
-   +'<span class="hosted-access-eyebrow">'+esc(fr?'ESPACE PICT-AU':'YOUR PICT-AU SPACE')+'</span>'
-   +'<h1 id="hosted-access-title">'+esc(fr?'Accéder à mon espace':'Access my space')+'</h1>'
-   +'<p>'+esc(fr?'Connectez-vous pour retrouver vos fichiers et vos demandes. Aucune démonstration n’est ajoutée à votre compte.':'Sign in to access your files and requests. No sample content is added to your account.')+'</p>'
-   +(wait?'<p class="hosted-access-status" role="status">'+esc(fr?'Vérification de la session…':'Checking your session…')+'</p>':'')
-   +'<div class="hosted-access-action">'+googleButton()+'</div>'
-   +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'')
-   +'<a href="../index.html" class="hosted-access-back">'+esc(fr?'← Retour à l’accueil Pict-au':'← Back to Pict-au home')+'</a>'
-   +'</div></main></section>';
+  const fr=state.language==="fr",forgot=authStatus.emailView==="forgot";
+  const busy=authStatus.emailBusy||authStatus.working;
+  const t=(frText,enText)=>esc(fr?frText:enText);
+  const side='<header class="hosted-access-header"><a class="hosted-access-brand" href="../index.html">'+brand()+'</a>'
+    +'<div class="lang-switch" role="group" aria-label="Language">'
+    +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
+    +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div></header>';
+  const art='<div class="hosted-access-art" aria-hidden="true"><span>'+icon("routine")+'</span><span>'+icon("library")+'</span><span>'+icon("file-text")+'</span></div>';
+  const email='<label for="auth-email">'+t('Adresse courriel','Email address')+'</label>'
+    +'<input id="auth-email" name="email" type="email" maxlength="254" autocomplete="email" inputmode="email" required value="'+esc(authStatus.email)+'" placeholder="nom@exemple.com"'+(busy?' disabled':'')+'>';
+  const feedback=(authStatus.emailError?'<p role="alert" class="hosted-access-error">'+esc(authStatus.emailError)+'</p>':'')
+    +(authStatus.emailMessage?'<p role="status" class="hosted-email-success">'+esc(authStatus.emailMessage)+'</p>':'')
+    +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'');
+  const content=forgot?
+    '<h1 id="hosted-access-title">'+t('Mot de passe oublié ?','Forgot your password?')+'</h1>'
+    +'<p class="hosted-access-intro">'+t('Entrez votre courriel pour recevoir un lien de récupération.','Enter your email to receive a recovery link.')+'</p>'
+    +'<form class="hosted-email-form" data-form="email-reset">'+email
+    +'<button class="hosted-access-submit" type="submit"'+(busy?' disabled':'')+'>'+t('Envoyer le lien','Send recovery link')+'</button></form>'
+    +feedback+'<button type="button" class="hosted-access-link hosted-return-login" data-action="auth-back-login">'+t('← Retour à la connexion','← Back to sign in')+'</button>':
+    '<h1 id="hosted-access-title">'+t('Accéder à mon espace','Access my space')+'</h1>'
+    +'<p class="hosted-access-intro">'+t('Connectez-vous avec votre courriel ou Google.','Sign in with your email or Google.')+'</p>'
+    +'<form class="hosted-email-form" data-form="email-login">'+email
+    +'<label for="auth-password">'+t('Mot de passe','Password')+'</label><div class="hosted-password-wrap">'
+    +'<input id="auth-password" name="password" type="'+(authStatus.showPassword?'text':'password')+'" autocomplete="current-password" required minlength="1"'+(busy?' disabled':'')+'>'
+    +'<button class="hosted-password-toggle" type="button" data-action="auth-show-password" aria-controls="auth-password" aria-label="'+t(authStatus.showPassword?'Masquer le mot de passe':'Afficher le mot de passe',authStatus.showPassword?'Hide password':'Show password')+'" aria-pressed="'+authStatus.showPassword+'">'+icon("search")+'</button></div>'
+    +'<button class="hosted-access-link hosted-forgot" type="button" data-action="auth-forgot">'+t('Mot de passe oublié ?','Forgot password?')+'</button>'
+    +'<button class="hosted-access-submit" type="submit"'+(busy||!authStatus.ready?' disabled':'')+'>'+t('Se connecter','Sign in')+'</button></form>'
+    +'<div class="hosted-auth-divider">'+t('ou','or')+'</div><div class="hosted-access-action">'+googleButton()+'</div>'
+    +feedback+'<p class="hosted-signup">'+t('Pas encore de compte ?','New to Pict-au?')+' <a href="../index.html#forfait">'+t('Créer un compte','Create an account')+'</a></p>';
+  return '<section class="hosted-access hosted-access-v4" aria-labelledby="hosted-access-title">'+side
+    +'<main class="hosted-access-main">'+art +'<div class="hosted-access-welcome">'+
+    '<span class="hosted-access-eyebrow">'+t('ESPACE PERSONNEL','PERSONAL SPACE')+'</span><h2>'+t('Bonjour, bienvenue !','Hello, welcome!')+'</h2><p>'+t('Retrouvez vos routines, fichiers et pictogrammes.','Find your routines, files and pictograms.')+'</p></div>'
+    +'<div class="hosted-access-panel">'+content
+    +(!authStatus.ready?'<p role="status" class="hosted-access-status">'+t('Vérification de la session…','Checking session…')+'</p>':'')
+    +'<a href="../index.html" class="hosted-access-back">'+t('← Retour à l’accueil Pict-au','← Back to Pict-au home')+'</a></div></main></section>';
 }
 function renderHostedEmpty(){
   const fr=state.language==="fr";
@@ -2472,6 +2491,9 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
+  if(a==="auth-forgot"){const input=root.querySelector("#auth-email");if(input)authStatus.email=input.value.trim();authStatus.emailView="forgot";authStatus.emailError="";authStatus.emailMessage="";render();return;}
+  if(a==="auth-back-login"){const input=root.querySelector("#auth-email");if(input)authStatus.email=input.value.trim();authStatus.emailView="login";authStatus.emailError="";authStatus.emailMessage="";render();return;}
+  if(a==="auth-show-password"){const input=root.querySelector("#auth-password");if(!input)return;const at=input.selectionStart;authStatus.showPassword=!authStatus.showPassword;input.type=authStatus.showPassword?"text":"password";el.setAttribute("aria-pressed",String(authStatus.showPassword));el.setAttribute("aria-label",state.language==="fr"?(authStatus.showPassword?"Masquer le mot de passe":"Afficher le mot de passe"):(authStatus.showPassword?"Hide password":"Show password"));input.focus();try{input.setSelectionRange(at,at)}catch{}return;}
   if(a==="role-retry"){if(!authStatus.user)return;authStatus.roleError="";void supabaseClient().then(c=>refreshPrivateBank(c,authStatus.user.id));return;}
   if(a==="email-link"||a==="email-reset"){
     const input=root.querySelector('#auth-email');
@@ -2948,6 +2970,7 @@ root.addEventListener("input",function(event){
   if(event.target.dataset.field==="size"){state.widthCm=clampWidth(event.target.value);routineLive();}
 });
 root.addEventListener("submit",function(event){
+  if(event.target.matches('form[data-form="email-reset"]')){event.preventDefault();if(authStatus.emailBusy)return;const input=event.target.querySelector("#auth-email");if(!input?.reportValidity())return;authStatus.email=input.value.trim();authStatus.emailBusy=true;authStatus.emailError="";authStatus.emailMessage="";render();void sendPasswordReset(authStatus.email,window.location.href).then(()=>{authStatus.emailMessage=state.language==="fr"?"Si le compte existe et que l’envoi est autorisé, vérifiez votre courriel.":"If the account exists and sending is enabled, check your email.";}).catch(()=>{authStatus.emailError=state.language==="fr"?"Envoi impossible. Veuillez réessayer plus tard.":"Unable to send. Please try again later.";}).finally(()=>{authStatus.emailBusy=false;render();});return;}
   if(event.target.matches('form[data-form="email-login"]')){
     event.preventDefault();
     if(authStatus.emailBusy||authStatus.user)return;
