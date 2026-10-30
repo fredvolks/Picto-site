@@ -1499,3 +1499,62 @@
   .pa-drafts-pages .btn{min-width:0;width:100%}
 }
 @media print{.pa-drafts-pages{display:none!important}}
+
+/* PICT-AU login design 4 — isolated to hosted login, preserving other client/admin pages. */
+@media screen {
+ .hosted-access-v4{--login-blue:#28617c;--login-ink:#192f39;--login-line:#cadce6;background:linear-gradient(180deg,#e9f4f8,#e2f0f6);color:var(--login-ink)}
+ .hosted-access-v4 .hosted-access-header{background:transparent;border:0;padding:14px 18px 6px}
+ .hosted-access-v4 .hosted-access-main{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:8px 0 0;min-height:0;gap:0}
+ .hosted-access-v4 .hosted-access-art{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px auto 9px}
+ .hosted-access-v4 .hosted-access-art>span{width:43px;height:43px;border-radius:10px;border:1px solid #9bb8c7;background:#fff;display:grid;place-items:center;color:#28617c}
+ .hosted-access-v4 .hosted-access-art svg{width:26px;height:26px}
+ .hosted-access-v4 .hosted-access-welcome{text-align:center;margin:0 auto 13px;padding:0 10px}
+ .hosted-access-v4 .hosted-access-eyebrow{font-size:9px;letter-spacing:.2em;color:#718f9e;margin:0 0 5px}
+ .hosted-access-v4 .hosted-access-welcome h2{font-size:clamp(23px,6vw,30px);line-height:1.1;margin:0 0 7px;letter-spacing:-.03em}
+ .hosted-access-v4 .hosted-access-welcome p{color:#66818e;font-size:12px;line-height:1.3;margin:0}
+ .hosted-access-v4 .hosted-access-panel{margin-top:auto;flex:1;width:100%;max-width:520px;border-radius:30px 30px 0 0;padding:20px clamp(20px,7vw,35px) max(10px,env(safe-area-inset-bottom));background:#fff;border:0;box-shadow:0 -8px 30px #235c7414;text-align:left}
+ .hosted-access-v4 .hosted-access-panel h1{text-align:center;color:var(--login-ink);font-size:clamp(21px,5vw,25px);margin:0 0 6px;letter-spacing:-.03em}
+ .hosted-access-v4 .hosted-access-panel .hosted-access-intro{text-align:center;font-size:12px;line-height:1.35;margin:0 0 12px;color:#698492}
+ .hosted-access-v4 .hosted-email-form{gap:5px}
+ .hosted-access-v4 .hosted-email-form label{font-size:12px;color:#385766;margin:0}
+ .hosted-access-v4 .hosted-email-form input{height:42px;min-height:42px;padding:8px 12px;background:#f8fbfc;border-color:var(--login-line);font-size:14px}
+ .hosted-access-v4 .hosted-password-wrap{position:relative}
+ .hosted-access-v4 .hosted-password-wrap input{padding-right:52px}
+ .hosted-access-v4 .hosted-password-toggle{position:absolute;right:3px;top:1px;min-height:40px;min-width:42px;border:0;background:transparent;color:#557989;display:grid;place-items:center;cursor:pointer}
+ .hosted-access-v4 .hosted-password-toggle svg{width:20px;height:20px}
+ .hosted-access-v4 .hosted-access-link{border:0;background:transparent;color:var(--login-blue);font-size:12px;font-weight:700;cursor:pointer;min-height:32px;padding:5px 0}
+ .hosted-access-v4 .hosted-forgot{justify-self:end}
+ .hosted-access-v4 .hosted-access-submit{background:var(--login-blue);color:#fff;border:0;border-radius:12px;min-height:43px;margin:0!important;font:700 14px "DM Sans",system-ui,sans-serif;cursor:pointer}
+ .hosted-access-v4 .hosted-auth-divider{margin:10px 0}
+ .hosted-access-v4 .hosted-access-action{margin:0 0 9px}
+ .hosted-access-v4 .hosted-access-action .login-google{width:100%;min-height:43px;padding:8px 12px;justify-content:center}
+ .hosted-access-v4 .hosted-signup{text-align:center!important;font-size:12px!important;margin:8px 0!important;line-height:1.5!important}
+ .hosted-access-v4 .hosted-signup a{color:var(--login-blue);font-weight:700}
+ .hosted-access-v4 .hosted-access-back{display:block;text-align:center;font-size:11px;color:#6b8793;margin:7px 0 0}
+ .hosted-access-v4 .hosted-return-login{display:block;margin:14px auto}
+ .hosted-access-v4 .hosted-access-error{font-size:12px!important;line-height:1.3!important;margin:6px 0!important}
+ .hosted-access-v4 button:focus-visible,.hosted-access-v4 a:focus-visible{outline:3px solid #4d9fc3;outline-offset:3px}
+ .hosted-access-v4 button:disabled{opacity:.6;cursor:wait}
+}
+@media screen and (min-width:781px){
+ .hosted-access-v4 .hosted-access-panel{border-radius:26px;flex:unset;margin:0 auto 30px;box-shadow:0 16px 35px #235c7418}
+ .hosted-access-v4 .hosted-access-main{justify-content:center}
+}
+@media screen and (max-height:660px) and (max-width:780px){
+ .hosted-access-v4 .hosted-access-header{padding-top:5px;padding-bottom:0}
+ .hosted-access-v4 .hosted-access-main{padding-top:0}
+ .hosted-access-v4 .hosted-access-art{margin:0 auto 4px}
+ .hosted-access-v4 .hosted-access-art>span{width:32px;height:32px}
+ .hosted-access-v4 .hosted-access-art svg{width:20px;height:20px}
+ .hosted-access-v4 .hosted-access-welcome{margin-bottom:6px}
+ .hosted-access-v4 .hosted-access-welcome h2{font-size:20px;margin-bottom:2px}
+ .hosted-access-v4 .hosted-access-welcome p{font-size:10px}
+ .hosted-access-v4 .hosted-access-panel{padding-top:12px}
+ .hosted-access-v4 .hosted-access-panel .hosted-access-intro{margin-bottom:7px}
+ .hosted-access-v4 .hosted-email-form{gap:3px}
+ .hosted-access-v4 .hosted-email-form input{height:38px;min-height:38px}
+ .hosted-access-v4 .hosted-password-toggle{min-height:37px}
+ .hosted-access-v4 .hosted-access-submit,.hosted-access-v4 .hosted-access-action .login-google{min-height:40px}
+ .hosted-access-v4 .hosted-auth-divider{margin:6px 0}
+ .hosted-access-v4 .hosted-signup{margin:4px 0!important}
+}
