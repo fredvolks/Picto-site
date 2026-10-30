@@ -15,13 +15,20 @@ test("La page d'accueil a un seul bouton d'inscription, vers la page du forfait"
  assert.doesNotMatch(html,/checkout|Stripe|paiement sécurisé|<form\b/i);
  assert.equal((html.match(/>Créer mon compte</g)||[]).length,1);
 });
-test("La page distincte de forfait est honnête et bilingue, sans paiement fictif",()=>{
- assert.match(plan,/class="info-surface plan-page"/);
- assert.match(plan,/Tarif à confirmer/);
- assert.match(plan,/Les inscriptions et les paiements ne sont pas encore ouverts/);
- assert.match(plan,/href="\.\/index\.html"/);
- assert.doesNotMatch(plan,/<form\b|type="submit"|checkout|Stripe|\$\/mois/i);
- assert.equal((plan.match(/class="plan-page-status"/g)||[]).length,1);
+test("Page de création Design 3, tarif mensuel et parcours non transactionnel",()=>{
+ assert.match(plan,/class="signup-page"/);
+ assert.match(plan,/9,99/);
+ assert.match(plan,/data-fr=/);assert.match(plan,/data-en=/);
+ for(const id of ["signup-name","signup-email","signup-password","signup-consent"])
+   assert.match(plan,new RegExp('id="'+id+'"'));
+ assert.match(plan,/id="signup-form"/);
+ assert.match(plan,/href="\.\/app\/"/);
+ assert.match(plan,/href="\.\/conditions\.html"/);
+ assert.match(plan,/href="\.\/confidentialite\.html"/);
+ assert.match(plan,/Les inscriptions ne sont pas encore ouvertes/);
+ assert.match(plan,/event\.preventDefault\(\)/);
+ assert.doesNotMatch(plan,/auth\.signUp\(|checkout\.sessions|stripe\.redirectToCheckout|fetch\(/i);
+ assert.doesNotMatch(plan,/type="checkbox" checked/);
 });
 test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
  assert.equal((html.match(/class="login-link"/g)||[]).length,1);

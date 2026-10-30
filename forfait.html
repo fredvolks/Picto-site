@@ -1,38 +1,138 @@
 <!doctype html>
-<html lang="fr"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="theme-color" content="#ffffff"/>
-<meta name="description" content="Pict-au — une seule formule pour les supports visuels. Tarifs et inscriptions en attente de confirmation."/>
-<title>Forfait Pict-au</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Patrick+Hand&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="./src/site.css"/><script type="module" src="./src/site.js"></script></head>
-<body class="info-page">
-<header class="info-header">
-<a class="home-logo" href="./index.html" aria-label="Pict-au, accueil"><span class="home-logo-word">Pict-<span class="home-hand">a</span>u</span></a>
-<div class="header-tools">
- <div class="home-lang" role="group" aria-label="Langue / Language"><button type="button" data-lang="fr" aria-pressed="true" class="active">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div>
- <a class="login-link" href="./connexion.html"><span data-fr="Connexion" data-en="Sign in">Connexion</span></a>
-</div>
-</header>
-<main id="page-main" class="info-main">
-<a class="info-back" href="./index.html"><span data-fr="← Retour à l’accueil" data-en="← Back to home">← Retour à l’accueil</span></a>
-<section class="info-surface plan-page" aria-labelledby="plan-page-title">
-<div class="info-kicker" data-fr="UN SEUL FORFAIT" data-en="ONE SIMPLE PLAN">UN SEUL FORFAIT</div>
-<h1 id="plan-page-title"><span data-fr="Le forfait Pict-au" data-en="The Pict-au plan">Le forfait Pict-au</span></h1>
-<p class="info-lede" data-fr="Des outils visuels dans une formule simple." data-en="Visual support tools in one simple plan.">Des outils visuels dans une formule simple.</p>
-<ul class="plan-page-features">
- <li data-fr="Rechercher des pictogrammes" data-en="Search pictograms">Rechercher des pictogrammes</li>
- <li data-fr="Personnaliser des supports visuels" data-en="Personalize visual supports">Personnaliser des supports visuels</li>
- <li data-fr="Préparer des routines et des tableaux de communication" data-en="Prepare routines and communication boards">Préparer des routines et des tableaux de communication</li>
- <li data-fr="Organiser l’impression de vos supports" data-en="Arrange printing for your supports">Organiser l’impression de vos supports</li>
-</ul>
-<div class="plan-page-status" role="status">
- <strong data-fr="Tarif à confirmer" data-en="Pricing to be confirmed">Tarif à confirmer</strong>
- <p data-fr="Les inscriptions et les paiements ne sont pas encore ouverts. Aucun montant ne sera demandé sur cette page." data-en="Registration and payments are not open yet. No payment will be requested on this page.">Les inscriptions et les paiements ne sont pas encore ouverts. Aucun montant ne sera demandé sur cette page.</p>
-</div>
-<p class="plan-page-note" data-fr="Cette page présente la formule envisagée. Les fonctionnalités et conditions définitives seront confirmées avant l’ouverture des inscriptions." data-en="This page outlines the planned offer. Final features and terms will be confirmed before registration opens.">Cette page présente la formule envisagée. Les fonctionnalités et conditions définitives seront confirmées avant l’ouverture des inscriptions.</p>
-</section>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e9f4f8">
+<meta name="description" content="Pict-au — votre espace visuel. Forfait prévu à 9,99 $ CA par mois. Inscriptions à venir.">
+<title>Créer mon compte — Pict-au</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{font-family:"DM Sans",system-ui,-apple-system,sans-serif;color:#192f39;background:#e9f4f8;font-synthesis:none}
+*,*::before,*::after{box-sizing:border-box}
+html{margin:0;min-width:320px}body{margin:0;min-width:320px;background:linear-gradient(165deg,#e9f4f8 0%,#eef7fa 65%,#fafcfd 100%)}
+button,input{font:inherit}button{cursor:pointer}a{color:#28617c;text-underline-offset:3px}
+:focus-visible{outline:3px solid #529bb8;outline-offset:3px}
+.signup-page{width:min(100%,510px);margin:0 auto;padding:12px 18px 12px;min-height:100dvh;display:flex;flex-direction:column;gap:10px}
+.signup-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;min-height:43px}
+.signup-brand{display:flex;align-items:center;gap:7px;text-decoration:none;min-width:0;color:#192f39}
+.signup-logo{width:43px;height:43px;display:grid;place-items:center;border-radius:12px;background:#357b96;color:white;font-size:28px;font-weight:700;line-height:1}
+.signup-brand-text{min-width:0;display:flex;flex-direction:column}
+.signup-brand-text strong{font-size:26px;font-weight:800;letter-spacing:-.07em;line-height:1}
+.signup-brand-text small{font-size:8px;letter-spacing:.17em;color:#7d929e;white-space:nowrap;margin-top:4px}
+.signup-languages{display:flex;align-items:center;padding:3px;background:#e3eef3;border-radius:13px;gap:2px}
+.signup-languages button{border:0;background:transparent;min-width:38px;min-height:35px;padding:5px 7px;border-radius:10px;color:#657f8e;font-size:12px;font-weight:800}
+.signup-languages button[aria-pressed=true]{background:#fff;color:#28617c;box-shadow:0 2px 6px #204e6310}
+.signup-intro{text-align:center;flex:none;padding:1px 0 0}
+.signup-eyebrow{margin:0 0 5px;color:#69899a;font-size:10px;letter-spacing:.22em;font-weight:800}
+.signup-intro h1{font-size:clamp(22px,6.2vw,26px);line-height:1.12;letter-spacing:-.043em;margin:0 auto 5px;font-weight:800;max-width:440px;text-wrap:balance}
+.signup-intro p:last-child{margin:0;color:#6e8895;font-size:11px;line-height:1.3}
+.signup-plan{flex:none;border-radius:21px;background:linear-gradient(145deg,#347b96,#255b74);color:white;padding:16px 20px;box-shadow:0 10px 26px #255b7418}
+.signup-plan-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.signup-plan-name{font-size:14px;font-weight:800}
+.signup-plan-badge{font-size:9px;letter-spacing:.08em;background:#e8f6fb;color:#28617c;border-radius:50px;font-weight:800;padding:5px 10px}
+.signup-plan-price{display:flex;align-items:baseline;gap:7px;margin:6px 0 4px;white-space:nowrap}
+.signup-plan-price strong{font-size:38px;letter-spacing:-.055em;line-height:1.1;font-weight:800}
+.signup-plan-price span{font-size:12px;font-weight:700}
+.signup-plan-benefits{display:flex;flex-wrap:wrap;gap:5px 13px;font-size:10px;line-height:1.35;color:#f2fafc}
+.signup-plan-benefits span{white-space:nowrap}
+.signup-plan-benefits span::before{content:"✓";margin-right:6px;font-weight:800}
+.signup-plan-note{font-size:9px;color:#e0eff5;line-height:1.3;margin:7px 0 0}
+.signup-form-card{border:1px solid #d4e4eb;flex:none;background:#fff;border-radius:22px;padding:15px 19px 12px;box-shadow:0 4px 12px #255b7408}
+.signup-form-card h2{font-size:20px;line-height:1.2;letter-spacing:-.03em;margin:0 0 3px;font-weight:800}
+.signup-form-card .signup-subtitle{color:#6e8895;margin:0 0 10px;font-size:11px;line-height:1.35}
+.signup-form{display:flex;flex-direction:column;gap:7px}
+.signup-field{display:flex;flex-direction:column;gap:3px}
+.signup-field label{font-size:11px;font-weight:800;color:#365767}
+.signup-field input{width:100%;height:41px;border:1px solid #cbdfe8;background:#f8fbfc;color:#192f39;border-radius:10px;padding:9px 12px;font-size:13px;min-width:0}
+.signup-field input::placeholder{color:#8aa1ad;opacity:1}
+.signup-field input:focus{border-color:#307b9c;background:#fff;outline:2px solid #b8dce9;outline-offset:1px}
+.signup-consent{display:flex;align-items:center;gap:7px;font-size:10px;line-height:1.35;color:#536e7b;margin:2px 0 0;min-width:0}
+.signup-consent input{width:17px;height:17px;accent-color:#28617c;flex:none;margin:0;cursor:pointer}
+.signup-consent span{min-width:0}
+.signup-consent a{font-weight:700}
+.signup-action{width:100%;background:#28617c;color:white;border:0;border-radius:12px;min-height:44px;font-size:13px;font-weight:800;line-height:1.2;padding:10px 8px;margin-top:1px}
+.signup-action:hover{background:#214f67}
+.signup-existing{margin:8px 0 0;text-align:center;font-size:11px;color:#5d7887;line-height:1.35}
+.signup-existing a{font-weight:800}
+.signup-status{font-size:10px;color:#697f8b;line-height:1.3;text-align:center;margin:7px 0 0}
+.signup-status[role=alert]{font-size:11px;color:#923a40;font-weight:700}
+.signup-status[role=status]{color:#345e73}
+.signup-footer{margin-top:auto;text-align:center;padding-top:2px;font-size:10px;line-height:1.3;color:#758d99}
+.signup-footer a{text-decoration:none}
+@media(min-width:780px){.signup-page{width:min(100%,540px);padding:18px 18px 22px;gap:14px}.signup-plan{padding:22px}.signup-form-card{padding:19px 24px}.signup-field input{height:44px}}
+@media(max-width:370px){.signup-page{padding:8px 10px 8px;gap:6px}.signup-header{min-height:37px}.signup-logo{width:36px;height:36px;font-size:23px}.signup-brand-text strong{font-size:22px}.signup-brand-text small{font-size:7px}.signup-languages button{min-height:31px;min-width:34px}.signup-intro h1{font-size:20px}.signup-eyebrow{font-size:8px;margin-bottom:2px}.signup-intro p:last-child{font-size:9px}.signup-plan{padding:10px 12px;border-radius:17px}.signup-plan-name{font-size:11px}.signup-plan-price{margin:2px 0 3px}.signup-plan-price strong{font-size:29px}.signup-plan-price span{font-size:10px}.signup-plan-benefits{font-size:9px;gap:2px 9px}.signup-plan-note{font-size:8px;margin-top:3px}.signup-form-card{padding:9px 12px 8px;border-radius:16px}.signup-form-card h2{font-size:17px}.signup-form-card .signup-subtitle{font-size:9px;margin-bottom:6px}.signup-form{gap:4px}.signup-field{gap:2px}.signup-field label{font-size:10px}.signup-field input{height:36px;font-size:11px;padding:6px 9px}.signup-consent{font-size:9px;gap:5px;margin-top:1px}.signup-consent input{width:15px;height:15px}.signup-action{min-height:42px;font-size:12px;margin:0}.signup-existing{font-size:10px;margin-top:5px}.signup-status{font-size:9px;margin-top:4px}.signup-footer{font-size:9px}}
+@media(max-height:700px){.signup-page{gap:6px}.signup-plan{padding-top:11px;padding-bottom:11px}.signup-intro h1{font-size:clamp(19px,5.8vw,22px)}.signup-form-card{padding-top:10px;padding-bottom:9px}.signup-form-card .signup-subtitle{margin-bottom:6px}.signup-form{gap:5px}.signup-field input{height:37px}.signup-plan-price strong{font-size:30px}.signup-footer{font-size:9px}}
+@media(max-height:590px){.signup-page{gap:4px;padding-top:6px;padding-bottom:5px}.signup-intro h1{font-size:19px}.signup-intro p:last-child{font-size:9px}.signup-plan{padding:9px 12px}.signup-plan-note{margin-top:2px}.signup-plan-price strong{font-size:28px}.signup-form-card{padding:8px 12px 7px}.signup-form-card h2{font-size:16px}.signup-form-card .signup-subtitle{font-size:9px;margin-bottom:4px}.signup-form{gap:3px}.signup-field input{height:34px}.signup-consent{font-size:9px;line-height:1.2}.signup-action{min-height:39px}.signup-existing{margin-top:4px}.signup-status{font-size:8.5px;margin-top:3px}.signup-footer{font-size:8px}}
+/* At rest the page fits the viewport on supported phones; do not clip content.
+   The layout intentionally scrolls when on-screen keyboards, text zoom or short viewports need more space. */
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main id="page-main" class="signup-page">
+ <header class="signup-header">
+  <a class="signup-brand" href="./index.html" aria-label="Pict-au — accueil">
+   <span class="signup-logo" aria-hidden="true">P</span><span class="signup-brand-text"><strong>Pict-au</strong><small>VISUAL ROUTINES</small></span>
+  </a>
+  <div class="signup-languages" role="group" aria-label="Langue / Language">
+   <button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button>
+  </div>
+ </header>
+ <section class="signup-intro" aria-labelledby="signup-title">
+  <p class="signup-eyebrow"><span data-fr="UN SEUL FORFAIT" data-en="ONE SIMPLE PLAN">UN SEUL FORFAIT</span></p>
+  <h1 id="signup-title"><span data-fr="Bienvenue dans votre espace visuel." data-en="Welcome to your visual space.">Bienvenue dans votre espace visuel.</span></h1>
+  <p><span data-fr="Des outils simples pour vos routines." data-en="Simple tools for your routines.">Des outils simples pour vos routines.</span></p>
+ </section>
+ <section class="signup-plan" aria-label="Forfait Pict-au / Pict-au plan">
+  <div class="signup-plan-top"><strong class="signup-plan-name">Forfait Pict-au</strong><span class="signup-plan-badge" data-fr="MENSUEL" data-en="MONTHLY">MENSUEL</span></div>
+  <div class="signup-plan-price"><strong>9,99 $</strong><span data-fr="CA / mois" data-en="CAD / month">CA / mois</span></div>
+  <div class="signup-plan-benefits"><span data-fr="Pictogrammes" data-en="Pictograms">Pictogrammes</span><span data-fr="Routines et tableaux" data-en="Routines and boards">Routines et tableaux</span><span data-fr="PDF et impression" data-en="PDF and printing">PDF et impression</span></div>
+  <p class="signup-plan-note"><span data-fr="Tarif prévu · Taxes et modalités à confirmer" data-en="Planned price · Taxes and terms to be confirmed">Tarif prévu · Taxes et modalités à confirmer</span></p>
+ </section>
+ <section class="signup-form-card" aria-labelledby="signup-form-title">
+  <h2 id="signup-form-title"><span data-fr="Créer mon compte" data-en="Create my account">Créer mon compte</span></h2>
+  <p class="signup-subtitle"><span data-fr="Préparez votre inscription en quelques instants." data-en="Get ready to sign up in a few steps.">Préparez votre inscription en quelques instants.</span></p>
+  <form class="signup-form" id="signup-form" novalidate>
+   <div class="signup-field"><label for="signup-name" data-fr="Nom complet" data-en="Full name">Nom complet</label><input id="signup-name" name="name" type="text" autocomplete="name" placeholder="Votre nom" maxlength="120" required></div>
+   <div class="signup-field"><label for="signup-email" data-fr="Adresse courriel" data-en="Email address">Adresse courriel</label><input id="signup-email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="nom@exemple.com" maxlength="254" required></div>
+   <div class="signup-field"><label for="signup-password" data-fr="Mot de passe" data-en="Password">Mot de passe</label><input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="8 caractères minimum" required></div>
+   <label class="signup-consent" for="signup-consent"><input id="signup-consent" type="checkbox" required><span data-fr="J'accepte les conditions et la confidentialité." data-en="I agree to the terms and privacy policy.">J'accepte les conditions et la confidentialité.</span></label>
+   <button class="signup-action" type="submit"><span data-fr="Continuer avec ce forfait" data-en="Continue with this plan">Continuer avec ce forfait</span></button>
+  </form>
+  <p class="signup-existing"><span data-fr="Déjà inscrit ?" data-en="Already a member?">Déjà inscrit ?</span> <a href="./app/" data-fr="Connexion" data-en="Sign in">Connexion</a></p>
+  <p class="signup-status" id="signup-status" role="status" aria-live="polite"><span data-fr="Inscriptions à venir · Aucun paiement ni compte créé ici." data-en="Registration coming soon · No payment or account created here.">Inscriptions à venir · Aucun paiement ni compte créé ici.</span></p>
+ </section>
+ <footer class="signup-footer"><a href="./index.html" data-fr="← Accueil" data-en="← Home">← Accueil</a> · <a href="./conditions.html" data-fr="Conditions" data-en="Terms">Conditions</a> · <a href="./confidentialite.html" data-fr="Confidentialité" data-en="Privacy">Confidentialité</a></footer>
 </main>
-<footer class="info-footer">© Pict-au · <a href="./contact.html">Contact</a> · <a href="./conditions.html"><span data-fr="Conditions" data-en="Terms">Conditions</span></a> · <a href="./confidentialite.html"><span data-fr="Confidentialité" data-en="Privacy">Confidentialité</span></a></footer>
-</body></html>
+<script type="module">
+const translations=[...document.querySelectorAll('[data-fr][data-en]')];
+const buttons=[...document.querySelectorAll('[data-lang]')];
+let language='fr';
+function setLanguage(next){
+ language=next==='en'?'en':'fr';document.documentElement.lang=language;
+ for(const item of translations)item.textContent=item.dataset[language];
+ for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.lang===language));
+ for(const input of document.querySelectorAll('.signup-field input')){
+  if(input.id==='signup-name')input.placeholder=language==='fr'?'Votre nom':'Your name';
+  if(input.id==='signup-password')input.placeholder=language==='fr'?'8 caractères minimum':'8 characters minimum';
+ }
+ document.title=language==='fr'?'Créer mon compte — Pict-au':'Create an account — Pict-au';
+ try{localStorage.setItem('pictau-language',language)}catch{}
+}
+for(const button of buttons)button.addEventListener('click',()=>setLanguage(button.dataset.lang));
+try{setLanguage(localStorage.getItem('pictau-language')||'fr')}catch{setLanguage('fr')}
+const form=document.querySelector('#signup-form'),notice=document.querySelector('#signup-status');
+form.addEventListener('submit',event=>{
+ event.preventDefault();
+ if(!form.reportValidity())return;
+ notice.setAttribute('role','alert');
+ notice.textContent=language==='fr'
+  ?"Les inscriptions ne sont pas encore ouvertes. Aucun renseignement n'a été transmis ni aucun paiement effectué."
+  :"Registration is not open yet. No information was submitted and no payment was made.";
+});
+</script>
+</body>
+</html>
