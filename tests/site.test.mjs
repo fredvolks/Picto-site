@@ -45,6 +45,11 @@ test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
  assert.doesNotMatch(css,/\.login-link\s*\{[^}]*display\s*:\s*none/);
  const loginPage=read("connexion.html");
  assert.match(loginPage,/href="\.\/app\/"/);
+ assert.match(loginPage,/class="info-back" href="\.\/forfait\.html"/);
+ assert.match(loginPage,/data-fr="Créer un compte"/);
+ assert.match(loginPage,/data-en="Create an account"/);
+ assert.equal((loginPage.match(/href="\.\/forfait\.html"/g)||[]).length,1);
+
  assert.match(loginPage,/connectez-vous par courriel ou avec Google/);
  assert.match(loginPage,/uniquement les pictogrammes approuvés/);
  assert.doesNotMatch(loginPage,/utiliser les pictogrammes d.exemple et accéder à la connexion Google/);
