@@ -158,7 +158,7 @@ try{
     await command("Page.navigate",{url:base+"/index.html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
     await evaluate("document.querySelector('.signup-button').click();return true;");
-    await waitFor("return location.pathname.endsWith('/forfait.html') && !!document.querySelector('.signup-page')");
+    await waitFor("return location.pathname.endsWith('/forfait.html') && document.readyState==='complete' && !!document.querySelector('.signup-page') && !!document.querySelector('.signup-footer a')");
     const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked};");
     assert.equal(p.plan,1,"One distinct signup plan page");
     assert.match(p.price,/9,99/);
@@ -185,7 +185,7 @@ try{
   const createLink=await evaluate("return document.querySelector('.hosted-signup a').getAttribute('href')");
   assert.equal(createLink,"../forfait.html","The sign-up action must link to the actual registration page");
   await evaluate("document.querySelector('.hosted-signup a').click();return true;");
-  await waitFor("return location.pathname.endsWith('/forfait.html') && !!document.querySelector('.signup-page')");
+  await waitFor("return location.pathname.endsWith('/forfait.html') && document.readyState==='complete' && !!document.querySelector('.signup-page') && !!document.querySelector('.signup-footer a')");
   const actualSignup=await evaluate("return {hasForm:!!document.querySelector('#signup-form'),price:document.querySelector('.signup-plan-price strong').textContent.trim()}");
   assert.equal(actualSignup.hasForm,true,"The account-creation form must be shown");
   assert.match(actualSignup.price,/9,99/);
