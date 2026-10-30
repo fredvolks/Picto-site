@@ -25,7 +25,17 @@ export async function renameAdminAsset(client,uid,assetId,expectedName,newName){
   const expected=expectedName===null?null:normalizeAdminAssetName(expectedName);
   const next=normalizeAdminAssetName(newName);
   await requireAdmin(client,uid);
-  if(next===expected)return{changed:false,admin_name:next,id:assetId};
+  if(next===expected){
+    // "Inchangé" doit refléter la fiche actuelle, pas seulement le formulaire.
+    // Un autre Super Admin peut l'avoir modifiée ou supprimée entre-temps.
+    const current=await client.from("pictau_assets")
+      .select("id,admin_name").eq("id",assetId).maybeSingle();
+    if(current.error)throw current.error;
+    await requireAdmin(client,uid);
+    if(!current.data||current.data.id!==assetId||current.data.admin_name!==expected)
+      throw Error("La fiche a changé depuis son ouverture. Actualisez la banque.");
+    return{changed:false,admin_name:next,id:assetId};
+  }
   // Concurrence optimiste: si un autre admin a renommé, aucune ligne mise à jour.
   let q=client.from("pictau_assets").update({admin_name:next}).eq("id",assetId);
   q=expected===null?q.is("admin_name",null):q.eq("admin_name",expected);
