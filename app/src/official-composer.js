@@ -60,6 +60,53 @@ export function canPrepareApproved({kind,items,widthCm,paper,columns=3}){
   return n*widthCm*10+gaps<=maxWidth+1e-6;
 }
 
+// Le diagnostic reprend exactement la largeur physique vérifiée à l'export.
+ // Il indique quoi modifier AVANT de lancer un PDF, sans réduire les cases.
+export function composerPrintFit({kind,items,widthCm,paper="letter",columns=3,language="fr"}={}){
+ const fr=language!=="en",t=(a,b)=>fr?a:b;
+ const count=Array.isArray(items)?items.length:0;
+ const min=kind==="routine"?2:1,max=kind==="routine"?10:16;
+ if(!["routine","board"].includes(kind)||!Array.isArray(items)||count>max)
+   return {ready:false,message:t("Composition invalide.","Invalid composition."),maxWidthCm:0};
+ if(count<min)return {ready:false,message:t(
+   kind==="routine"?"Ajoutez au moins 2 pictogrammes pour créer une routine.":"Ajoutez un pictogramme pour créer un tableau.",
+   kind==="routine"?"Add at least 2 pictograms to create a routine.":"Add a pictogram to create a board."
+ ),maxWidthCm:0};
+ const cols=kind==="routine"?count:Number(columns);
+ if(!Number.isInteger(cols)||cols<2||cols>16||(kind==="board"&&![2,3,4].includes(cols)))
+   return {ready:false,message:t("Choisissez 2, 3 ou 4 colonnes.","Choose 2, 3 or 4 columns."),maxWidthCm:0};
+ if(!["letter","a4"].includes(paper))
+   return {ready:false,message:t("Choisissez un format papier.","Choose a paper size."),maxWidthCm:0};
+ const printable=paper==="a4"?190:195.9;
+ const gaps=kind==="routine"?(count-1)*1.2+2*1.2:(cols-1)*2;
+ const maxWidthCm=Math.min(10,Math.floor(((printable-gaps)/(cols*10)+1e-9)*2)/2);
+ const width=Number(widthCm);
+ if(!Number.isFinite(width)||width<2||width>10)
+   return {ready:false,message:t("Choisissez une largeur entre 2 et 10 cm.","Choose a width from 2 to 10 cm."),maxWidthCm};
+ if(maxWidthCm<2)return {ready:false,message:t(
+   "Trop de cases pour une seule rangée. Retirez-en pour conserver leur taille réelle.",
+   "Too many cells for one row. Remove some to preserve their actual size."
+ ),maxWidthCm};
+ if(!canPrepareApproved({kind,items,widthCm:width,paper,columns:cols}))
+   return {ready:false,message:t(
+     "Rangée trop large pour le papier. Largeur maximale par case : "+maxWidthCm+" cm.",
+     "Row too wide for the paper. Maximum width per cell: "+maxWidthCm+" cm."
+   ),maxWidthCm};
+ return {ready:true,message:t(
+   "Dimensions compatibles : "+cols+" case"+(cols>1?"s":"")+" par rangée, "+width+" cm chacune, sans réduction.",
+   "Fits the page: "+cols+" cell"+(cols>1?"s":"")+" per row, "+width+" cm each, without shrinking."
+ ),maxWidthCm};
+}
+// Met à jour l'indication sans recréer le formulaire ni perdre la saisie en cours.
+export function updateComposerPrintFit(scope,options){
+ const el=scope?.querySelector?.('[data-print-fit]');
+ if(!el)return false;
+ const state=composerPrintFit(options);
+ el.textContent=state.message;
+ el.dataset.ready=String(state.ready);
+ return state.ready;
+}
+
 export function renderOfficialComposer({kind,items,language="fr",imageUrls=new Map(),settings={},busy=false,error="",pending="",draftBusy=false,draftDirty=false,draftSaved=false,draftStatus="",draftConflict=false,allowCaptionEdit=false,escape:e,icon}){
  const fr=language==="fr",routine=kind==="routine";
  const label=(a,b)=>fr?a:b;
@@ -68,6 +115,7 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
  const width=typeof settings.widthCm==="string"?settings.widthCm:(routine?"3":"5");
  const paper=settings.paper==="a4"?"a4":"letter";
  const columns=["2","3","4"].includes(settings.columns)?settings.columns:"3";
+ const fit=composerPrintFit({kind,items,widthCm:width,paper,columns:Number(columns),language});
  const content=items.map((item,i)=>{
   const title=allowCaptionEdit?approvedItemCaption(item,language):
     (language==="en"?(item.title_en||item.title_fr):item.title_fr),src=imageUrls.get(item.id);
@@ -114,6 +162,7 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
   +(draftConflict?'<p class="pa-client-context" role="note">'+e(label("L’autre appareil conserve sa version. Enregistrez une copie pour garder vos modifications sans rien écraser.","The other device keeps its version. Save a new copy to preserve your changes without overwriting it."))+'</p>':'')
   +'<p class="pa-client-context pa-autosave-explainer">'+e(label("Sauvegarde automatique privée après une pause de saisie. Attendez la confirmation avant de fermer la page; si le réseau échoue, utilisez « Enregistrer le brouillon ».","Private autosave after you stop editing. Wait for confirmation before closing the page; if the network fails, use Save editable draft."))+'</p>'
   +'<form data-form="approved-export" data-kind="'+kind+'" class="pa-composer-form">'
+  +'<p class="pa-client-context" data-print-fit data-ready="'+String(fit.ready)+'" role="status" aria-live="polite">'+e(fit.message)+'</p>'
   +'<div class="control"><label for="official-name">'+e(label("Nom du document","Document name"))+'</label><input id="official-name" name="title" value="'+e(name)+'" maxlength="120" required></div>'
   +'<div class="control"><label for="official-width">'+e(label("Largeur des cases en cm","Cell width in cm"))+'</label><input id="official-width" name="widthCm" type="number" min="2" max="10" step="0.5" value="'+e(width)+'" required></div>'
   +'<div class="control"><label for="official-paper">'+e(label("Format papier","Paper"))+'</label><select id="official-paper" name="paper"><option value="letter"'+(paper==="letter"?" selected":"")+'>'+e(label("Lettre","Letter"))+'</option><option value="a4"'+(paper==="a4"?" selected":"")+'>A4</option></select></div>'
