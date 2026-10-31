@@ -38,50 +38,59 @@ test("Le bouton Créer un compte de la connexion mène à la vraie page Design 3
  assert.match(plan,/class="signup-page"/);
  assert.match(plan,/9,99/);
 });
-test("Connexion visible sans menu, en haut sur mobile comme sur PC",()=>{
- assert.equal((html.match(/class="login-link"/g)||[]).length,1);
- assert.match(html,/<a class="login-link" href="\.\/app\/">/);
+test("Connexion directe visible sur mobile et PC, sans faux menu",()=>{
+ assert.equal((html.match(/class="signin login-link"/g)||[]).length,1);
+ assert.match(html,/<a class="signin login-link" href="\.\/app\/"/);
+ assert.match(html,/data-fr-aria="Se connecter à mon espace Pict-au"/);
+ assert.match(html,/data-en-aria="Sign in to my Pict-au space"/);
  assert.doesNotMatch(html,/hamburger|menu-toggle|google-login|supabase/i);
- assert.doesNotMatch(css,/\.login-link\s*\{[^}]*display\s*:\s*none/);
+ assert.match(html,/\.login-link\{[^}]*min-height:44px/);
  const loginPage=read("connexion.html");
  assert.match(loginPage,/href="\.\/app\/"/);
  assert.match(loginPage,/class="info-back" href="\.\/forfait\.html"/);
  assert.match(loginPage,/data-fr="Créer un compte"/);
  assert.match(loginPage,/data-en="Create an account"/);
- assert.equal((loginPage.match(/href="\.\/forfait\.html"/g)||[]).length,1);
-
  assert.match(loginPage,/connectez-vous par courriel ou avec Google/);
  assert.match(loginPage,/uniquement les pictogrammes approuvés/);
- assert.doesNotMatch(loginPage,/utiliser les pictogrammes d.exemple et accéder à la connexion Google/);
  assert.match(loginPage,/Super Admin nécessite un compte expressément autorisé/);
 });
-test("Pictogrammes issus des illustrations de l'app : trait séparateur noir et étiquettes centrées",()=>{
- assert.equal((html.match(/class="pictau-picto /g)||[]).length,5);
- assert.equal((html.match(/class="pictau-art"/g)||[]).length,5);
- assert.equal((html.match(/class="pictau-label"/g)||[]).length,5);
- for(const id of ["toilette","collation","lire","ecole","pause"])
-   assert.match(html,new RegExp('data-example="'+id+'"'));
- assert.match(css,/\.pictau-label\{[^}]*border-top:2px solid #111/s);
- assert.match(css,/\.pictau-picto\{[^}]*border:2px solid #111/s);
- assert.match(css,/\.pictau-label\{[^}]*align-items:center;justify-content:center/s);
- assert.doesNotMatch(html,/laptop-lines|phone-lines|phone-heading|laptop-subheading/);
- assert.doesNotMatch(css,/\.laptop-lines\b|\.phone-line\b/);
+
+test("Design 5 : exactement trois pictogrammes noirs et blancs avec légende séparée",()=>{
+ assert.match(html,/<body data-pictau-home-design="5">/);
+ assert.equal((html.match(/class="p-card card-[123]"/g)||[]).length,3);
+ assert.equal((html.match(/class="picto-art"/g)||[]).length,3);
+ assert.equal((html.match(/class="picto-label"/g)||[]).length,3);
+ assert.equal((html.match(/aria-hidden="true"><(?:circle|path|rect)/g)||[]).length,0,"Les décorations ne doivent pas simuler des images clients");
+ for(const [fr,en] of [["Trouver","Find"],["Personnaliser","Personalize"],["Imprimer","Print"]])
+   assert.match(html,new RegExp('data-fr="'+fr+'" data-en="'+en+'"'));
+ assert.match(html,/\.picto-label\{[^}]*border-top:1\.8px solid #2c3834/);
+ assert.match(html,/\.picto\{[^}]*border:1\.8px solid #2c3834/s);
+ assert.match(html,/\.poster-tiles\{position:relative;display:grid;grid-template-columns:repeat\(3/);
+ assert.doesNotMatch(html,/class="steps"|class="benefits"/);
 });
-test("Bénéfices de taille réelle et alignés au centre",()=>{
- assert.equal((html.match(/class="benefit"/g)||[]).length,3);
- for(const label of ["Trouver","Personnaliser","Imprimer"])assert.match(html,new RegExp(">"+label+"<"));
- assert.match(css,/\.benefit\{[^}]*align-items:center;justify-content:center/s);
- assert.match(css,/\.benefit strong\{[^}]*font-size:clamp\(14px/);
+
+test("L'accroche et le trio sont présentés une seule fois, sans fausse offre commerciale",()=>{
+ assert.match(html,/Des pictogrammes/);
+ assert.match(html,/pour un quotidien/);
+ assert.match(html,/plus simple\./);
+ assert.equal((html.match(/class="poster-bottom"/g)||[]).length,1);
+ assert.equal((html.match(/class="poster-tiles"/g)||[]).length,1);
+ assert.doesNotMatch(html,/Trouvez, personnalisez et imprimez vos supports visuels/);
+ assert.doesNotMatch(html,/<form\b|Stripe|checkout\.sessions/i);
+ assert.equal((html.match(/class="signup-button" href="\.\/forfait\.html"/g)||[]).length,1);
 });
-test("Deux appareils illustratifs sans paysage, photo ni fausse disponibilité",()=>{
- assert.equal((html.match(/class="laptop"/g)||[]).length,1);
- assert.equal((html.match(/class="phone"/g)||[]).length,1);
- assert.match(html,/Illustrations d.exemple de l.application Pict-au/);
- assert.match(html,/class="hero-visual" aria-hidden="true"/);
- assert.doesNotMatch(html,/paysage|maison|produit à acheter|<img\b/i);
- assert.ok(css.includes("--blue:#609dba"));
- assert.ok(css.includes("--yellow:#ffd16b"));
+
+test("Design 5 : vrais repères accessibles et aucun faux appareil ou image privée",()=>{
+ assert.match(html,/class="art-badge"/);
+ assert.match(html,/class="poster-heading"/);
+ assert.match(html,/class="poster-tiles"/);
+ assert.match(html,/class="picto-art"/);
+ assert.match(html,/\.p-card\{[^}]*aspect-ratio:/);
+ assert.match(html,/@media\(min-width:751px\) and \(max-width:980px\) and \(orientation:portrait\)/);
+ assert.doesNotMatch(html,/<img\b|laptop-lines|phone-lines|phone-heading/);
+ assert.doesNotMatch(html,/Illustrations fictives pour essayer le parcours/);
 });
+
 test("Langues FR/EN et pages d'information existantes préservées",()=>{
  assert.match(js,/localStorage\.setItem\("pictau-language"/);
  for(const item of ["contact.html","conditions.html","confidentialite.html","connexion.html","forfait.html"]){
@@ -92,13 +101,16 @@ test("Langues FR/EN et pages d'information existantes préservées",()=>{
  for(const dest of ["contact.html","conditions.html","confidentialite.html"])
   assert.ok(html.includes('href="./'+dest+'"'));
 });
-test("Responsive de 320px jusqu'au PC : accessibilité et défilement à zoom élevé",()=>{
- assert.match(css,/100dvh/);
- assert.match(css,/overflow-y:auto/);
- assert.match(css,/@media\(max-width:370px\)/);
- assert.match(css,/@media\(max-width:680px\)/);
- assert.match(css,/@media\(max-width:1100px\)/);
- assert.match(css,/@media\(max-height:520px\)/);
+test("Responsive de 320px au PC : accessibilité et défilement au zoom",()=>{
+ assert.match(html,/100dvh/);
+ assert.match(html,/@media\(max-width:520px\)/);
+ assert.match(html,/@media\(max-width:750px\)/);
+ assert.match(html,/@media\(max-height:545px\) and \(orientation:landscape\)/);
+ assert.match(html,/@media\(max-height:500px\) and \(orientation:portrait\)/);
+ assert.match(html,/overflow-y:auto/);
  assert.match(html,/class="skip"/);
- assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.match(html,/prefers-reduced-motion:reduce/);
+ assert.match(html,/a:focus-visible,button:focus-visible/);
+ assert.match(html,/localStorage\.setItem\('pictau-language',lang\)/);
+ assert.match(html,/localStorage\.getItem\('pictau-language'\)/);
 });
