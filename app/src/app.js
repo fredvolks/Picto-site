@@ -345,7 +345,8 @@ async function fetchUsedPictos(){
   try{
     const client=await supabaseClient();
     const result=await listUsedPictogramsAvailablePage(client,uid,{
-      query:usedPictos.query,theme:usedPictos.theme,sort:usedPictos.sort,page:usedPictos.page
+      query:usedPictos.query,theme:usedPictos.theme,sort:usedPictos.sort,page:usedPictos.page,
+      language:state.language
     });
     if(ticket!==usedPictos.request||authStatus.user?.id!==uid)return;
     usedPictos.page=result.page;usedPictos.items=result.items;usedPictos.total=result.total;
@@ -2519,7 +2520,11 @@ root.addEventListener("click",function(event){
     authStatus.working=true;resetPrivateBank();render();
     void logoutGoogle().then(()=>{authStatus.user=null;authStatus.roleReady=false;authStatus.working=false;state.page="home";state.adminTab="overview";render();}).catch(err=>{authStatus.working=false;notify(String(err.message||err));});return;
   }
-  if(a==="lang"){state.language=el.dataset.lang;store("pictau-language",state.language);state.toast="";render();}
+  if(a==="lang"){
+    state.language=el.dataset.lang;store("pictau-language",state.language);state.toast="";render();
+    if(SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&state.page==="used"&&
+       usedPictos.sort==="name")void fetchUsedPictos();
+  }
   if(a==="view-picto"){
     if(!samples.some(item=>item.id===el.dataset.id))return;
     state.detailId=el.dataset.id;
