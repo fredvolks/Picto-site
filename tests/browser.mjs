@@ -170,10 +170,10 @@ try{
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:640,mobile:true,deviceScaleFactor:1});
   await command("Page.navigate",{url:base+"/index.html"});
   await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
-  const zoom=await evaluate("document.body.style.zoom='1.85';return {overflow:getComputedStyle(document.documentElement).overflowY,scroll:document.documentElement.scrollHeight,height:innerHeight,button:!!document.querySelector('.signup-button')};");
-  assert.equal(zoom.overflow,"auto","Zoom: allow vertical scroll");
+  const zoom=await evaluate("document.body.style.zoom='1.85';window.scrollTo(0,document.documentElement.scrollHeight);return {scroll:document.documentElement.scrollHeight,height:innerHeight,position:window.scrollY,button:!!document.querySelector('.signup-button')};");
   assert.equal(zoom.button,true,"Zoom: CTA still in DOM");
-  assert.ok(zoom.scroll>zoom.height,"Zoom: expanded content may scroll rather than clip");
+  assert.ok(zoom.scroll>zoom.height,"Zoom: enlarged page extends beyond the viewport");
+  assert.ok(zoom.position>0,"Zoom: user can actually scroll to the enlarged content");
   await evaluate("document.body.style.zoom='';return true;");
   // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 3.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
