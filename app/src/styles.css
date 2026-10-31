@@ -76,6 +76,17 @@
 .login-control{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:1px solid #d5ddd5;background:#fff;color:#232923;min-height:40px;padding:8px 11px;font-weight:800;font-size:11px;white-space:nowrap}
 .login-google:hover:not(:disabled){background:#f2f4f1}
 .google-letter{display:grid;place-items:center;width:18px;height:18px;font-weight:900;font-size:16px;color:#3a6650}
+.google-mark{display:block;flex:none;width:20px;height:20px}
+.login-google{gap:11px;min-height:44px;border-color:#d9e2e8;background:#fff;color:#18374a;font-size:13px;font-weight:650;letter-spacing:0;transition:background-color .16s,border-color .16s,box-shadow .16s}
+.login-google:hover:not(:disabled){background:#f8fafc;border-color:#aec7d6;box-shadow:0 2px 10px #143e5612}
+.login-google:focus-visible{outline:3px solid #2c708f;outline-offset:3px}
+.login-google:disabled{opacity:.65;cursor:wait}
+.hosted-access-action .login-google{width:100%;min-height:48px;border-radius:12px;gap:12px;font-size:14px}
+.hosted-access-action .google-login-copy{display:inline}
+.hosted-access-action .google-login-short{display:none}
+@media(max-width:520px){.hosted-access-action .login-google{min-height:48px;padding:11px 14px}}
+
+
 .login-identity{display:flex;align-items:center;gap:7px;min-width:0}
 .login-username{color:#596459;max-width:134px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
 .login-signout{min-height:35px;padding:7px 9px}
