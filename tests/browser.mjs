@@ -113,40 +113,37 @@ try{
     for(const lang of ["fr","en"]){
       await evaluate("document.querySelector('[data-lang="+lang+"]').click();return true;");
       await waitFor("return document.documentElement.lang==='"+lang+"'");
-      const value=await evaluate("\nconst keys=[\".header\",\".login-link\",\".hero\",\".hero-title\",\".intro\",\".benefits\",\".signup-section\",\".signup-button\",\".site-footer\"];\nconst bounds={};\nfor(const key of keys){const n=document.querySelector(key);if(!n)throw Error(\"missing \"+key);const r=n.getBoundingClientRect();bounds[key]={left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,visible:getComputedStyle(n).display!==\"none\"};}\nconst labels=[...document.querySelectorAll('.pictau-label')].map(n=>({\n text:n.textContent.trim(),\n border:getComputedStyle(n).borderTopWidth,\n borderColor:getComputedStyle(n).borderTopColor,\n align:getComputedStyle(n).alignItems,\n justify:getComputedStyle(n).justifyContent\n}));\nconst benefits=[...document.querySelectorAll('.benefit')].map(n=>{const r=n.getBoundingClientRect();const t=n.querySelector('strong').getBoundingClientRect();return{x:r.x,width:r.width,strongWidth:t.width,center:t.left+t.width/2,boxCenter:r.left+r.width/2,iconHeight:n.querySelector('.benefit-icon').getBoundingClientRect().height,fonts:Number.parseFloat(getComputedStyle(n.querySelector('strong')).fontSize)};});\nconst range=document.createRange();range.selectNodeContents(document.querySelector('.hero-title'));\nconst titleRect=range.getBoundingClientRect();\nreturn{width:innerWidth,height:innerHeight,scrollW:document.documentElement.scrollWidth,scrollH:document.documentElement.scrollHeight,bounds,labels,benefits,\n titleInk:{top:titleRect.top,bottom:titleRect.bottom},\n planCount:document.querySelectorAll('.plan').length,signupCount:document.querySelectorAll('.signup-button').length,\n signupHref:document.querySelector('.signup-button').getAttribute('href'),\n loginText:document.querySelector('.login-link').textContent.trim(),loginCount:document.querySelectorAll('.login-link').length,\n language:document.documentElement.lang,legal:document.querySelectorAll('.site-footer a').length,\n devicesDisplay:getComputedStyle(document.querySelector('.hero-visual')).display,\n unwantedLines:document.querySelectorAll('.laptop-lines,.phone-line,.laptop-subheading,.phone-heading').length};");
+      const value=await evaluate("\nconst selectors=[\".topbar\",\".login-link\",\".hero\",\".poster-heading\",\".poster-tiles\",\".poster-bottom\",\".signup-button\",\"footer\"];\nconst bounds={};\nfor(const selector of selectors){\n  const el=document.querySelector(selector);\n  if(!el)throw Error(\"missing \"+selector);\n  const r=el.getBoundingClientRect();\n  bounds[selector]={left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,visible:getComputedStyle(el).display!==\"none\"};\n}\nconst rect=el=>{const r=el.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};};\nconst hit=(a,b)=>a.left<b.right-2&&b.left<a.right-2&&a.top<b.bottom-2&&b.top<a.bottom-2;\nconst labels=[...document.querySelectorAll(\".picto-label\")].map(el=>({\n text:el.textContent.trim(),border:getComputedStyle(el).borderTopWidth,\n borderColor:getComputedStyle(el).borderTopColor,align:getComputedStyle(el).textAlign,\n fontSize:Number.parseFloat(getComputedStyle(el).fontSize)\n}));\nconst cards=[...document.querySelectorAll(\".p-card\")].map(rect);\nconst words=[...document.querySelectorAll(\".poster-heading span,.poster-heading em\")].map(rect);\nreturn {\n width:innerWidth,height:innerHeight,scrollW:document.documentElement.scrollWidth,\n scrollH:document.documentElement.scrollHeight,bounds,labels,cardCount:cards.length,\n titleCollision:cards.some(card=>words.some(word=>hit(card,word))),\n labelCollision:[...document.querySelectorAll(\".picto-label\")].map(rect).some((label,i)=>cards.some((card,j)=>i!==j&&hit(label,card))),\n actionCollision:cards.some(card=>hit(card,rect(document.querySelector(\".poster-bottom\")))),\n signupCount:document.querySelectorAll(\".signup-button\").length,\n signupHref:document.querySelector(\".signup-button\")?.getAttribute(\"href\"),\n loginText:document.querySelector(\".login-link\")?.textContent.trim(),\n loginCount:document.querySelectorAll(\".login-link\").length,\n language:document.documentElement.lang,legal:document.querySelectorAll(\"footer nav a\").length,\n repeatedBenefits:document.querySelectorAll(\".steps,.benefits\").length,\n navLabel:document.querySelector(\".topbar nav\")?.getAttribute(\"aria-label\"),\n brandLabel:document.querySelector(\".brand\")?.getAttribute(\"aria-label\"),\n design:document.body.dataset.pictauHomeDesign\n};");
+
       const name=lang+"-"+width+"x"+height;
+      assert.equal(value.design,"5",name+" official Design 5");
       assert.equal(value.language,lang,name+" language");
-      assert.equal(value.planCount,0,name+" no plan on home");
       assert.equal(value.signupCount,1,name+" one signup CTA");
-      assert.equal(value.signupHref,"./forfait.html",name+" valid separate plan link");
-      assert.equal(value.loginCount,1,name+" one login");
-      assert.equal(value.loginText,lang==="fr"?"Connexion":"Sign in",name+" sign in direct");
+      assert.equal(value.signupHref,"./forfait.html",name+" signup route");
+      assert.equal(value.loginCount,1,name+" one direct login");
+      assert.equal(value.loginText,lang==="fr"?"Connexion":"Sign in",name+" sign-in label");
+      assert.equal(value.navLabel,lang==="fr"?"Navigation principale":"Main navigation",name+" accessible navigation");
+      assert.equal(value.brandLabel,lang==="fr"?"Pict-au — Accueil":"Pict-au — Home",name+" accessible logo");
       assert.equal(value.legal,3,name+" three legal links");
-      assert.equal(value.unwantedLines,0,name+" no fake blue skeleton");
-      assert.ok(value.scrollW<=width+2,name+" horizontal overflow: "+JSON.stringify(value));
-      assert.ok(value.scrollH<=height+2,name+" vertical overflow: "+JSON.stringify(value));
+      assert.equal(value.repeatedBenefits,0,name+" no duplicated steps");
+      assert.equal(value.cardCount,3,name+" exactly three pictos");
+      assert.deepEqual(value.labels.map(x=>x.text),lang==="fr"?["Trouver","Personnaliser","Imprimer"]:["Find","Personalize","Print"],name+" translated picto labels");
+      for(const label of value.labels){
+        assert.ok(parseFloat(label.border)>0,name+" pictogram separator");
+        assert.match(label.borderColor,/rgb\(44, 56, 52\)/,name+" dark line");
+        assert.equal(label.align,"center",name+" label centered");
+        assert.ok(label.fontSize>=8,name+" readable caption");
+      }
+      assert.equal(value.titleCollision,false,name+" no heading/card overlap");
+      assert.equal(value.labelCollision,false,name+" no labels blocked by adjacent cards");
+      assert.equal(value.actionCollision,false,name+" no CTA collision");
+      assert.ok(value.scrollW<=width+2,name+" no horizontal overflow: "+JSON.stringify(value));
+      assert.ok(value.scrollH<=height+2,name+" no vertical overflow at rest: "+JSON.stringify(value));
       for(const [selector,r] of Object.entries(value.bounds)){
         assert.ok(r.visible&&r.width>0&&r.height>0,name+" "+selector+" visible");
-        assert.ok(r.left>=-2&&r.right<=width+2,name+" "+selector+" within horizontal viewport "+JSON.stringify(r));
-        assert.ok(r.top>=-2&&r.bottom<=height+2,name+" "+selector+" within vertical viewport "+JSON.stringify(r));
+        assert.ok(r.left>=-2&&r.right<=width+2,name+" "+selector+" within width "+JSON.stringify(r));
+        assert.ok(r.top>=-2&&r.bottom<=height+2,name+" "+selector+" within height "+JSON.stringify(r));
       }
-      assert.ok(value.titleInk.top>=value.bounds[".hero"].top-2&&value.titleInk.bottom<=value.bounds[".hero"].bottom+2,name+" title ink not clipped");
-      assert.equal(value.benefits.length,3,name+" three benefits");
-      for(const benefit of value.benefits){
-        assert.ok(benefit.iconHeight>=30,name+" benefit icon large enough");
-        assert.ok(benefit.fonts>=12,name+" benefit title readable");
-        assert.ok(Math.abs(benefit.center-benefit.boxCenter)<=3,name+" benefits properly centered: "+JSON.stringify(benefit));
-      }
-      assert.equal(value.labels.length,5,name+" five examples from app");
-      assert.deepEqual(value.labels.map(x=>x.text),lang==="fr"?["toilette","collation","lire","école","pause"]:["toilet","snack","read","school","break"],name+" source labels bilingual");
-      for(const label of value.labels){
-        assert.ok(parseFloat(label.border)>0,name+" black separator line");
-        assert.match(label.borderColor,/rgb\(17, 17, 17\)/,name+" black separator ink");
-        assert.equal(label.align,"center",name+" label vertically centered");
-        assert.equal(label.justify,"center",name+" label horizontally centered");
-      }
-      if(width<=370&&height<=620)assert.equal(value.devicesDisplay,"none",name+" no decorative visual on short phone");
-      else assert.notEqual(value.devicesDisplay,"none",name+" authentic sample images visible");
       const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
       await writeFile(join(screenshots,name+".png"),Buffer.from(shot.data,"base64"));
       console.log("PASS "+name+" : page unique, deux actions, bénéfices et ligne noire");
@@ -173,10 +170,10 @@ try{
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:640,mobile:true,deviceScaleFactor:1});
   await command("Page.navigate",{url:base+"/index.html"});
   await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
-  const zoom=await evaluate("document.body.style.zoom='1.85';return {overflow:getComputedStyle(document.documentElement).overflowY,scroll:document.documentElement.scrollHeight,height:innerHeight,button:!!document.querySelector('.signup-button')};");
-  assert.equal(zoom.overflow,"auto","Zoom: allow vertical scroll");
+  const zoom=await evaluate("document.body.style.zoom='1.85';window.scrollTo(0,document.documentElement.scrollHeight);return {scroll:document.documentElement.scrollHeight,height:innerHeight,position:window.scrollY,button:!!document.querySelector('.signup-button')};");
   assert.equal(zoom.button,true,"Zoom: CTA still in DOM");
-  assert.ok(zoom.scroll>zoom.height,"Zoom: expanded content may scroll rather than clip");
+  assert.ok(zoom.scroll>zoom.height,"Zoom: enlarged page extends beyond the viewport");
+  assert.ok(zoom.position>0,"Zoom: user can actually scroll to the enlarged content");
   await evaluate("document.body.style.zoom='';return true;");
   // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 3.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
