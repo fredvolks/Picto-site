@@ -1569,3 +1569,7 @@
  .hosted-access-v4 .hosted-auth-divider{margin:6px 0}
  .hosted-access-v4 .hosted-signup{margin:4px 0!important}
 }
+
+/* Connexion Design 4 : avertissement clavier physique, discret sur tous écrans. */
+.hosted-access-v4 .hosted-caps-hint{margin:0;color:#80521b;background:#fff6e3;border:1px solid #ebd9b0;border-radius:9px;padding:7px 10px;font-size:12px;line-height:1.4}
+.hosted-access-v4 .hosted-caps-hint[hidden]{display:none}

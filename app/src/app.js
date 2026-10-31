@@ -118,6 +118,8 @@ const iconPaths = {
   upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/>',
   settings:'<path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/>',
   search:'<circle cx="10.8" cy="10.8" r="6.4"/><path d="m16 16 5 5"/>',
+  eye:'<path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  'eye-off':'<path d="m3 3 18 18M10.7 5.6A11.6 11.6 0 0 1 12 5.5c6.2 0 10 6.5 10 6.5a17.4 17.4 0 0 1-3.2 3.8M6.3 6.9C3.5 8.9 2 12 2 12s3.8 6.5 10 6.5a10.7 10.7 0 0 0 4.2-.8M9.8 9.8a3 3 0 0 0 4.4 4.4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   heart:'<path d="M20.8 4.9c-2.1-2.1-5.5-2.1-7.6 0L12 6.1l-1.2-1.2c-2.1-2.1-5.5-2.1-7.6 0s-2.1 5.5 0 7.6L12 21l8.8-8.5c2.1-2.1 2.1-5.5 0-7.6Z"/>',
   arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',
@@ -1809,7 +1811,8 @@ function renderHostedAccess(){
     +'<form class="hosted-email-form" data-form="email-login">'+email
     +'<label for="auth-password">'+t('Mot de passe','Password')+'</label><div class="hosted-password-wrap">'
     +'<input id="auth-password" name="password" type="'+(authStatus.showPassword?'text':'password')+'" autocomplete="current-password" required minlength="1"'+(busy?' disabled':'')+'>'
-    +'<button class="hosted-password-toggle" type="button" data-action="auth-show-password" aria-controls="auth-password" aria-label="'+t(authStatus.showPassword?'Masquer le mot de passe':'Afficher le mot de passe',authStatus.showPassword?'Hide password':'Show password')+'" aria-pressed="'+authStatus.showPassword+'">'+icon("search")+'</button></div>'
+    +'<button class="hosted-password-toggle" type="button" data-action="auth-show-password" aria-controls="auth-password" aria-label="'+t(authStatus.showPassword?'Masquer le mot de passe':'Afficher le mot de passe',authStatus.showPassword?'Hide password':'Show password')+'" aria-pressed="'+authStatus.showPassword+'">'+icon(authStatus.showPassword?"eye-off":"eye")+'</button></div>'
+    +'<p class="hosted-caps-hint" data-auth-caps role="status" aria-live="polite" hidden>'+t('Verr. maj. est activé.','Caps Lock is on.')+'</p>'
     +'<button class="hosted-access-link hosted-forgot" type="button" data-action="auth-forgot">'+t('Mot de passe oublié ?','Forgot password?')+'</button>'
     +'<button class="hosted-access-submit" type="submit"'+(busy||!authStatus.ready?' disabled':'')+'>'+t('Se connecter','Sign in')+'</button></form>'
     +'<div class="hosted-auth-divider">'+t('ou','or')+'</div><div class="hosted-access-action">'+googleButton()+'</div>'
@@ -1927,6 +1930,22 @@ root.addEventListener("load",function(event){
   }
 },true);
 // Fenêtre modale d'aperçu : Escape ferme et Tab reste dans le dialogue.
+// Sur ordinateur uniquement, signale Caps Lock sans lire ni conserver le secret.
+function syncLoginCapsState(event){
+ if(event.target?.id!=="auth-password")return;
+ const hint=root.querySelector("[data-auth-caps]");
+ if(hint&&typeof event.getModifierState==="function")
+   hint.hidden=!event.getModifierState("CapsLock");
+}
+root.addEventListener("keydown",syncLoginCapsState);
+root.addEventListener("keyup",syncLoginCapsState);
+root.addEventListener("focusout",event=>{
+ if(event.target?.id==="auth-password"){
+   const hint=root.querySelector("[data-auth-caps]");
+   if(hint)hint.hidden=true;
+ }
+});
+
 root.addEventListener("keydown",function(event){
   if(event.key==="Escape"&&state.adminMenuOpen&&SITE_EMBEDDED){
     event.preventDefault();state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
@@ -2496,7 +2515,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="auth-forgot"){const input=root.querySelector("#auth-email");if(input)authStatus.email=input.value.trim();authStatus.emailView="forgot";authStatus.emailError="";authStatus.emailMessage="";render();return;}
   if(a==="auth-back-login"){const input=root.querySelector("#auth-email");if(input)authStatus.email=input.value.trim();authStatus.emailView="login";authStatus.emailError="";authStatus.emailMessage="";render();return;}
-  if(a==="auth-show-password"){const input=root.querySelector("#auth-password");if(!input)return;const at=input.selectionStart;authStatus.showPassword=!authStatus.showPassword;input.type=authStatus.showPassword?"text":"password";el.setAttribute("aria-pressed",String(authStatus.showPassword));el.setAttribute("aria-label",state.language==="fr"?(authStatus.showPassword?"Masquer le mot de passe":"Afficher le mot de passe"):(authStatus.showPassword?"Hide password":"Show password"));input.focus();try{input.setSelectionRange(at,at)}catch{}return;}
+  if(a==="auth-show-password"){const input=root.querySelector("#auth-password");if(!input)return;const at=input.selectionStart;authStatus.showPassword=!authStatus.showPassword;input.type=authStatus.showPassword?"text":"password";el.setAttribute("aria-pressed",String(authStatus.showPassword));el.setAttribute("aria-label",state.language==="fr"?(authStatus.showPassword?"Masquer le mot de passe":"Afficher le mot de passe"):(authStatus.showPassword?"Hide password":"Show password"));el.innerHTML=icon(authStatus.showPassword?"eye-off":"eye");input.focus();try{input.setSelectionRange(at,at)}catch{}return;}
   if(a==="role-retry"){if(!authStatus.user)return;authStatus.roleError="";void supabaseClient().then(c=>refreshPrivateBank(c,authStatus.user.id));return;}
   if(a==="email-link"||a==="email-reset"){
     const input=root.querySelector('#auth-email');
