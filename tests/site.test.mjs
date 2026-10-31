@@ -60,7 +60,7 @@ test("Design 5 : exactement trois pictogrammes noirs et blancs avec légende sé
  assert.equal((html.match(/class="p-card card-[123]"/g)||[]).length,3);
  assert.equal((html.match(/class="picto-art"/g)||[]).length,3);
  assert.equal((html.match(/class="picto-label"/g)||[]).length,3);
- assert.equal((html.match(/aria-hidden="true"><(?:circle|path|rect)/g)||[]).length,0,"Les décorations ne doivent pas simuler des images clients");
+ assert.equal((html.match(/<svg[^>]+aria-hidden="true"/g)||[]).length,3,"Les trois pictos sont décoratifs, pas des commandes interactives");
  for(const [fr,en] of [["Trouver","Find"],["Personnaliser","Personalize"],["Imprimer","Print"]])
    assert.match(html,new RegExp('data-fr="'+fr+'" data-en="'+en+'"'));
  assert.match(html,/\.picto-label\{[^}]*border-top:1\.8px solid #2c3834/);
