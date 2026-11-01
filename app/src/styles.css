@@ -1814,3 +1814,12 @@
 .admin-batch-import .admin-import-actions .btn{min-height:44px;white-space:normal}
 .admin-batch-note{border-top:1px solid #d2ddd4;padding-top:11px}
 @media(max-width:480px){.admin-batch-import{padding:12px}.admin-batch-import .admin-import-actions .btn{width:100%}}
+
+/* Comparaison privée de trois formats : le vrai PNG ne quitte pas le navigateur. */
+.admin-png-variant-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr));gap:14px;align-items:stretch;min-width:0;margin:12px 0 16px}
+.admin-png-variant{min-width:0;margin:0;padding:12px;border:1px solid #d1ded4;border-radius:12px;background:#fff;display:flex;flex-direction:column;gap:10px}
+.admin-png-variant figcaption{font-size:13px;font-weight:750;color:#294939;line-height:1.45;min-height:2.4em}
+.admin-png-variant .admin-png-stage{flex:1;min-width:0;padding:12px 6px;align-items:center}
+.admin-png-variant .color-shell{flex-shrink:0}
+.admin-png-variant .admin-png-cell{max-width:none}
+@media(max-width:490px){.admin-png-variant-grid{grid-template-columns:minmax(0,1fr);gap:10px}.admin-png-variant{padding:10px}.admin-png-variant figcaption{min-height:0}}

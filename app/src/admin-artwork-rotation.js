@@ -1,3 +1,4 @@
+import {validatePreset} from "./core.js";
 // Rotation LOCALE d'un PNG privé découpé sur l'encre sombre.
 // Produit un NOUVEAU fichier pour le circuit d'import Super Admin existant.
 // Le brouillon original, ses droits et les gabarits ne sont jamais modifiés.
@@ -55,4 +56,52 @@ export async function makeRotatedPrivatePng(inkBlob,angle,title="picto"){
   }finally{
     bitmap.close?.();
   }
+}
+
+
+// Comparaison LOCALE du même vrai dessin, sans requête réseau, sans créer
+// de gabarit ni retoucher l'original. Les choix de publication restent séparés.
+export function privateInkPreviewVariants(preset){
+ if(!preset||!validatePreset(preset)||typeof preset.colored!=="boolean")
+   throw Error("Réglages d'aperçu privé invalides.");
+ return [
+  {key:"square-color",shape:"square",colored:true,widthCm:5,preset:{...preset,shape:"square",colored:true}},
+  {key:"square-plain",shape:"square",colored:false,widthCm:5,preset:{...preset,shape:"square",colored:false}},
+  {key:"portrait-color",shape:"portrait",colored:true,widthCm:5,preset:{...preset,shape:"portrait",colored:true}}
+ ];
+}
+const escapePreview=value=>String(value??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+}[c]));
+export function renderPrivateInkComparison({
+ asset,inkUrl,rotationDeg=0,preset,fr=true,customPicto,scaleMetrics,fmtRaw
+}={}){
+ validateArtworkRotation(rotationDeg);
+ if(!asset||typeof asset.title_fr!=="string"||!asset.title_fr.trim()||
+    typeof inkUrl!=="string"||!inkUrl.startsWith("blob:")||
+    typeof customPicto!=="function"||typeof scaleMetrics!=="function"||
+    typeof fmtRaw!=="function")
+   throw Error("Aperçu du PNG privé indisponible.");
+ const art='<img data-pictau-ink data-admin-ink-preview src="'+escapePreview(inkUrl)+
+   '" alt="" loading="eager" decoding="async" style="transform:rotate('+
+   rotationDeg+'deg);transform-origin:center">';
+ const picture={fr:asset.title_fr,en:asset.title_en||asset.title_fr,image:art};
+ const variants=privateInkPreviewVariants(preset);
+ const names=fr?
+  ["Carré · contour coloré","Carré · sans contour coloré","Portrait · contour coloré"]:
+  ["Square · colored border","Square · no colored border","Portrait · colored border"];
+ return '<div class="admin-png-variant-grid" role="group" aria-label="'+
+   escapePreview(fr?"Comparaison de trois formats sur le dessin réel":"Three-format comparison of the actual artwork")+'">'+
+   variants.map((v,index)=>{
+    const measures=scaleMetrics(v.preset,v.widthCm);
+    const width=escapePreview(fmtRaw(v.widthCm));
+    const height=escapePreview(fmtRaw(measures.heightCm));
+    return '<figure class="admin-png-variant" data-private-preview="'+v.key+'">'+
+      '<figcaption>'+escapePreview(names[index])+'</figcaption>'+
+      '<div class="admin-png-stage"><div class="color-shell'+
+      (v.colored?"":" no-color")+'" style="--bordercolor:'+escapePreview(v.preset.color)+
+      ';--colorwidth:2mm"><div class="admin-png-cell" style="width:'+width+
+      'cm;height:'+height+'cm">'+customPicto(picture,v.preset,v.widthCm,false)+
+      '</div></div></div></figure>';
+   }).join("")+'</div>';
 }
