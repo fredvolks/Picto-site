@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'app/src/catalog.js'
+      - 'app/src/admin-template-bank.js'
+      - 'app/src/admin-template-bank-ui.js'
+      - 'app/tests/admin-template-bank.test.mjs'
+      - 'app/tests/admin-template-bank-ui.test.mjs'
       - 'app/src/client-categories.js'
       - 'app/tests/client-categories.test.mjs'
       - 'app/src/app.js'
@@ -18,6 +22,10 @@ on:
     branches: [main]
     paths:
       - 'app/src/catalog.js'
+      - 'app/src/admin-template-bank.js'
+      - 'app/src/admin-template-bank-ui.js'
+      - 'app/tests/admin-template-bank.test.mjs'
+      - 'app/tests/admin-template-bank-ui.test.mjs'
       - 'app/src/client-categories.js'
       - 'app/tests/client-categories.test.mjs'
       - 'app/src/app.js'
@@ -43,4 +51,4 @@ jobs:
         with:
           node-version: '22'
       - name: Tests des modules publication et épreuve privée (sans Supabase réel)
-        run: node --experimental-default-type=module --test app/tests/catalog-publication.test.mjs app/tests/admin-private-proof.test.mjs app/tests/catalog-board-navigation.test.mjs app/tests/client-categories.test.mjs
+        run: node --experimental-default-type=module --test app/tests/catalog-publication.test.mjs app/tests/admin-private-proof.test.mjs app/tests/catalog-board-navigation.test.mjs app/tests/client-categories.test.mjs app/tests/admin-template-bank.test.mjs app/tests/admin-template-bank-ui.test.mjs
