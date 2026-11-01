@@ -4,7 +4,7 @@ import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
 import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication} from "./admin-template-bank.js";
-import {renderAdminNamedTemplateBank} from "./admin-template-bank-ui.js";
+import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption} from "./admin-template-bank-ui.js";
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
@@ -1279,15 +1279,31 @@ function renderBoard(){
 }
 function adminPreview(){
   const item=samples.find(x=>x.id===state.adminItem)||samples[0],p=state.currentPreset;
-  const size=5;
-  const content=customPicto(item,p,size,false);
-  const fixed=content.replace(/(class="picto"[^>]*style=")/,'$1width:5cm;height:'+(p.shape==="portrait"?'6.75':'5')+'cm;');
-  return '<div class="picto-wrapper"><div class="color-shell'+(p.colored?"":" no-color")+'" style="--bordercolor:'+p.color+';--colorwidth:2mm">'+fixed+'</div></div>';
+  const preview=namedTemplatePreviewState({
+    widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
+    enabled:adminNamedTemplates.loaded
+  });
+  if(!preview.valid)return '<p class="admin-preview-invalid" role="status">'+
+    esc(namedTemplatePreviewCaption({
+      widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
+      enabled:true,fr:state.language==="fr"
+    }))+'</p>';
+  const content=customPicto(item,p,preview.widthCm,false);
+  // Seul le dessin pivote autour de son centre; ni le cadre ni le texte.
+  // Quand la table est absente, conserver l'ancienne illustration de 5 cm.
+  const fixed=adminNamedTemplates.loaded?
+    content.replace('<div class="picto-artwork">',
+      '<div class="picto-artwork" style="transform:rotate('+preview.rotationDeg+
+      'deg);transform-origin:center center">'):
+    content.replace(/(class="picto"[^>]*style=")/,
+      '$1width:5cm;height:'+(p.shape==="portrait"?'6.75':'5')+'cm;');
+  return '<div class="picto-wrapper"><div class="color-shell'+(p.colored?"":" no-color")+
+    '" style="--bordercolor:'+p.color+';--colorwidth:2mm">'+fixed+'</div></div>';
 }
 function renderAdminTemplate(){
   const p=state.currentPreset;
   return '<div class="page-intro"><div><div class="admin-title"><h1>'+T("adminTitle")+'</h1><span class="label-tag">'+T("demo")+'</span></div><p>'+T("adminCopy")+'</p></div></div>'
-  +'<div class="page-two-col"><section class="panel"><h2 class="panel-title">'+T("adminPreview")+'</h2><div id="admin-stage" class="admin-stage">'+adminPreview()+'</div><p class="admin-preview-caption">'+T("example")+' · 5 cm · '+T("changes")+'</p>'
+  +'<div class="page-two-col"><section class="panel"><h2 class="panel-title">'+T("adminPreview")+'</h2><div id="admin-stage" class="admin-stage">'+adminPreview()+'</div><p id="admin-preview-caption" class="admin-preview-caption" role="status" aria-live="polite">'+esc(namedTemplatePreviewCaption({widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,enabled:adminNamedTemplates.loaded,fr:state.language==="fr"}))+'</p>'
   +'<div id="admin-art-feedback" class="notice admin-art-feedback" role="alert" hidden></div>'
   +'<div class="notice blue" style="margin-top:20px">'+T("adminNote")+'</div></section>'
   +'<section class="panel"><h2 class="panel-title">'+T("preset")+'</h2><p class="panel-copy">'+T("adminCopy")+'</p><div class="settings-grid">'
@@ -2252,6 +2268,11 @@ function updateArtFeedback(){
 function adminLive(){
   const stage=document.querySelector("#admin-stage");
   if(stage){stage.innerHTML=adminPreview();layoutArtwork(stage);updateArtFeedback();}
+  const caption=document.querySelector("#admin-preview-caption");
+  if(caption)caption.textContent=namedTemplatePreviewCaption({
+    widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
+    enabled:adminNamedTemplates.loaded,fr:state.language==="fr"
+  });
 }
 function routineLive(){
   const stage=document.querySelector("#routine-stage");
@@ -3684,6 +3705,17 @@ root.addEventListener("click",function(event){
   if(a==="admin-named-template-save"){
     if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||
        !adminNamedTemplates.loaded||adminNamedTemplates.loading)return;
+    const preview=namedTemplatePreviewState({
+      widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
+      enabled:true
+    });
+    if(!preview.valid){
+      adminNamedTemplates.error=namedTemplatePreviewCaption({
+        widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
+        enabled:true,fr:state.language==="fr"
+      });
+      render();return;
+    }
     const uid=authStatus.user.id,ticket=adminNamedTemplates.request;
     const current=adminNamedTemplates.items.find(row=>row.id===adminNamedTemplates.selectedId);
     const snapshot={id:current?.id??null,revision:current?.revision??null,
@@ -3742,8 +3774,8 @@ root.addEventListener("input",function(event){
   if(canOpenAdmin()&&state.adminTab==="templates"&&!adminNamedTemplates.busy){
     const field=event.target.dataset.input;
     if(field==="admin-named-template-name"){adminNamedTemplates.name=event.target.value;return;}
-    if(field==="admin-named-template-width"){adminNamedTemplates.widthCm=event.target.value;return;}
-    if(field==="admin-named-template-rotation"){adminNamedTemplates.rotationDeg=event.target.value;return;}
+    if(field==="admin-named-template-width"){adminNamedTemplates.widthCm=event.target.value;adminLive();return;}
+    if(field==="admin-named-template-rotation"){adminNamedTemplates.rotationDeg=event.target.value;adminLive();return;}
   }
   if(recordComposerCaption(event.target))return;
   if(recordComposerFormValue(event.target))return;
