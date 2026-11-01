@@ -3,6 +3,8 @@ import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
+import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication} from "./admin-template-bank.js";
+import {renderAdminNamedTemplateBank} from "./admin-template-bank-ui.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
 import {importPrivateDraft,validateDraftMetadata} from "./admin-import.js";
@@ -594,6 +596,39 @@ function requestStatusLabel(status){return REQUEST_LABELS[status]?.[state.langua
 function requestDate(value){const ms=Date.parse(value||"");return Number.isFinite(ms)?new Date(ms).toLocaleDateString(state.language==="fr"?"fr-CA":"en-CA",{year:"numeric",month:"short",day:"numeric"}):"—";}
 
 const privateBank={allowed:false,loading:false,items:[],error:"",request:0,total:0,page:0};
+const adminNamedTemplates={items:[],loaded:false,loading:false,busy:false,error:"",message:"",
+  name:"",selectedId:null,widthCm:5,rotationDeg:0,request:0};
+function resetAdminNamedTemplates(){
+  adminNamedTemplates.request++;
+  Object.assign(adminNamedTemplates,{items:[],loaded:false,loading:false,busy:false,
+    error:"",message:"",name:"",selectedId:null,widthCm:5,rotationDeg:0});
+}
+async function fetchAdminNamedTemplates(){
+  if(!canOpenAdmin()||!authStatus.user||state.adminTab!=="templates")return;
+  const uid=authStatus.user.id,ticket=++adminNamedTemplates.request;
+  adminNamedTemplates.loading=true;adminNamedTemplates.error="";adminNamedTemplates.message="";render();
+  try{
+    const client=await supabaseClient();
+    const rows=await listAdminNamedTemplates(client,uid);
+    if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    adminNamedTemplates.items=rows;adminNamedTemplates.loaded=true;
+    if(adminNamedTemplates.selectedId&&!rows.some(row=>row.id===adminNamedTemplates.selectedId)){
+      adminNamedTemplates.selectedId=null;adminNamedTemplates.name="";
+    }
+  }catch(error){
+    if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid)return;
+    adminNamedTemplates.loaded=false;
+    const code=String(error?.code||"");
+    adminNamedTemplates.error=["42P01","PGRST205","PGRST116"].includes(code)?
+      (state.language==="fr"?"Gabarits nommés indisponibles : migration Supabase non activée.":
+        "Saved templates unavailable: Supabase migration not enabled."):
+      String(error?.message||error);
+  }finally{
+    if(ticket===adminNamedTemplates.request&&authStatus.user?.id===uid){
+      adminNamedTemplates.loading=false;render();
+    }
+  }
+}
 let bankQueryTimer=null;
 const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",request:0};
@@ -773,7 +808,7 @@ async function openAdminPreview(assetId){
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
 function resetPrivateBank(){
-  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
+  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -1163,7 +1198,15 @@ function renderAdminTemplate(){
   +adminRange("separatorMm",T("separator"),p.separatorMm,.5,4,.1,"mm")
   +'<label class="toggle-row full-span"><input type="checkbox" data-field="adminColored" '+(p.colored?"checked":"")+'>'+T("colored")+'</label></div>'
   +'<div class="admin-actions" style="margin-top:22px"><button class="btn btn-primary" data-action="save">'+icon("check","btn-icon")+T("save")+'</button><button class="btn btn-quiet" data-action="restore">'+T("restore")+'</button></div>'
-  +'</section></div>';
+  +'</section></div>'
+  +renderAdminNamedTemplateBank({
+    templates:adminNamedTemplates.items,selectedId:adminNamedTemplates.selectedId,
+    name:adminNamedTemplates.name,widthCm:adminNamedTemplates.widthCm,
+    rotationDeg:adminNamedTemplates.rotationDeg,
+    busy:adminNamedTemplates.busy||!adminNamedTemplates.loaded,
+    loading:adminNamedTemplates.loading,error:adminNamedTemplates.error,
+    message:adminNamedTemplates.message,fr:state.language==="fr"
+  });
 }
 function renderAdmin(){
   const fr=state.language==="fr";
@@ -3077,6 +3120,7 @@ root.addEventListener("click",function(event){
     if(el.dataset.tab!=="bank"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
     if(state.adminTab==="settings"&&authStatus.user)void fetchCaptionFeature();
+    if(state.adminTab==="templates"&&authStatus.user)void fetchAdminNamedTemplates();
     if(state.adminTab==="requests"&&authStatus.user)
       void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id))
        .catch(error=>{adminRequests.error=String(error?.message||error);render();});
@@ -3315,10 +3359,86 @@ root.addEventListener("click",function(event){
     if(next===privateBank.page||next<0||next>lastPage)return;
     privateBank.page=next;clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
+  if(a==="admin-named-template-new"){
+    if(!canOpenAdmin()||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
+    adminNamedTemplates.selectedId=null;adminNamedTemplates.name="";
+    adminNamedTemplates.widthCm=5;adminNamedTemplates.rotationDeg=0;
+    state.currentPreset={...DEFAULT_PRESET};adminNamedTemplates.error="";adminNamedTemplates.message="";
+    render();return;
+  }
+  if(a==="admin-named-template-load"){
+    if(!canOpenAdmin()||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
+    const item=adminNamedTemplates.items.find(row=>row.id===el.dataset.id);
+    if(!item)return;
+    adminNamedTemplates.selectedId=item.id;adminNamedTemplates.name=item.name;
+    adminNamedTemplates.widthCm=item.widthCm;adminNamedTemplates.rotationDeg=item.rotationDeg;
+    state.currentPreset={...item.preset};adminNamedTemplates.error="";adminNamedTemplates.message="";
+    render();return;
+  }
+  if(a==="admin-named-template-save"){
+    if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||
+       !adminNamedTemplates.loaded||adminNamedTemplates.loading)return;
+    const uid=authStatus.user.id,ticket=adminNamedTemplates.request;
+    const current=adminNamedTemplates.items.find(row=>row.id===adminNamedTemplates.selectedId);
+    const snapshot={id:current?.id??null,revision:current?.revision??null,
+      name:adminNamedTemplates.name,preset:{...state.currentPreset},
+      widthCm:Number(adminNamedTemplates.widthCm),rotationDeg:Number(adminNamedTemplates.rotationDeg)};
+    adminNamedTemplates.busy=true;adminNamedTemplates.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        const saved=await saveAdminNamedTemplate(client,uid,snapshot);
+        if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+        const existing=adminNamedTemplates.items.findIndex(row=>row.id===saved.id);
+        if(existing<0)adminNamedTemplates.items.push(saved);
+        else adminNamedTemplates.items[existing]=saved;
+        adminNamedTemplates.items.sort((a,b)=>a.name.localeCompare(b.name,state.language));
+        adminNamedTemplates.selectedId=saved.id;adminNamedTemplates.name=saved.name;
+        adminNamedTemplates.message=state.language==="fr"?
+          "Gabarit enregistré. Il reste privé jusqu'à publication explicite.":
+          "Template saved. It remains private until explicitly published.";
+      }catch(error){
+        if(ticket===adminNamedTemplates.request)adminNamedTemplates.error=String(error?.message||error);
+      }finally{if(ticket===adminNamedTemplates.request){adminNamedTemplates.busy=false;render();}}
+    })();return;
+  }
+  if(a==="admin-named-template-publish"){
+    if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
+    const item=adminNamedTemplates.items.find(row=>row.id===el.dataset.id);
+    if(!item||String(item.revision)!==el.dataset.revision||
+       String(!item.is_published)!==el.dataset.publish)return;
+    const next=!item.is_published,fr=state.language==="fr";
+    if(!window.confirm(next?
+      (fr?"Publier ce gabarit pour les clients authentifiés ?":"Publish this template for signed-in clients?"):
+      (fr?"Retirer ce gabarit des modèles disponibles pour les clients ?":"Unpublish this template for clients?")))return;
+    const uid=authStatus.user.id,ticket=adminNamedTemplates.request;
+    adminNamedTemplates.busy=true;adminNamedTemplates.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        const saved=await setAdminTemplatePublication(client,uid,{
+          id:item.id,revision:item.revision,published:next
+        });
+        if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+        adminNamedTemplates.items=adminNamedTemplates.items.map(row=>row.id===saved.id?saved:row);
+        adminNamedTemplates.message=fr?
+          (next?"Gabarit publié.":"Gabarit retiré des modèles publiés."):
+          (next?"Template published.":"Template unpublished.");
+      }catch(error){
+        if(ticket===adminNamedTemplates.request)adminNamedTemplates.error=String(error?.message||error);
+      }finally{if(ticket===adminNamedTemplates.request){adminNamedTemplates.busy=false;render();}}
+    })();return;
+  }
   if(a==="save"){if(!validatePreset(state.currentPreset)){notify(T("unavailable"));return;}state.savedPreset={...state.currentPreset};store("pictau-preset",serializeVersionedPreset(state.savedPreset,DEFAULT_PRESET,validatePreset));notify(T("saved"));}
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
+  if(canOpenAdmin()&&state.adminTab==="templates"&&!adminNamedTemplates.busy){
+    const field=event.target.dataset.input;
+    if(field==="admin-named-template-name"){adminNamedTemplates.name=event.target.value;return;}
+    if(field==="admin-named-template-width"){adminNamedTemplates.widthCm=event.target.value;return;}
+    if(field==="admin-named-template-rotation"){adminNamedTemplates.rotationDeg=event.target.value;return;}
+  }
   if(recordComposerCaption(event.target))return;
   if(recordComposerFormValue(event.target))return;
   if(event.target.closest('form[data-form="admin-bank-rename"]')&&event.target.name==="adminName"){
