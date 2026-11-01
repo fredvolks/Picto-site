@@ -136,6 +136,15 @@ footer a:hover{text-decoration:underline}
 .brand picture{display:block;line-height:0}
 .brand .pictau-brand-img{display:block;width:clamp(170px,20vw,240px);height:auto;max-width:none}
 @media(max-width:680px){.brand .pictau-brand-img{width:clamp(99px,30vw,135px)}}
+
+/* Le Fil : identité horizontale maintenue, même sur Samsung. */
+@media(max-width:680px){.brand .pictau-brand-img{width:clamp(200px,39vw,240px)}}
+@media(max-width:520px){
+ body{grid-template-rows:102px minmax(0,1fr) 36px}
+ .topbar{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;align-content:start;justify-items:start;row-gap:1px;padding-top:6px}
+ .topbar nav{justify-self:end}
+ .brand .pictau-brand-img{width:clamp(210px,62vw,260px)}
+}
 </style></head>
 <body data-pictau-home-design="5"><a href="#page-main" class="skip" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
 <header class="topbar"><a class="brand home-logo" href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home"><picture><source media="(max-width: 680px)" srcset="./branding/pictau-logo-le-fil-mobile.svg"><img class="pictau-brand-img" src="./branding/pictau-logo-le-fil.svg" alt="" width="760" height="116" decoding="async"></picture></a><nav aria-label="Navigation principale" data-fr-aria="Navigation principale" data-en-aria="Main navigation"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button><a class="signin login-link" href="./app/" data-fr="Connexion" data-en="Sign in" data-fr-aria="Se connecter à mon espace Pict-au" data-en-aria="Sign in to my Pict-au space">Connexion</a></nav></header>
