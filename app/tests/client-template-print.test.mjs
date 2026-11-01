@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {namedTemplatePrintSettings,loadConfirmedPrintSettings} from "../src/client-template-print.js";
+import {namedTemplatePrintSettings,loadConfirmedPrintSettings,applyClientBorderPreference} from "../src/client-template-print.js";
 import {planPreparedPdf} from "../src/print-pdf.js";
 
 const UID="00000000-0000-4000-8000-000000000002";
@@ -108,4 +108,35 @@ test("Les valeurs de rotation hors bornes sont refusées par le générateur",()
     kind:"board",columns:1,title:"Pomme",preset:{...preset,rotationDeg},widthCm}),
     /Gabarit PDF invalide/);
  }
+});
+
+test("Le client peut retirer et recolorer le contour du PDF sans changer le modèle publié",()=>{
+ const settings=namedTemplatePrintSettings(t);
+ const plain=applyClientBorderPreference(settings,{colored:false,borderColor:"#CC4422"});
+ assert.equal(plain.preset.colored,false);
+ assert.equal(plain.preset.color,"#cc4422");
+ assert.equal(settings.preset.colored,true);
+ assert.equal(settings.preset.color,"#4775a9");
+ assert.equal(t.border_color,"#4775a9");
+ const base=applyClientBorderPreference(settings);
+ assert.deepEqual(base,settings);
+ const restored=applyClientBorderPreference(settings,{colored:true,borderColor:"#607A6F"});
+ const item={fr:"Pomme",en:"Apple",image:"<svg xmlns='http://www.w3.org/2000/svg'></svg>"};
+ const without=planPreparedPdf({items:[item],kind:"board",columns:1,title:"Pomme",
+   preset:plain.preset,widthCm:settings.widthCm,paper:"letter"});
+ const withBorder=planPreparedPdf({items:[item],kind:"board",columns:1,title:"Pomme",
+   preset:restored.preset,widthCm:settings.widthCm,paper:"letter"});
+ assert.equal(without.totalWidthMm,50);
+ assert.equal(withBorder.totalWidthMm,52.4);
+ assert.equal(withBorder.preset.color,"#607a6f");
+ assert.equal(withBorder.preset.rotationDeg,20,"La rotation approuvée reste intacte");
+ assert.equal(withBorder.pages.length,1);
+});
+test("Les choix de contour malformés ne peuvent modifier le PDF",()=>{
+ const settings=namedTemplatePrintSettings(t);
+ for(const input of [{colored:"false"},{colored:0},{colored:undefined,borderColor:"red"},
+   {borderColor:"transparent"},{borderColor:"#FFFFFF;url(x)"},{borderColor:""}]){
+   assert.throws(()=>applyClientBorderPreference(settings,input),/invalide/);
+ }
+ assert.throws(()=>applyClientBorderPreference(null,{}),/invalide/);
 });
