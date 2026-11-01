@@ -124,8 +124,9 @@ export const CLIENT_BORDER_PALETTE=Object.freeze([
 ]);
 export function renderClientPictoTemplateOptions({
  pictoName="",templates=[],fr=true,selectedId=null,artworkUrl=null,busy=false,
- borderEnabled=null,borderColor=null
+ borderEnabled=null,borderColor=null,paper="letter"
 }={}){
+ if(!["letter","a4"].includes(paper))throw Error("Format de papier invalide.");
  ensureList(templates);
  if(templates.some(t=>t.is_published!==true))
    throw Error("Un gabarit non publié ne peut apparaître dans la fiche client.");
@@ -173,9 +174,21 @@ export function renderClientPictoTemplateOptions({
            (fr?"Sans contour initial":"No default border"))+'</small></label>';
      }).join("")+'</div>')+
    borderControls+
-   (templates.length?'<button type="button" class="btn btn-primary" data-action="client-template-print"'+
-     (!selectedId||busy?" disabled":"")+'>'+escapeHtml(fr?
-       (busy?"Préparation du PDF…":"Créer le PDF de ce pictogramme"):
-       (busy?"Preparing PDF…":"Create this pictogram PDF"))+'</button>':"")+
+   (templates.length?'<div class="pa-template-print-controls">'+
+     '<label for="pa-client-template-paper">'+escapeHtml(fr?"Format du papier":"Paper size")+'</label>'+
+     '<select id="pa-client-template-paper" data-input="client-template-paper"'+
+       (busy?" disabled":"")+'>'+
+       '<option value="letter"'+(paper==="letter"?" selected":"")+'>'+
+         escapeHtml(fr?"Lettre (8,5 × 11 po)":"Letter (8.5 × 11 in)")+'</option>'+
+       '<option value="a4"'+(paper==="a4"?" selected":"")+'>A4 (210 × 297 mm)</option>'+
+     '</select>'+
+     '<p class="pa-template-print-note">'+escapeHtml(fr?
+       "Le format du papier ne change pas les dimensions réelles du pictogramme.":
+       "Paper size does not change the pictogram’s actual dimensions.")+'</p>'+
+     '<button type="button" class="btn btn-primary" data-action="client-template-print"'+
+       (!selectedId||busy?" disabled":"")+'>'+escapeHtml(fr?
+         (busy?"Préparation du PDF…":"Créer le PDF de ce pictogramme"):
+         (busy?"Preparing PDF…":"Create this pictogram PDF"))+'</button>'+
+     '</div>':"")+
    '</section>';
 }

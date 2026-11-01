@@ -660,7 +660,7 @@ const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
   dirty:false,error:"",message:"",request:0};
 const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
-  borderEnabled:null,borderColor:null,loading:false,busy:false,error:"",request:0};
+  borderEnabled:null,borderColor:null,paper:"letter",loading:false,busy:false,error:"",request:0};
 function resetAdminTemplateChoices(){
   ++adminTemplateChoices.request;
   Object.assign(adminTemplateChoices,{assetId:null,available:[],selected:[],confirmed:[],
@@ -670,7 +670,7 @@ function resetAdminTemplateChoices(){
 function resetClientPictoTemplates(){
   ++clientPictoTemplates.request;
   Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
-    borderEnabled:null,borderColor:null,loading:false,busy:false,error:""});
+    borderEnabled:null,borderColor:null,paper:"letter",loading:false,busy:false,error:""});
 }
 function closeClientPictoTemplateChoices(){
   const id=clientPictoTemplates.pictoId;
@@ -734,7 +734,7 @@ function renderClientPictoTemplateModal(){
       +esc(fr?"Actualiser les gabarits":"Refresh templates")+'</button></div>':"")
     +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
        templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,
-       borderEnabled:f.borderEnabled,borderColor:f.borderColor,
+       borderEnabled:f.borderEnabled,borderColor:f.borderColor,paper:f.paper,
        artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
     +'</section></div>';
 }
@@ -2190,6 +2190,7 @@ function render(){
     .includes(templateActive?.dataset?.input)?templateActive.dataset.input:null;
   const templateFocusedColor=templateActive?.dataset?.action==="client-template-border-swatch"?
     templateActive.dataset.color:null;
+  const templatePaperFocused=templateActive?.dataset?.input==="client-template-paper";
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
@@ -2228,7 +2229,7 @@ function render(){
   if(templateDialog){
     const radio=templateFocusedId?[...templateDialog.querySelectorAll('[data-input="client-template-select"]')]
       .find(el=>el.value===templateFocusedId):null;
-    const focused=radio||
+    const focused=((typeof templatePaperFocused!=="undefined"&&templatePaperFocused)?templateDialog.querySelector("#pa-client-template-paper"):null)||radio||
       ((typeof templateFocusedInput!=="undefined"&&templateFocusedInput)?templateDialog.querySelector('[data-input="'+templateFocusedInput+'"]'):null)||
       ((typeof templateFocusedColor!=="undefined"&&templateFocusedColor)?templateDialog.querySelector('[data-action="client-template-border-swatch"][data-color="'+templateFocusedColor+'"]'):null);
     (focused||templateDialog.querySelector('[data-action="client-template-close"]'))
@@ -2324,7 +2325,7 @@ root.addEventListener("keydown",function(event){
       event.preventDefault();closeClientPictoTemplateChoices();return;
     }
     if(event.key==="Tab"){
-      const controls=[...templateDialog.querySelectorAll('button:not([disabled]),input:not([disabled])')];
+      const controls=[...templateDialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled])')];
       if(!controls.length)return;
       const first=controls[0],last=controls.at(-1);
       if(!templateDialog.contains(document.activeElement)){
@@ -3593,10 +3594,10 @@ root.addEventListener("click",function(event){
        pdfExportBusy||pendingGeneratedPdf)return;
     const id=clientPictoTemplates.pictoId,chosenId=clientPictoTemplates.selectedId,
       uid=authStatus.user.id,ticket=clientPictoTemplates.request,
-      printLanguage=state.language,
+      printLanguage=state.language,printPaper=clientPictoTemplates.paper,
       borderPreference={colored:clientPictoTemplates.borderEnabled,
         borderColor:clientPictoTemplates.borderColor};
-    if(!id||!chosenId||state.page!=="library"||
+    if(!id||!chosenId||!["letter","a4"].includes(printPaper)||state.page!=="library"||
        !clientPictoTemplates.items.some(row=>row.id===chosenId&&row.is_published)||
        !publishedCatalog.items.some(row=>row.id===id))return;
     const current=()=>authStatus.user?.id===uid&&
@@ -3624,7 +3625,7 @@ root.addEventListener("click",function(event){
           items:[{fr:row.title_fr,en:row.title_en||row.title_fr,pngBlob}],
           kind:"board",columns:1,widthCm:settings.widthCm,
           preset:applyClientBorderPreference(settings,borderPreference).preset,
-          paper:"letter",language:printLanguage,title
+          paper:printPaper,language:printLanguage,title
         });
         if(!current())return;
         pdfRecoveryError="";
@@ -4292,6 +4293,13 @@ root.addEventListener("change",function(event){
     adminTemplateChoices.dirty=true;
     adminTemplateChoices.message="";
     render();
+    return;
+  }
+  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-paper"){
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!clientPictoTemplates.pictoId||
+       clientPictoTemplates.busy||clientPictoTemplates.loading)return;
+    if(["letter","a4"].includes(event.target.value))
+      clientPictoTemplates.paper=event.target.value;
     return;
   }
   if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-select"){
