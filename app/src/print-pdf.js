@@ -45,10 +45,16 @@ function dimensions(paper){
 export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",columns=3,separatorMode="simple",language="fr",title}){
   validTitle(title);
   if(!Array.isArray(items)||!items.length||items.length>16)throw Error("Sélection PDF invalide.");
-  if(!validatePreset(preset))throw Error("Gabarit PDF invalide.");
+  if(!validatePreset(preset)||
+     (preset.rotationDeg!==undefined&&
+       (typeof preset.rotationDeg!=="number"||!Number.isFinite(preset.rotationDeg)||
+         Math.abs(preset.rotationDeg)>180)))
+    throw Error("Gabarit PDF invalide.");
   if(!["routine","board"].includes(kind))throw Error("Type PDF non pris en charge.");
   if(kind==="routine"&&(items.length<2||items.length>10))throw Error("Une routine contient 2 à 10 pictogrammes.");
-  if(kind==="board"&&![2,3,4].includes(columns))throw Error("Nombre de colonnes invalide.");
+  // Une impression issue d'une fiche pictogramme comporte une seule case.
+  // L'éditeur de tableaux conserve ses propres choix 2, 3 et 4 colonnes.
+  if(kind==="board"&&![1,2,3,4].includes(columns))throw Error("Nombre de colonnes invalide.");
   if(!["simple","double"].includes(separatorMode))throw Error("Séparation invalide.");
   safeWidth(widthCm);
   if(!["fr","en"].includes(language))throw Error("Langue PDF invalide.");
@@ -58,10 +64,11 @@ export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",column
   const w=widthCm*10,h=heightCm*10;
   const cols=kind==="routine"?items.length:columns;
   const gap=kind==="routine"?separatorMm*(separatorMode==="double"?2:1):GAP_BOARD_MM;
-  const edge=kind==="routine"?separatorMm:0;
+  const edge=kind==="routine"||kind==="board"&&columns===1&&preset.colored?
+    separatorMm:0;
   const totalW=cols*w+(cols-1)*gap+edge*2;
   if(totalW>pageW-20+1e-6)throw Error("La composition dépasse la largeur imprimable : aucune réduction automatique.");
-  const rowHeight=h+(kind==="routine"?edge*2:0);
+  const rowHeight=h+edge*2;
   const usableH=pageH-42; // titre et marges physiques, en mm
   if(rowHeight>usableH)throw Error("Une case dépasse la hauteur imprimable.");
   const rows=[];
@@ -211,14 +218,31 @@ function renderCell(ctx,item,img,x,y,plan){
     throw Error("Le libellé « "+label+" » dépasse son cadre; choisissez une case plus large.");
   ctx.fillText(label,x+w/2,innerY+(band-stroke)/2);
   const settings=normalizeArtSettings(preset);
+  // Tourner le dessin noir recadré autour de SON centre, sans changer le
+  // cadre imprimé. Les dimensions calculées correspondent à l'encre tournée.
+  const radians=(preset.rotationDeg||0)*Math.PI/180;
+  const c=Math.abs(Math.cos(radians)),sin=Math.abs(Math.sin(radians));
+  const rotatedWidth=img.inkWidth*c+img.inkHeight*sin;
+  const rotatedHeight=img.inkWidth*sin+img.inkHeight*c;
   const placement=computeArtworkBox({
     innerWidth:w-2*stroke,innerHeight:h-2*stroke,
-    upperHeight:h-2*stroke-band,inkWidth:img.inkWidth,inkHeight:img.inkHeight,
+    upperHeight:h-2*stroke-band,inkWidth:rotatedWidth,inkHeight:rotatedHeight,
     percent:settings.percent,shape:preset.shape,center:settings.center
   });
   if(placement.collides)throw Error("Le dessin dépasse la zone illustrée; ajustez son centrage.");
-  ctx.drawImage(img.image,x+stroke+placement.left,y+stroke+placement.top,
-    placement.width,placement.height);
+  if(!radians){
+    ctx.drawImage(img.image,x+stroke+placement.left,y+stroke+placement.top,
+      placement.width,placement.height);
+  }else{
+    ctx.save();
+    ctx.translate(x+stroke+placement.left+placement.width/2,
+      y+stroke+placement.top+placement.height/2);
+    ctx.rotate(radians);
+    ctx.drawImage(img.image,-img.inkWidth*placement.scale/2,
+      -img.inkHeight*placement.scale/2,
+      img.inkWidth*placement.scale,img.inkHeight*placement.scale);
+    ctx.restore();
+  }
 }
 async function canvasPage(plan,rows,pageIndex,artwork,dpi){
   const canvas=document.createElement("canvas");
@@ -234,7 +258,7 @@ async function canvasPage(plan,rows,pageIndex,artwork,dpi){
   let y=28;
   for(const row of rows){
     let x=(plan.pageW-plan.totalWidthMm)/2+plan.edgeMm;
-    if(plan.kind==="routine"&&plan.preset.colored){
+    if(plan.edgeMm>0&&plan.preset.colored){
       ctx.fillStyle=plan.preset.color;
       ctx.fillRect(x-plan.edgeMm,y-plan.edgeMm,plan.totalWidthMm,plan.heightMm+plan.edgeMm*2);
     }
