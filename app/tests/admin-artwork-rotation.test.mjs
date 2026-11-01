@@ -1,8 +1,10 @@
+import {DEFAULT_PRESET,scaleMetrics} from "../src/core.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
- validateArtworkRotation,rotatedInkCanvasGeometry,makeRotatedPrivatePng
+ validateArtworkRotation,rotatedInkCanvasGeometry,makeRotatedPrivatePng,
+ privateInkPreviewVariants,renderPrivateInkComparison
 } from "../src/admin-artwork-rotation.js";
 
 const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
@@ -84,4 +86,78 @@ test("L'éditeur agit sur un nouveau brouillon après confirmation explicite, ja
  assert.match(branch,/adjustBusy=true/);
  assert.match(branch,/privatePreview\.request===ticket/);
  assert.match(moduleSource,/export async function makeRotatedPrivatePng/);
+});
+
+test("Comparateur du vrai PNG : carré coloré, sans contour, portrait, même encre",()=>{
+ const original={...DEFAULT_PRESET};
+ const variants=privateInkPreviewVariants(original);
+ assert.deepEqual(variants.map(v=>v.key),["square-color","square-plain","portrait-color"]);
+ assert.deepEqual(variants.map(v=>v.shape),["square","square","portrait"]);
+ assert.deepEqual(variants.map(v=>v.colored),[true,false,true]);
+ assert.ok(variants.every(v=>v.widthCm===5));
+ assert.deepEqual(original,DEFAULT_PRESET,"Le gabarit courant ne doit jamais changer");
+ for(const v of variants){
+  assert.notEqual(v.preset,original);
+  assert.equal(v.preset.shape,v.shape);
+  assert.equal(v.preset.colored,v.colored);
+ }
+ variants[0].preset.bandMm=18;
+ assert.equal(DEFAULT_PRESET.bandMm,12);
+ assert.throws(()=>privateInkPreviewVariants({shape:"triangle"}),/invalides/);
+});
+test("Trois rendus FR/EN du même vrai dessin avec rotation et mesures fidèles",()=>{
+ const calls=[];
+ const render=({fr=true,rotationDeg=35,asset={title_fr:"Pomme",title_en:"Apple"},inkUrl="blob:https://local.example/123"}={})=>
+  renderPrivateInkComparison({
+   asset,inkUrl,fr,rotationDeg,preset:DEFAULT_PRESET,
+   scaleMetrics,fmtRaw:n=>Number(n).toFixed(3),
+   customPicto:(item,preset,width)=>{
+    calls.push({item,preset,width});
+    return '<div class="picto" data-shape="'+preset.shape+'" data-border="'+preset.colored+'">'+item.image+'</div>';
+   }
+  });
+ const fr=render();
+ assert.equal(calls.length,3);
+ assert.equal((fr.match(/data-private-preview=/g)||[]).length,3);
+ assert.equal((fr.match(/data-admin-ink-preview/g)||[]).length,3);
+ assert.equal((fr.match(/rotate\(35deg\)/g)||[]).length,3);
+ assert.match(fr,/Carré · contour coloré/);
+ assert.match(fr,/Carré · sans contour coloré/);
+ assert.match(fr,/Portrait · contour coloré/);
+ assert.match(fr,/height:6\.750cm/);
+ assert.match(fr,/height:5\.000cm/);
+ assert.match(fr,/class="color-shell no-color"/);
+ assert.equal(calls[0].item,calls[1].item,"Les trois cartes sont le même dessin réel");
+ assert.deepEqual(calls.map(c=>c.width),[5,5,5]);
+ assert.equal(calls[2].preset.shape,"portrait");
+ const en=render({fr:false,rotationDeg:-90});
+ assert.match(en,/Square · no colored border/);
+ assert.match(en,/Portrait · colored border/);
+ assert.equal((en.match(/rotate\(-90deg\)/g)||[]).length,3);
+});
+test("Comparer des PNG privés ne permet ni URL dangereuse ni texte HTML injecté",()=>{
+ let called=0;
+ const args={
+  asset:{title_fr:"<img src=x onerror=alert(1)>"},
+  inkUrl:"blob:https://local.example/123",rotationDeg:0,preset:DEFAULT_PRESET,
+  customPicto:(item)=>{called++;return '<div class="picto">'+item.image+'</div>';},
+  scaleMetrics,fmtRaw:n=>Number(n).toFixed(3)
+ };
+ const html=renderPrivateInkComparison(args);
+ assert.equal(called,3);
+ assert.doesNotMatch(html,/<img src=x onerror/);
+ assert.match(html,/data-admin-ink-preview/);
+ for(const invalid of [{inkUrl:"https://example.com/image.png"},{rotationDeg:45.5},
+    {asset:null},{preset:{...DEFAULT_PRESET,shape:"evil"}}]){
+  assert.throws(()=>renderPrivateInkComparison({...args,...invalid}),/invalide|indisponible/i);
+ }
+});
+test("Le curseur met à jour TOUS les aperçus privés, sans publier ni créer de gabarit",()=>{
+ assert.match(app,/renderPrivateInkComparison\(\{/);
+ assert.match(app,/privatePreview\.inkUrl,rotationDeg:privatePreview\.rotationDeg/);
+ assert.match(app,/for\(const ink of root\.querySelectorAll\("\[data-admin-ink-preview\]"\)\)/);
+ const block=app.slice(app.indexOf('const privateInkCard='),app.indexOf('const adminTemplatePanel=',app.indexOf('const privateInkCard=')));
+ assert.match(block,/data-input="admin-art-rotation"/);
+ assert.match(block,/data-action="admin-art-rotation-save"/);
+ assert.doesNotMatch(block,/\.upsert\(|\.update\(|setAdminTemplatePublication\(/);
 });
