@@ -44,3 +44,7 @@
 /* La grille d'inscription a son propre padding-top historique (6/14 px).
    L'en-tête partagé doit commencer à la même coordonnée y que l'accueil. */
 .signup-page{padding-top:0}
+
+/* Les barres de défilement de l'inscription réduisent son conteneur de 15px.
+   Aligner le bord droit sur le viewport comme la vraie page d'accueil. */
+@media(min-width:751px){.signup-header[data-pa-universal-header]{width:min(92vw,1386px)}}
