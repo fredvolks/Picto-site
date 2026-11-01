@@ -1463,7 +1463,7 @@ function adminRange(key,label,value,min,max,step,unit){
 
 function renderRoleChecking(){
   const fr=state.language==="fr";
-  return '<section class="hosted-access" aria-label="'+esc(fr?'Vérification des accès':'Access verification')+'">'
+  return '<section class="hosted-access" aria-label="'+esc(fr?'Vérification des accès':'Access verification')+'">'+universalHeader("hosted-access-header",true)
     +'<div class="hosted-access-main"><div class="hosted-access-panel"><span class="hosted-access-eyebrow">PICT-AU</span>'
     +'<h1>'+esc(fr?'Vérification des accès':'Checking access')+'</h1>'
     +'<p role="status">'+esc(authStatus.roleError|| (fr?'Vérification sécurisée de votre rôle…':'Securely checking your role…'))+'</p>'
@@ -1563,6 +1563,24 @@ function clientNavItems(){
     ["account",fr?"Mon compte":"My account","settings"]
   ];
 }
+function universalBrand(){
+  return '<a class="pa-universal-logo-link" href="../index.html" aria-label="Pict-au — '+esc(state.language==="fr"?"Accueil":"Home")+'">'
+    +'<picture><source media="(max-width: 680px)" srcset="../branding/pictau-logo-le-fil-mobile.svg">'
+    +'<img class="pictau-brand-img" src="../branding/pictau-logo-le-fil.svg" alt="" width="760" height="116" decoding="async"></picture></a>';
+}
+function universalControls(authenticated=false){
+  const fr=state.language==="fr";
+  const language='<div class="lang-switch" role="group" aria-label="'+esc(fr?'Langue':'Language')+'">'
+    +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
+    +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>';
+  const destination=authenticated
+    ?'<button type="button" class="pa-universal-account" data-action="nav" data-page="account">'+esc(fr?'Mon compte':'My account')+'</button>'
+    :'<span class="pa-universal-current" aria-current="page">'+esc(fr?'Connexion':'Sign in')+'</span>';
+  return '<nav class="pa-universal-controls" aria-label="'+esc(fr?'Navigation principale':'Main navigation')+'">'+language+destination+'</nav>';
+}
+function universalHeader(extraClass,authenticated=false){
+  return '<header class="'+extraClass+'" data-pa-universal-header>'+universalBrand()+universalControls(authenticated)+'</header>';
+}
 function renderClientWorkspace(content){
   const fr=state.language==="fr";
   const items=clientNavItems();
@@ -1574,13 +1592,9 @@ function renderClientWorkspace(content){
   };
   return '<div class="pa-client-workspace">'
     +'<a class="skip" href="#pa-client-main">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
-    +'<header class="pa-client-header"><button class="pa-client-brand" type="button" data-action="nav" data-page="home" aria-label="Pict-au, '+esc(fr?'accueil':'home')+'">Pict-<span>a</span>u</button>'
-    +'<nav class="pa-client-desktop-nav" aria-label="'+esc(fr?'Navigation de mon espace':'My space navigation')+'">'
+    +universalHeader("pa-client-header",true)
+    +'<nav class="pa-client-desktop-nav pa-client-secondary-nav" aria-label="'+esc(fr?'Navigation de mon espace':'My space navigation')+'">'
     +items.map(x=>action(x,"pa-client-nav-link")).join("")+'</nav>'
-    +'<div class="pa-client-tools"><button class="pa-client-header-search" type="button" data-action="client-search" aria-label="'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'">'+icon("search")+'</button><div class="lang-switch" role="group" aria-label="Language">'
-    +'<button class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
-    +'<button class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
-    +'</div></header>'
     +'<main class="pa-client-main" id="pa-client-main">'
     +((pendingGeneratedPdf&&!["routines","boards"].includes(state.page))?renderPdfRecovery({
       pending:pendingGeneratedPdf,uid:authStatus.user?.id,
@@ -1893,7 +1907,7 @@ function renderClientAccount(){
 }
 function renderNewPassword(){
   const fr=state.language==="fr";
-  return '<section class="hosted-access"><div class="hosted-access-main"><div class="hosted-access-panel">'
+  return '<section class="hosted-access">'+universalHeader("hosted-access-header",true)+'<div class="hosted-access-main">'<div class="hosted-access-panel">'
    +'<span class="hosted-access-eyebrow">PICT-AU · '+esc(fr?'SÉCURITÉ':'SECURITY')+'</span>'
    +'<h1>'+esc(fr?'Choisir un nouveau mot de passe':'Choose a new password')+'</h1>'
    +'<p>'+esc(fr?'Votre lien de récupération a été reconnu. Choisissez un nouveau mot de passe.':'Your recovery link was recognized. Choose a new password.')+'</p>'
@@ -1912,12 +1926,7 @@ function renderHostedAccess(){
   const fr=state.language==="fr",forgot=authStatus.emailView==="forgot";
   const busy=authStatus.emailBusy||authStatus.working;
   const t=(frText,enText)=>esc(fr?frText:enText);
-  const side='<header class="hosted-access-header"><a class="hosted-access-brand" href="../index.html" aria-label="Pict-au — Accueil">'
-    +'<picture><source media="(max-width:680px)" srcset="../branding/pictau-logo-le-fil-wordmark.svg">'
-    +'<img class="pictau-brand-img" src="../branding/pictau-logo-le-fil.svg" width="760" height="116" alt="Pict-au" decoding="async"></picture></a>'
-    +'<nav class="lang-switch" aria-label="'+t('Choisir la langue','Choose language')+'">'
-    +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
-    +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></nav></header>';
+  const side=universalHeader("hosted-access-header",false);
   const art='<div class="hosted-e-tiles" aria-label="'+t('Trouver, Personnaliser, Imprimer','Find, Personalize, Print')+'">'
     +HOSTED_LOGIN_PICTOS.map(item=>'<div class="hosted-e-tile"><div class="hosted-e-art">'+item.svg+'</div><div class="hosted-e-tile-label">'+esc(fr?item.fr:item.en)+'</div></div>').join('')+'</div>';
   const email='<label for="auth-email">'+t('Adresse courriel','Email address')+'</label>'
