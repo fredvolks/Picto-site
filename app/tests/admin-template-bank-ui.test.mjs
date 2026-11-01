@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {renderAdminNamedTemplateBank} from "../src/admin-template-bank-ui.js";
+import {renderAdminNamedTemplateBank,confirmPublishedNamedTemplateEdit} from "../src/admin-template-bank-ui.js";
 const ID="00000000-0000-4000-8000-000000000123";
 const row={id:ID,name:"Routine école",revision:3,is_published:false};
 test("Le vrai Super Admin peut créer plusieurs gabarits nommés sans publication automatique",()=>{
@@ -20,7 +20,9 @@ test("Dépublier un gabarit est un choix distinct de la sauvegarde des paramètr
    selectedId:ID,name:row.name,fr:false});
  assert.match(html,/Hide from clients/);
  assert.match(html,/data-publish="false"/);
- assert.match(html,/Save changes/);
+ assert.match(html,/Update published template/);
+ assert.match(html,/This template is published/);
+ assert.match(html,/role="note"/);
 });
 test("Les champs et noms de gabarits sont échappés",()=>{
  const html=renderAdminNamedTemplateBank({templates:[{...row,name:"<script>x</script>"}],
@@ -75,4 +77,44 @@ test("Chargement et écriture désactivent les duplications concurrentes",()=>{
     const html=renderAdminNamedTemplateBank({templates:[row],busy,loading:!busy});
     assert.match(html,/data-action="admin-named-template-duplicate"[^>]*disabled/);
   }
+});
+
+test("Aucune modification publiée sans confirmation explicite; brouillon sans dialogue",()=>{
+ const draft={...row,is_published:false};
+ let prompts=0;
+ assert.equal(confirmPublishedNamedTemplateEdit(draft,true,()=>{prompts++;return true;}),true);
+ assert.equal(prompts,0);
+ assert.throws(()=>confirmPublishedNamedTemplateEdit({...row,is_published:true}),/Confirmation explicite/);
+ const published={...row,is_published:true};
+ assert.equal(confirmPublishedNamedTemplateEdit(published,true,message=>{
+   prompts++;
+   assert.match(message,/immédiatement/);
+   assert.match(message,/Dupliquer/);
+   assert.match(message,/PDF déjà archivés restent inchangés/);
+   return false;
+ }),false);
+ assert.equal(confirmPublishedNamedTemplateEdit(published,false,message=>{
+   prompts++;
+   assert.match(message,/already published/);
+   assert.match(message,/Duplicate/);
+   assert.match(message,/archived PDFs remain unchanged/);
+   return true;
+ }),true);
+ assert.equal(prompts,2);
+ assert.equal(confirmPublishedNamedTemplateEdit(published,true,()=>undefined),false,
+   "Une réponse ambigüe ne doit jamais accepter la publication");
+});
+
+test("Avertissement visible uniquement pour le gabarit actif déjà publié",()=>{
+ const pub={...row,is_published:true};
+ const on=renderAdminNamedTemplateBank({templates:[pub],selectedId:ID,name:pub.name});
+ assert.match(on,/Ce gabarit est publié/);
+ assert.match(on,/Mettre à jour le gabarit publié/);
+ assert.match(on,/Dupliquer/);
+ const other=renderAdminNamedTemplateBank({templates:[pub],selectedId:null});
+ assert.doesNotMatch(other,/Ce gabarit est publié/);
+ assert.doesNotMatch(other,/Mettre à jour le gabarit publié/);
+ const draft=renderAdminNamedTemplateBank({templates:[row],selectedId:ID,name:row.name});
+ assert.doesNotMatch(draft,/Ce gabarit est publié/);
+ assert.match(draft,/Enregistrer les modifications/);
 });
