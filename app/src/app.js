@@ -10,6 +10,7 @@ import {editPrivateDraftMetadata} from "./admin-draft-edit.js";
 import {assessDraftQuality} from "./admin-quality.js";
 import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
 import {loadPrivateAdminPreview} from "./admin-preview.js";
+import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
@@ -583,6 +584,7 @@ const privateBank={allowed:false,loading:false,items:[],error:"",request:0,total
 let bankQueryTimer=null;
 const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",request:0};
+const privateProof={busy:false,error:"",message:"",request:0};
 const bankFilters={query:"",status:"all",theme:"all",sort:"recent"};
 const themeUI={items:[],links:{},error:"",message:"",assetId:null,editCode:"",
  form:{code:"",fr:"",en:""},edit:{fr:"",en:""},
@@ -724,6 +726,7 @@ function exportDraftProposal(){
   render();
 }
 function clearAdminPreview(){
+  privateProof.request++;privateProof.busy=false;privateProof.error="";privateProof.message="";
   privatePreview.request++;
   if(privatePreview.url)URL.revokeObjectURL(privatePreview.url);
   if(privatePreview.inkUrl)URL.revokeObjectURL(privatePreview.inkUrl);
@@ -1259,6 +1262,20 @@ function renderAdmin(){
       +'<p>'+esc(fr?"Le rognage ignore les marges claires ou transparentes. Copie temporaire dans ce navigateur : source originale intacte, aucune publication.":"Cropping ignores light or transparent margins. Temporary browser copy only: original unchanged and never published.")+'</p>'
       +'</div>';
   })();
+  const privateProofControls=chosen&&chosen.status==="draft"&&privatePreview.asset?.id===chosen.id&&
+    privatePreview.technical&&!privatePreview.loading?
+      '<div class="admin-private-proof">'
+      +'<p>'+esc(fr?
+        "Épreuve PDF privée, une image de 5 cm sur papier Lettre. Vérifiez le rendu avant d’approuver. Le brouillon reste privé et le PDF n’est pas archivé.":
+        "Private PDF proof, one 5 cm image on Letter paper. Check the print before approval. The draft remains private and the PDF is not archived.")+'</p>'
+      +'<button type="button" class="btn btn-light" data-action="download-admin-proof"'
+      +(privateProof.busy||publishedCatalog.publishing?' disabled':'')+'>'
+      +icon("file-text","btn-icon")+esc(privateProof.busy?
+        (fr?"Création de l’épreuve…":"Creating proof…"):
+        (fr?"Télécharger l’épreuve PDF privée":"Download private PDF proof"))+'</button>'
+      +(privateProof.error?'<p role="alert" class="admin-import-alert">'+esc(privateProof.error)+'</p>':
+        privateProof.message?'<p role="status" class="admin-import-success">'+esc(privateProof.message)+'</p>':"")
+      +'</div>':"";
   const privatePreviewBody=!chosen?"":'<section class="admin-private-preview" role="region" aria-label="'+esc(fr?"Aperçu du pictogramme privé":"Private pictogram preview")+'">'
     +'<div class="admin-preview-heading"><div><h3>'+esc(chosenLabel||"—")+'</h3><p>'+esc(fr?"Source privée; non publiée par cet aperçu.":"Private source; viewing it does not publish it.")+'</p></div>'
     +'<button type="button" class="btn btn-quiet btn-small" data-action="close-admin-preview">'+icon("close","btn-icon")+esc(fr?"Fermer":"Close")+'</button></div>'
@@ -1274,7 +1291,7 @@ function renderAdmin(){
     "Informations techniques seulement : qualité graphique et publication à valider manuellement.":
     "Technical information only: artwork quality and publishing still require human review.")+'</p>':"")
     +(privatePreview.inkError?'<p class="admin-import-alert" role="status">'+esc(fr?"Aperçu d'encre indisponible : ":"Ink preview unavailable: ")+esc(privatePreview.inkError)+'</p>':"")
-    +privateInkCard+reviewHtml
+    +privateInkCard+reviewHtml+privateProofControls
     +(publishedCatalog.publishError?'<p role="alert" class="admin-import-alert">'+esc(publishedCatalog.publishError)+'</p>':'')
     +(publishedCatalog.publishMessage?'<p role="status" class="admin-import-success">'+esc(publishedCatalog.publishMessage)+'</p>':'')
     +(privatePreview.asset&&privatePreview.technical&&chosen.status==="draft"
@@ -3145,6 +3162,44 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
   if(a==="close-admin-preview"){clearAdminPreview();render();return;}
+  if(a==="download-admin-proof"){
+    if(!canOpenAdmin()||!authStatus.user||privateProof.busy||
+       publishedCatalog.publishing||privatePreview.loading||!privatePreview.technical||
+       !privatePreview.asset||privatePreview.asset.status!=="draft"||
+       !privateBank.items.some(x=>x.id===privatePreview.asset.id&&x.status==="draft"))return;
+    const uid=authStatus.user.id,assetId=privatePreview.asset.id,
+      ticket=++privateProof.request,language=state.language;
+    privateProof.busy=true;privateProof.error="";privateProof.message="";render();
+    void (async()=>{
+      try{
+        const client=await supabaseClient();
+        const blob=await createPrivateDraftProof(client,uid,assetId,{
+          language,preset:{...state.currentPreset}
+        });
+        if(ticket!==privateProof.request||authStatus.user?.id!==uid||
+           !canOpenAdmin()||state.page!=="admin"||
+           privatePreview.asset?.id!==assetId)return;
+        const base=String(privatePreview.asset.title_fr||"picto").normalize("NFD")
+          .replace(/[\u0300-\u036f]/g,"").toLowerCase()
+          .replace(/[^a-z0-9_-]+/g,"-").slice(0,52)||"pictau";
+        const url=URL.createObjectURL(blob),link=document.createElement("a");
+        link.href=url;link.download="epreuve-privee-"+base+".pdf";
+        document.body.appendChild(link);link.click();link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),3000);
+        privateProof.message=language==="fr"?
+          "Épreuve PDF téléchargée localement. Aucune publication ou archive créée.":
+          "Private proof downloaded locally. Nothing published or archived.";
+      }catch(error){
+        if(ticket===privateProof.request&&authStatus.user?.id===uid)
+          privateProof.error=String(error?.message||error);
+      }finally{
+        if(ticket===privateProof.request){
+          privateProof.busy=false;
+          if(authStatus.user?.id===uid)render();
+        }
+      }
+    })();return;
+  }
   if(a==="download-admin-preview"){
     if(!canOpenAdmin()||!privatePreview.url||!privatePreview.asset)return;
     const file=document.createElement("a");
