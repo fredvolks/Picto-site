@@ -1404,6 +1404,12 @@ function renderAdmin(){
       +'<button class="admin-feature-action" data-action="admin-tab" data-tab="templates">'+icon("settings")+esc(sectionNames.toolGabarit)+' '+icon("arrow","btn-icon")+'</button></section></div>'+info;
   }else if(state.adminTab==="bank"){
     body=importForm+'<section class="admin-surface"><div class="admin-surface-head"><div><h2>'+esc(sectionNames.bankTitle)+'</h2><p>'+esc(sectionNames.bankSub)+'</p></div>'+draftReviewAction+'<button type="button" class="btn btn-light" data-action="refresh-admin-bank"'+(privateBank.loading?" disabled":"")+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
+      +(!privatePreview.id&&publishedCatalog.publishMessage?
+        '<div class="admin-publish-confirmation" role="status" aria-live="polite">'
+        +'<p>'+esc(publishedCatalog.publishMessage)+'</p>'
+        +'<button type="button" class="btn btn-light btn-small" data-action="admin-view-published">'
+        +icon("check","btn-icon")+esc(fr?'Voir les pictogrammes publiés':'View published pictograms')
+        +'</button></div>':"")
       +(privateBank.error?'<p role="alert">'+esc(fr?"Impossible de lire la banque privée.":"Unable to load private bank.")+'</p>':"")
       +filters+bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
@@ -2928,6 +2934,17 @@ root.addEventListener("click",function(event){
     bankFilters.sort="recent";privateBank.page=0;
     state.page="admin";state.adminTab="bank";state.adminMenuOpen=false;
     state.toast="";render();
+    queueAdminBankRefresh();
+    return;
+  }
+  if(a==="admin-view-published"){
+    if(!canOpenAdmin()||!authStatus.user||publishedCatalog.publishing)return;
+    clearTimeout(bankQueryTimer);bankQueryTimer=null;
+    clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
+    bankFilters.query="";bankFilters.status="published";bankFilters.theme="all";
+    bankFilters.sort="recent";privateBank.page=0;
+    publishedCatalog.publishMessage="";publishedCatalog.publishError="";
+    state.page="admin";state.adminTab="bank";render();
     queueAdminBankRefresh();
     return;
   }
