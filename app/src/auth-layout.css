@@ -40,8 +40,8 @@
  }
  .hosted-access-v5 .hosted-e-layout{
    width:100%;
-   max-width:calc(2 * var(--pa-auth-card-width) + var(--pa-auth-column-gap));
-   grid-template-columns:repeat(2,minmax(0,var(--pa-auth-card-width)));
+   max-width:calc(var(--pa-auth-card-width) + var(--pa-auth-card-width) + var(--pa-auth-column-gap));
+   grid-template-columns:repeat(2,minmax(0,1fr));
    justify-content:center;
    align-items:center;
    gap:var(--pa-auth-column-gap);
