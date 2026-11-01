@@ -198,7 +198,7 @@ test("Design 5 inscription : formulaire accessible sur PC, tablette et mobile",(
  assert.match(plan,/grid-template-columns:minmax\(0,1\.08fr\) minmax\(0,\.92fr\)/);
  assert.match(plan,/\.signup-page\{width:min\(100% - 40px,760px\);display:flex;flex-direction:column/);
  assert.match(plan,/prefers-reduced-motion:reduce/);
- assert.doesNotMatch(plan,/overflow\s*:\s*hidden/);
+ assert.doesNotMatch(plan,/(?:html|body|\\.signup-page)\\{[^}]*overflow(?:-y)?\\s*:\\s*hidden/,"Page must allow scrolling when zoomed; pictogram framing may clip its art");
  assert.match(plan,/for\(const element of document\.querySelectorAll\("\[data-fr-aria\]\[data-en-aria\]"\)\)/);
 });
 
