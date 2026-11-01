@@ -5,6 +5,15 @@ import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEma
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
 import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication} from "./admin-template-bank.js";
 import {renderAdminNamedTemplateBank} from "./admin-template-bank-ui.js";
+import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
+import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
+import {assessDraftQuality} from "./admin-quality.js";
+import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
+import {loadPrivateAdminPreview} from "./admin-preview.js";
+import {inspectPngBlob} from "./admin-review.js";
+import {createLocalInkCrop} from "./png-ink.js";
+import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
+import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
 import {importPrivateDraft,validateDraftMetadata} from "./admin-import.js";
@@ -38,6 +47,26 @@ const PUBLIC_DEMO = false;
 // Le site GitHub Pages officiel conserve l’unique accueil commercial à sa racine.
 // Dans /app/, entrer directement dans la bibliothèque sans dupliquer cet accueil.
 const SITE_EMBEDDED = Boolean(document.querySelector('meta[name="pictau-site-app"]'));
+let TEMPLATE_CHOICES_RELEASED=false,templateChoicesProbe=0;
+async function probeTemplateChoices(client,uid){
+  const ticket=++templateChoicesProbe;
+  try{
+    for(const name of ["pictau_templates","pictau_picto_template_drafts",
+        "pictau_picto_template_choices","pictau_picto_template_confirmations"]){
+      const q=await client.from(name).select(name==="pictau_templates"?"id":"catalog_id").limit(0);
+      if(q.error)throw q.error;
+    }
+    const check=await client.auth.getUser();
+    if(check.error||check.data?.user?.id!==uid)throw Error("Session modifiée.");
+    if(ticket!==templateChoicesProbe||authStatus.user?.id!==uid)return;
+    if(!TEMPLATE_CHOICES_RELEASED){TEMPLATE_CHOICES_RELEASED=true;render();}
+  }catch{
+    if(ticket!==templateChoicesProbe||authStatus.user?.id!==uid)return;
+    if(TEMPLATE_CHOICES_RELEASED){TEMPLATE_CHOICES_RELEASED=false;render();}
+  }
+}
+// L’édition des fiches s’active seulement si le serveur confirme la
+// présence de la migration de protection. Sinon : proposition JSON locale.
 // Sauvegarde verrouillée : la politique SQL proposée est encore EN REVUE.
 const DRAFT_METADATA_WRITES_ENABLED = false;
 import {DEFAULT_PRESET, THEMES, clampWidth, scaleMetrics, labelFor, searchCatalog, addToRoutine, moveRoutine, routineFitsPaper, validatePreset} from "./core.js";
@@ -633,6 +662,148 @@ let bankQueryTimer=null;
 const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
+const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
+  revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
+  dirty:false,error:"",message:"",request:0};
+const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
+  loading:false,error:"",request:0};
+function resetAdminTemplateChoices(){
+  ++adminTemplateChoices.request;
+  Object.assign(adminTemplateChoices,{assetId:null,available:[],selected:[],confirmed:[],
+    revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
+    dirty:false,error:"",message:""});
+}
+function resetClientPictoTemplates(){
+  ++clientPictoTemplates.request;
+  Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
+    loading:false,error:""});
+}
+async function openAdminTemplateChoices(assetId){
+  if(!TEMPLATE_CHOICES_RELEASED||!canOpenAdmin()||!authStatus.user||
+     !privateBank.items.some(row=>row.id===assetId&&row.status==="published"))return;
+  resetAdminTemplateChoices();
+  const uid=authStatus.user.id,ticket=++adminTemplateChoices.request;
+  adminTemplateChoices.assetId=assetId;adminTemplateChoices.loading=true;render();
+  try{
+    const client=await supabaseClient();
+    const [all,picker]=await Promise.all([
+      listAdminNamedTemplates(client,uid),
+      getAdminPictoTemplateChoices(client,uid,assetId)
+    ]);
+    if(ticket!==adminTemplateChoices.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    Object.assign(adminTemplateChoices,{
+      available:all.filter(t=>t.is_published),selected:picker.selected,
+      confirmed:picker.confirmed,revision:picker.revision,
+      confirmedRevision:picker.confirmedRevision,loaded:true,dirty:false
+    });
+  }catch(error){
+    if(ticket===adminTemplateChoices.request)adminTemplateChoices.error=String(error?.message||error);
+  }finally{
+    if(ticket===adminTemplateChoices.request){adminTemplateChoices.loading=false;render();}
+  }
+}
+async function openClientPictoTemplateChoices(id){
+  if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+  const item=publishedCatalog.items.find(row=>row.id===id);
+  if(!item)return;
+  resetClientPictoTemplates();
+  const uid=authStatus.user.id,ticket=++clientPictoTemplates.request;
+  clientPictoTemplates.pictoId=id;
+  clientPictoTemplates.pictoName=state.language==="en"?(item.title_en||item.title_fr):item.title_fr;
+  clientPictoTemplates.loading=true;render();
+  try{
+    const client=await supabaseClient();
+    const rows=await listClientPictoTemplateChoices(client,uid,id);
+    if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||canOpenAdmin())return;
+    clientPictoTemplates.items=rows;
+  }catch(error){
+    if(ticket===clientPictoTemplates.request)clientPictoTemplates.error=String(error?.message||error);
+  }finally{
+    if(ticket===clientPictoTemplates.request){clientPictoTemplates.loading=false;render();}
+  }
+}
+function renderClientPictoTemplateModal(){
+  if(!TEMPLATE_CHOICES_RELEASED||!clientPictoTemplates.pictoId)return "";
+  const fr=state.language==="fr",f=clientPictoTemplates;
+  return '<div class="pa-template-modal-backdrop"><section class="admin-surface pa-template-dialog" role="dialog" aria-modal="true" aria-label="'+esc(fr?"Gabarits du pictogramme":"Pictogram templates")+'">'
+    +'<button type="button" data-action="client-template-close" class="btn btn-light">'+esc(fr?"Fermer":"Close")+'</button>'
+    +(f.loading?'<p role="status">'+esc(fr?"Chargement des gabarits confirmés…":"Loading confirmed templates…")+'</p>':"")
+    +(f.error?'<p role="alert">'+esc(f.error)+'</p>':"")
+    +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
+       templates:f.items,selectedId:f.selectedId,fr,
+       artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
+    +'</section></div>';
+}
+const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
+  loading:false,error:"",request:0};
+function resetAdminTemplateChoices(){
+  ++adminTemplateChoices.request;
+  Object.assign(adminTemplateChoices,{assetId:null,available:[],selected:[],confirmed:[],
+    revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
+    dirty:false,error:"",message:""});
+}
+function resetClientPictoTemplates(){
+  ++clientPictoTemplates.request;
+  Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
+    loading:false,error:""});
+}
+async function openAdminTemplateChoices(assetId){
+  if(!TEMPLATE_CHOICES_RELEASED||!canOpenAdmin()||!authStatus.user||
+     !privateBank.items.some(row=>row.id===assetId&&row.status==="published"))return;
+  resetAdminTemplateChoices();
+  const uid=authStatus.user.id,ticket=++adminTemplateChoices.request;
+  adminTemplateChoices.assetId=assetId;adminTemplateChoices.loading=true;render();
+  try{
+    const client=await supabaseClient();
+    const [all,picker]=await Promise.all([
+      listAdminNamedTemplates(client,uid),
+      getAdminPictoTemplateChoices(client,uid,assetId)
+    ]);
+    if(ticket!==adminTemplateChoices.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    Object.assign(adminTemplateChoices,{
+      available:all.filter(t=>t.is_published),selected:picker.selected,
+      confirmed:picker.confirmed,revision:picker.revision,
+      confirmedRevision:picker.confirmedRevision,loaded:true,dirty:false
+    });
+  }catch(error){
+    if(ticket===adminTemplateChoices.request)adminTemplateChoices.error=String(error?.message||error);
+  }finally{
+    if(ticket===adminTemplateChoices.request){adminTemplateChoices.loading=false;render();}
+  }
+}
+async function openClientPictoTemplateChoices(id){
+  if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+  const item=publishedCatalog.items.find(row=>row.id===id);
+  if(!item)return;
+  resetClientPictoTemplates();
+  const uid=authStatus.user.id,ticket=++clientPictoTemplates.request;
+  clientPictoTemplates.pictoId=id;
+  clientPictoTemplates.pictoName=state.language==="en"?(item.title_en||item.title_fr):item.title_fr;
+  clientPictoTemplates.loading=true;render();
+  try{
+    const client=await supabaseClient();
+    const rows=await listClientPictoTemplateChoices(client,uid,id);
+    if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||canOpenAdmin())return;
+    clientPictoTemplates.items=rows;
+  }catch(error){
+    if(ticket===clientPictoTemplates.request)clientPictoTemplates.error=String(error?.message||error);
+  }finally{
+    if(ticket===clientPictoTemplates.request){clientPictoTemplates.loading=false;render();}
+  }
+}
+function renderClientPictoTemplateModal(){
+  if(!TEMPLATE_CHOICES_RELEASED||!clientPictoTemplates.pictoId)return "";
+  const fr=state.language==="fr",f=clientPictoTemplates;
+  return '<div class="pa-template-modal-backdrop"><section class="admin-surface pa-template-dialog" role="dialog" aria-modal="true" aria-label="'+esc(fr?"Gabarits du pictogramme":"Pictogram templates")+'">'
+    +'<button type="button" data-action="client-template-close" class="btn btn-light">'+esc(fr?"Fermer":"Close")+'</button>'
+    +(f.loading?'<p role="status">'+esc(fr?"Chargement des gabarits confirmés…":"Loading confirmed templates…")+'</p>':"")
+    +(f.error?'<p role="alert">'+esc(f.error)+'</p>':"")
+    +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
+       templates:f.items,selectedId:f.selectedId,fr,
+       artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
+    +'</section></div>';
+}
+
 const bankFilters={query:"",status:"all",theme:"all",sort:"recent"};
 const themeUI={items:[],links:{},error:"",message:"",assetId:null,editCode:"",
  form:{code:"",fr:"",en:""},edit:{fr:"",en:""},
@@ -774,6 +945,7 @@ function exportDraftProposal(){
   render();
 }
 function clearAdminPreview(){
+  resetAdminTemplateChoices();
   privateProof.request++;privateProof.busy=false;privateProof.error="";privateProof.message="";
   privatePreview.request++;
   if(privatePreview.url)URL.revokeObjectURL(privatePreview.url);
@@ -808,7 +980,8 @@ async function openAdminPreview(assetId){
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
 function resetPrivateBank(){
-  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();
+  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();resetClientPictoTemplates();
+  templateChoicesProbe++;TEMPLATE_CHOICES_RELEASED=false;
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -824,6 +997,7 @@ async function refreshPrivateBank(client,userId){
     const result=await readAdminBankAvailablePage(client,userId,{...bankFilters,page:privateBank.page});
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
+    if(SITE_EMBEDDED&&authStatus.user?.id===userId)void probeTemplateChoices(client,userId);
     authStatus.roleReady=true;authStatus.roleError="";
     if(SITE_EMBEDDED&&!captionFeature.loading&&!captionFeature.loaded)
       void fetchCaptionFeature();
