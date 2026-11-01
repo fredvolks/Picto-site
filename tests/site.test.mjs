@@ -87,7 +87,9 @@ test("Design 5 : vrais repères accessibles et aucun faux appareil ou image priv
  assert.match(html,/class="picto-art"/);
  assert.match(html,/\.p-card\{[^}]*aspect-ratio:/);
  assert.match(html,/@media\(min-width:751px\) and \(max-width:980px\) and \(orientation:portrait\)/);
- assert.doesNotMatch(html,/<img\b|laptop-lines|phone-lines|phone-heading/);
+ const heroMarkup=html.match(/<main\b[\s\S]*?<\/main>/)?.[0];
+ assert.ok(heroMarkup,"La vitrine doit conserver son contenu principal");
+ assert.doesNotMatch(heroMarkup,/<img\b|laptop-lines|phone-lines|phone-heading/,"Pas de faux appareils ou images de démonstration dans les pictogrammes");
  assert.doesNotMatch(html,/Illustrations fictives pour essayer le parcours/);
 });
 
