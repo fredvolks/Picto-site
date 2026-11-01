@@ -279,3 +279,5 @@
 .hosted-access-v5 .hosted-e-tile{
   padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;
 }
+.hosted-access-v5 .hosted-e-art,
+.hosted-access-v5 .hosted-e-tile-label{background:#fff}
