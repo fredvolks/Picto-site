@@ -210,3 +210,21 @@ test('accueil → inscription utilise exactement le même logo et les mêmes des
  assert.equal(pics(html).length,3);assert.deepEqual(pics(plan),pics(html));
  assert.match(plan,/\.signup-tiles \.picto-label\{[^}]*border-top:1\.8px solid #2c3834/);
 });
+
+
+test("logo Le Fil archivé et identique sur les en-têtes publics",()=>{
+  const full=read("branding/pictau-logo-le-fil.svg");
+  const compact=read("branding/pictau-logo-le-fil-wordmark.svg");
+  const pages=["index.html","forfait.html","connexion.html","contact.html","conditions.html","confidentialite.html"];
+  assert.match(full,/viewBox="116 103 760 116"/);
+  assert.match(full,/id="pictau-wordmark"/);
+  assert.match(compact,/id="pictau-wordmark"/);
+  assert.doesNotMatch(full,/font-family|Comic Sans|Patrick Hand/);
+  assert.doesNotMatch(compact,/font-family|Comic Sans|Patrick Hand/);
+  for(const name of pages){
+    const source=read(name);
+    assert.match(source,/src="\.\/branding\/pictau-logo-le-fil\.svg"/,name+" image du logo");
+    assert.match(source,/srcset="\.\/branding\/pictau-logo-le-fil-wordmark\.svg"/,name+" version mobile");
+    assert.match(source,/<picture><source media="\(max-width: 680px\)"/,name+" logo responsive");
+  }
+});
