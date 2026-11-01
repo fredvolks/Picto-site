@@ -1601,6 +1601,19 @@
     outline:3px solid #555;outline-offset:3px}
   .pa-catalog-bulk-choice:disabled{opacity:.5;cursor:not-allowed}
   .pa-catalog-bulk-review{margin-block:12px 18px}
+  .pa-catalog-ordered-selection{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:8px}
+  .pa-catalog-ordered-selection .pa-catalog-order-item{display:flex;align-items:center;justify-content:space-between;
+    gap:8px;min-width:0;max-width:none;padding:6px 8px;border-radius:12px;background:#fff;border:1px solid #d3d3d3}
+  .pa-catalog-choice-title{font-size:13px;font-weight:700;min-width:0;flex:1;overflow-wrap:anywhere}
+  .pa-catalog-choice-controls{display:flex;gap:3px;flex:none;align-items:center}
+  .pa-catalog-ordered-selection .pa-catalog-choice-controls button{
+    width:44px;height:44px;min-width:44px;min-height:44px;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;border:1px solid #aaa;
+    border-radius:10px;background:#fff;font-size:21px;line-height:1;color:#1d1d1d}
+  .pa-catalog-ordered-selection .pa-catalog-choice-controls button:disabled{opacity:.35;cursor:not-allowed}
+  .pa-catalog-ordered-selection .pa-catalog-choice-controls button:focus-visible{outline:3px solid #555;outline-offset:2px}
+
+
   .pa-catalog-bulk-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
   .pa-catalog-bulk-actions button{min-height:44px;white-space:normal}
   @media(max-width:599px){
