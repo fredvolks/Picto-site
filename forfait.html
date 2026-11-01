@@ -118,6 +118,69 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
  .signup-plan-benefits{gap:5px 10px}
  .signup-footer-links{gap:7px}
 }
+
+/* CONTRACT: the three cards are the same DOM/SVG and framing as index.html. */
+.signup-brand{font-size:clamp(23px,2.2vw,29px);font-weight:800;letter-spacing:-1.6px;white-space:nowrap}
+.signup-tiles{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:clamp(7px,1vw,15px);max-width:540px;min-width:0;padding:22px 14px}
+.signup-tiles::before{content:"";position:absolute;inset:4% 0;border-radius:45% 55% 53% 47% / 52% 44% 56% 48%;background:#e9eee5;transform:rotate(-4deg)}
+.signup-tiles .p-card{position:relative;z-index:1;min-width:0;aspect-ratio:.83;background:#fff;border:1px solid #dbe2dc;border-radius:16px;padding:8px;box-shadow:0 15px 26px #243c3020;transform-origin:center center}
+.signup-tiles .card-1{transform:translateY(-13px) rotate(-5deg)}
+.signup-tiles .card-2{transform:translateY(12px) rotate(3deg)}
+.signup-tiles .card-3{transform:translateY(-8px) rotate(-3deg)}
+.signup-tiles .picto{height:100%;width:100%;background:#fff;border:1.8px solid #2c3834;color:#273430;display:flex;flex-direction:column;overflow:hidden}
+.signup-tiles .picto-art{flex:1;min-height:0;display:grid;place-items:center}
+.signup-tiles .picto-art svg{height:65%;width:65%;max-height:105px;max-width:105px}
+.signup-tiles .picto-label{flex:none;border-top:1.8px solid #2c3834;text-align:center;font-weight:750;font-size:clamp(10px,.95vw,14px);padding:8px 2px;white-space:nowrap;letter-spacing:-.25px}
+@media(max-width:520px){
+ .signup-brand{font-size:23px}
+ .signup-tiles{width:100%;max-width:420px;padding:7px 5px;gap:clamp(5px,2vw,10px)}
+ .signup-tiles .p-card{aspect-ratio:auto;height:72px;padding:4px;border-radius:10px}
+ .signup-tiles .card-1{transform:translateY(-3px) rotate(-4deg)}
+ .signup-tiles .card-2{transform:translateY(3px) rotate(3deg)}
+ .signup-tiles .card-3{transform:translateY(-3px) rotate(-3deg)}
+ .signup-tiles .picto-label{font-size:clamp(8px,2.25vw,10px);padding:3px 0;white-space:nowrap;letter-spacing:-.3px;line-height:1.1}
+ .signup-tiles .picto-art svg{height:72%;width:72%}
+ .signup-page{width:calc(100% - 24px);min-height:100dvh;gap:8px;padding:7px 0 7px}
+ .signup-showcase{gap:8px}
+ .signup-eyebrow,.signup-intro>p:last-child,.signup-subtitle,.signup-plan-benefits,.signup-plan-note,.signup-existing{display:none}
+ .signup-intro h1{font-size:clamp(22px,6.6vw,29px);line-height:1.08;letter-spacing:-.045em;margin:0}
+ .signup-plan{padding:9px 13px;border-radius:12px}
+ .signup-plan-name{font-size:13px}
+ .signup-plan-badge{font-size:8px;padding:4px 7px}
+ .signup-plan-price{margin:3px 0 0;gap:5px}
+ .signup-plan-price strong{font-size:28px}
+ .signup-plan-price span{font-size:11px}
+ .signup-form-card{padding:12px 14px;border-radius:13px}
+ .signup-form-card h2{font-size:19px;margin:0 0 5px}
+ .signup-form{gap:5px}
+ .signup-field{gap:2px}
+ .signup-field label{font-size:11px;line-height:1.15}
+ .signup-field input{min-height:40px;padding:7px 10px;font-size:16px}
+ .signup-consent{font-size:10px;line-height:1.22;gap:7px;margin:2px 0 0}
+ .signup-consent input{width:18px;height:18px}
+ .signup-action{min-height:43px;padding:8px;font-size:12px;margin:0}
+ .signup-status{font-size:9px;line-height:1.2;margin:6px 0 0}
+ .signup-footer{display:none}
+}
+/* One usable mobile viewport at rest; zoom, virtual keyboards and small/landscape
+   viewports must still be allowed to scroll rather than clipping controls. */
+@media(max-width:520px) and (max-height:700px){
+ .signup-page{gap:4px;padding:4px 0}
+ .signup-header{min-height:40px}
+ .signup-showcase{gap:4px}
+ .signup-intro h1{font-size:clamp(20px,6.15vw,25px);line-height:1.05}
+ .signup-tiles{padding:4px 5px}
+ .signup-tiles .p-card{height:59px}
+ .signup-plan{padding:6px 10px}
+ .signup-plan-price strong{font-size:23px}
+ .signup-form-card{padding:8px 12px}
+ .signup-form-card h2{font-size:17px;margin-bottom:3px}
+ .signup-form{gap:3px}
+ .signup-field input{min-height:37px;padding:5px 9px}
+ .signup-consent{font-size:9px;line-height:1.16}
+ .signup-action{min-height:40px;font-size:12px}
+ .signup-status{font-size:8.5px;margin-top:3px}
+}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -125,7 +188,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
 <a href="#page-main" class="signup-skip" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
 <main id="page-main" class="signup-page">
  <header class="signup-header">
-  <a class="signup-brand" href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home">Pict-<span class="hand">a</span>u<span class="dot">.</span></a>
+  <a class="brand home-logo signup-brand" href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home">Pict-<span class="hand">a</span>u<span class="dot">.</span></a>
   <div class="signup-header-right">
    <div class="signup-languages" role="group" aria-label="Langue / Language">
     <button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button>
@@ -139,11 +202,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
    <h1 id="signup-title" data-fr="Créez et personnalisez vos repères visuels." data-en="Create and personalize your visual supports.">Créez et personnalisez vos repères visuels.</h1>
    <p data-fr="Des pictogrammes simples, des routines à votre image et des supports faciles à imprimer." data-en="Simple pictograms, visual routines made your way and supports ready to print.">Des pictogrammes simples, des routines à votre image et des supports faciles à imprimer.</p>
   </section>
-  <div class="signup-tiles" aria-label="Trouver, personnaliser et imprimer" data-fr-aria="Trouver, personnaliser et imprimer" data-en-aria="Find, personalize and print">
-   <div class="signup-tile"><div class="signup-tile-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="39" cy="39" r="23"/><path d="m56 56 21 21"/></svg></div><span class="signup-tile-label" data-fr="Trouver" data-en="Find">Trouver</span></div>
-   <div class="signup-tile"><div class="signup-tile-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect height="57" rx="5" width="61" x="14" y="16"/><path d="M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9"/></svg></div><span class="signup-tile-label" data-fr="Personnaliser" data-en="Personalize">Personnaliser</span></div>
-   <div class="signup-tile"><div class="signup-tile-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6"/></svg></div><span class="signup-tile-label" data-fr="Imprimer" data-en="Print">Imprimer</span></div>
-  </div>
+  <div class="signup-tiles" aria-label="Trouver, personnaliser et imprimer" data-fr-aria="Trouver, personnaliser et imprimer" data-en-aria="Find, personalize and print"><div class="p-card card-1"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="39" cy="39" r="23"/><path d="m56 56 21 21"/></svg></div><div class="picto-label" data-fr="Trouver" data-en="Find">Trouver</div></div></div><div class="p-card card-2"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect height="57" rx="5" width="61" x="14" y="16"/><path d="M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9"/></svg></div><div class="picto-label" data-fr="Personnaliser" data-en="Personalize">Personnaliser</div></div></div><div class="p-card card-3"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6"/></svg></div><div class="picto-label" data-fr="Imprimer" data-en="Print">Imprimer</div></div></div></div>
   <section class="signup-plan" aria-label="Forfait Pict-au / Pict-au plan">
    <div class="signup-plan-top"><strong class="signup-plan-name">Forfait Pict-au</strong><span class="signup-plan-badge" data-fr="MENSUEL" data-en="MONTHLY">MENSUEL</span></div>
    <div class="signup-plan-price"><strong>9,99 $</strong><span data-fr="CA / mois" data-en="CAD / month">CA / mois</span></div>
