@@ -171,6 +171,15 @@ try{
       assert.ok(p.docHeight<=viewport+1,"ONE mobile screen "+width+": "+JSON.stringify(p));
       assert.ok(p.visibleForm<=viewport+1,"Form visible without scrolling "+width+": "+JSON.stringify(p));
     }
+
+    // Critère visuel tiré du défaut Samsung : pas uniquement "pas de scroll".
+    if(width<=430&&width>=390){
+      const composition=await evaluate('const h=document.querySelector(".signup-header").getBoundingClientRect(),s=document.querySelector(".signup-showcase").getBoundingClientRect(),t=document.querySelector(".signup-tiles").getBoundingClientRect(),f=document.querySelector(".signup-form-card").getBoundingClientRect();return {header:h.bottom,showcase:s.top,tiles:t.height,form:f.bottom};');
+      const viewport=width===390?740:932;
+      assert.ok(composition.form>=viewport*.82,"La page est visuellement tassée en haut sur "+width+": "+JSON.stringify(composition));
+      assert.ok(composition.showcase-composition.header>=viewport*.035,"Le titre colle au logo sur "+width+": "+JSON.stringify(composition));
+      assert.ok(composition.tiles>=88,"Les pictogrammes mobiles sont trop petits sur "+width+": "+JSON.stringify(composition));
+    }
     assert.equal(await evaluate("return document.body.dataset.pictauSignupDesign"),"5","Approved signup Design 5");
     assert.deepEqual(await evaluate('return [...document.querySelectorAll(".picto-label")].map(el=>el.textContent.trim())'),["Trouver","Personnaliser","Imprimer"]);
     await evaluate("document.querySelector('[data-lang=en]').click();return true;");

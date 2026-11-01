@@ -181,6 +181,18 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
  .signup-action{min-height:40px;font-size:12px}
  .signup-status{font-size:8.5px;margin-top:3px}
 }
+/* Samsung/Android réel : éviter un petit bloc tassé au sommet avec une zone vide
+   en bas. Le contenu essentiel reste groupé au centre de l'espace disponible ;
+   les marges automatiques s'annulent si un petit écran doit défiler. */
+@media(max-width:520px){
+ .signup-showcase{margin-top:auto}
+ .signup-form-card{margin-bottom:auto}
+ .signup-tiles .p-card{height:92px}
+ .signup-tiles .picto-art svg{width:80%;height:80%}
+}
+@media(max-width:520px) and (max-height:700px){
+ .signup-tiles .p-card{height:70px}
+}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>

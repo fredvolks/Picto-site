@@ -24,7 +24,8 @@ jobs:
           node-version: '22'
       - name: Vérifier la syntaxe du test
         run: node --check tests/mobile-live.mjs
-      - name: Vérifier le vrai site hébergé dans Chromium
+      - name: Vérifier le vrai site hébergé dans Chromium (après publication)
+        if: github.event_name != 'pull_request'
         run: node tests/mobile-live.mjs
       - name: Conserver captures et rapport, même en échec
         if: always()
