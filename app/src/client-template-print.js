@@ -59,3 +59,24 @@ export function applyClientBorderPreference(settings,{colored=null,borderColor=n
  if(!validatePreset(preset))throw Error("Couleur de contour invalide.");
  return {...settings,preset};
 }
+
+// Imprimer plusieurs exemplaires identiques d'un pictogramme approuvé.
+// La composition est répartie automatiquement en colonnes par le moteur PDF.
+// Chaque exemplaire conserve son propre contour et sa taille physique réelle.
+export const MAX_CLIENT_PICTO_COPIES=12;
+export function validateClientPictoCopies(value){
+ if(typeof value!=="number"||!Number.isInteger(value)||value<1||
+    value>MAX_CLIENT_PICTO_COPIES)
+   throw Error("Nombre d'exemplaires invalide (1 à 12).");
+ return value;
+}
+export function repeatApprovedPictoForPrint(row,pngBlob,copies=1){
+ validateClientPictoCopies(copies);
+ if(!row||typeof row.title_fr!=="string"||!row.title_fr.trim()||
+    (row.title_en!==undefined&&row.title_en!==null&&
+     (typeof row.title_en!=="string"||!row.title_en.trim()))||
+    !(pngBlob instanceof Blob)||pngBlob.type!=="image/png")
+   throw Error("Pictogramme PNG approuvé invalide.");
+ const item=Object.freeze({fr:row.title_fr,en:row.title_en||row.title_fr,pngBlob});
+ return Array.from({length:copies},()=>item);
+}
