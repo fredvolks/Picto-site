@@ -1,3 +1,6 @@
+import {previewPhysicalCopySheet} from "./print-pdf.js";
+import {namedTemplatePrintSettings,applyClientBorderPreference} from "./client-template-print.js";
+
 // Affichage des gabarits pour un pictogramme : composants FR/EN sans accès réseau.
 // Le pilote doit brancher les actions à src/picto-template-choices.js UNIQUEMENT
 // après migration sur Supabase isolé + recette Auth, jamais sur la démo publique.
@@ -139,6 +142,37 @@ export function renderClientPictoTemplateOptions({
  const colored=selected?(borderEnabled??selected.colored):false;
  const edge=selected?(borderColor??selected.border_color):"#000000";
  const headingText=fr?"Choisir mon gabarit":"Choose my template";
+ // L'aperçu est un vrai calcul de géométrie, jamais une miniature PNG
+ // inventée. Il tient compte du gabarit, du contour personnel et du papier.
+ let layout=null;
+ if(selected){
+   try{
+     const settings=applyClientBorderPreference(namedTemplatePrintSettings(selected),{
+       colored,borderColor:edge
+     });
+     layout=previewPhysicalCopySheet({
+       widthCm:settings.widthCm,preset:settings.preset,paper,copies
+     });
+   }catch{ /* Gabarit incohérent : le PDF reste désactivé ci-dessous. */ }
+ }
+ const number=n=>Number(n).toLocaleString(fr?"fr-CA":"en-CA",{maximumFractionDigits:2});
+ const layoutPreview=!selected?"":layout?
+   '<section class="pa-client-sheet-preview" role="status" aria-live="polite" aria-label="'+
+     escapeHtml(fr?"Disposition des exemplaires":"Copy layout")+'">'+
+     '<div class="pa-client-sheet-diagram" aria-hidden="true" style="--pa-copy-columns:'+layout.columns+
+       ';--pa-copy-ratio:'+(selected.shape==="portrait"?"0.74074":"1")+'">'+
+       Array.from({length:layout.firstPageCopies},()=>'<span></span>').join("")+'</div>'+
+     '<div class="pa-client-sheet-summary"><strong>'+escapeHtml(fr?"Répartition automatique":"Automatic sheet layout")+'</strong>'+
+     '<p>'+layout.columns+' '+escapeHtml(fr?(layout.columns===1?"colonne":"colonnes"):(layout.columns===1?"column":"columns"))+
+       ' · '+layout.pages+' '+escapeHtml(fr?(layout.pages===1?"feuille":"feuilles"):(layout.pages===1?"sheet":"sheets"))+
+       ' · '+copies+' '+escapeHtml(fr?(copies===1?"exemplaire":"exemplaires"):(copies===1?"copy":"copies"))+'</p>'+
+     '<p>'+escapeHtml(fr?"Dimensions de chaque pictogramme : ":"Each pictogram measures: ")+
+       number(layout.widthMm)+' × '+number(layout.heightMm)+' mm</p>'+
+     '<small>'+escapeHtml(fr?"Schéma de placement seulement : le PNG et le rendu final sont préservés dans le PDF.":"Layout diagram only: the original PNG and final artwork are preserved in the PDF.")+'</small></div>'+
+   '</section>':
+   '<p role="alert" class="pa-template-print-error">'+escapeHtml(fr?
+     "Calcul de disposition indisponible : actualisez la fiche. Aucun PDF ne sera créé.":
+     "Layout calculation unavailable: refresh this item. No PDF will be created.")+'</p>';
  const swatches=CLIENT_BORDER_PALETTE.map(c=>
    '<button type="button" class="pa-client-border-swatch" data-action="client-template-border-swatch" data-color="'+c+
      '" aria-label="'+escapeHtml((fr?"Couleur du contour ":"Border color ")+c)+
@@ -194,8 +228,9 @@ export function renderClientPictoTemplateOptions({
      '<p class="pa-template-print-note">'+escapeHtml(fr?
        "Le format du papier ne change pas les dimensions réelles du pictogramme.":
        "Paper size does not change the pictogram’s actual dimensions.")+'</p>'+
+     layoutPreview+
      '<button type="button" class="btn btn-primary" data-action="client-template-print"'+
-       (!selectedId||busy?" disabled":"")+'>'+escapeHtml(fr?
+       (!selectedId||busy||!layout?" disabled":"")+'>'+escapeHtml(fr?
          (busy?"Préparation du PDF…":"Créer le PDF de ce pictogramme"):
          (busy?"Preparing PDF…":"Create this pictogram PDF"))+'</button>'+
      '</div>':"")+

@@ -1791,6 +1791,24 @@
 .pa-template-print-controls .btn{justify-self:start;max-width:100%;white-space:normal}
 @media(max-width:599px){.pa-template-print-controls select,.pa-template-print-controls .btn{width:100%;justify-self:stretch}}
 
+/* Fiche client : vrai aperçu de placement des copies avant génération PDF.
+   Le schéma montre des cases neutres, jamais un faux pictogramme approuvé. */
+.pa-client-sheet-preview{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;
+  padding:12px;border:1px solid #c4d6ca;border-radius:12px;background:#f7faf8;color:#294939}
+.pa-client-sheet-diagram{width:120px;min-height:154px;flex:0 0 120px;
+  display:grid;grid-template-columns:repeat(var(--pa-copy-columns),minmax(0,1fr));
+  grid-auto-rows:min-content;align-content:start;gap:3px;padding:11px 9px;
+  border:1px solid #a4b8ab;border-radius:4px;background:#fff;box-shadow:0 2px 6px #182d201a}
+.pa-client-sheet-diagram span{display:block;width:100%;aspect-ratio:var(--pa-copy-ratio);
+  border:1.5px solid #294939;border-radius:2px;background:#eef2ee}
+.pa-client-sheet-summary{flex:1 1 210px;min-width:0;font-size:.9rem;line-height:1.5}
+.pa-client-sheet-summary strong{display:block;font-weight:750}
+.pa-client-sheet-summary p{margin:4px 0}
+.pa-client-sheet-summary small{display:block;color:#53695b;line-height:1.45}
+.pa-template-print-error{color:#8b2632;font-weight:650}
+@media(max-width:420px){.pa-client-sheet-preview{gap:10px;padding:10px}
+  .pa-client-sheet-diagram{flex-basis:90px;width:90px;min-height:120px;padding:8px 6px}}
+
 /* Atelier privé : rotation non destructive de l'encre avant nouveau brouillon. */
 .admin-art-rotation{display:grid;gap:10px;margin:18px 0 0;padding:14px;border:1px solid #cbdad2;border-radius:12px;background:#f8faf8}
 .admin-art-rotation label{font-weight:700;color:#294939;font-size:14px}

@@ -57,6 +57,28 @@ export function fitPhysicalCopyColumns({widthCm,preset,paper="letter",copies=1}=
   const count=Math.floor((available+GAP_BOARD_MM)/(cellWidth+GAP_BOARD_MM));
   return Math.max(1,Math.min(4,copies,count));
 }
+// Prévisualisation de la disposition physique des exemplaires, sans PNG
+// fictif ni téléchargement. Partage les mêmes colonnes, marges, bordures et
+// hauteurs que planPreparedPdf : le client connaît le nombre de feuilles AVANT
+// l'export, sans jamais réduire la taille réelle de ses pictogrammes.
+export function previewPhysicalCopySheet({widthCm,preset,paper="letter",copies=1}={}){
+  const columns=fitPhysicalCopyColumns({widthCm,preset,paper,copies});
+  const [,pageH]=dimensions(paper);
+  const {heightCm,separatorMm}=scaleMetrics(preset,widthCm);
+  const cellHeight=heightCm*10+(preset.colored?separatorMm*2:0);
+  const usableH=pageH-42;
+  if(cellHeight>usableH)throw Error("Une case dépasse la hauteur imprimable.");
+  const rowsPerPage=Math.floor((usableH+GAP_BOARD_MM)/(cellHeight+GAP_BOARD_MM));
+  if(rowsPerPage<1)throw Error("Aucune rangée imprimable sur ce papier.");
+  const rows=Math.ceil(copies/columns);
+  return Object.freeze({
+    columns,rowsPerPage,
+    pages:Math.ceil(rows/rowsPerPage),
+    firstPageCopies:Math.min(copies,columns*rowsPerPage),
+    widthMm:widthCm*10,heightMm:heightCm*10
+  });
+}
+
 export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",columns=3,separatorMode="simple",language="fr",title,individualBorders=false}){
   validTitle(title);
   if(!Array.isArray(items)||!items.length||items.length>16)throw Error("Sélection PDF invalide.");
