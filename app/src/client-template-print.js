@@ -43,3 +43,19 @@ export async function loadConfirmedPrintSettings(client,uid,pictoId,templateId){
  if(!selected)throw Error("Ce gabarit n'est plus proposé. Actualisez la fiche.");
  return namedTemplatePrintSettings(selected);
 }
+
+// Le client personnalise UNIQUEMENT le contour du PDF privé. Les valeurs
+// du gabarit confirmé ne sont jamais mutées ni enregistrées côté Super Admin.
+export function applyClientBorderPreference(settings,{colored=null,borderColor=null}={}){
+ if(!settings||typeof settings!=="object"||!settings.preset||
+    typeof settings.preset.colored!=="boolean"||
+    (colored!==null&&typeof colored!=="boolean")||
+    (borderColor!==null&&!color(borderColor)))
+   throw Error("Choix de contour invalide.");
+ const preset={...settings.preset,
+   colored:colored===null?settings.preset.colored:colored,
+   color:borderColor===null?settings.preset.color:borderColor.toLowerCase()
+ };
+ if(!validatePreset(preset))throw Error("Couleur de contour invalide.");
+ return {...settings,preset};
+}
