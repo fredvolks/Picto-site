@@ -163,9 +163,15 @@ try{
     assert.equal(p.consent,false,"Consent is never prechecked");
     assert.equal(p.back,"./index.html","Valid navigation back");
     assert.ok(p.docWidth<=width+1,"Signup has no horizontal scroll");
-    assert.ok(p.docHeight<=(width===320?568:width===768?1024:900)+1,"Signup fits the mobile viewport at rest");
-    const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
-    await writeFile(join(screenshots,"forfait-"+width+"px.png"),Buffer.from(shot.data,"base64"));
+    assert.equal(await evaluate("return document.body.dataset.pictauSignupDesign"),"5","Approved signup Design 5");
+    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".signup-tile-label")].map(el=>el.textContent.trim())'),["Trouver","Personnaliser","Imprimer"]);
+    const reachable=await evaluate('window.scrollTo(0,document.documentElement.scrollHeight);const f=document.querySelector(".signup-footer").getBoundingClientRect();return {bottom:f.bottom,top:f.top,height:innerHeight,overflow:getComputedStyle(document.documentElement).overflowY};');
+    assert.notEqual(reachable.overflow,"hidden","Scrolling remains possible with keyboard/zoom");
+    assert.ok(reachable.top>=-1&&reachable.bottom<=reachable.height+2,
+      "Signup footer must be reachable by scrolling "+width+": "+JSON.stringify(reachable));
+    await evaluate("window.scrollTo(0,0);return true;");
+    const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:true,fromSurface:true});
+    await writeFile(join(screenshots,"forfait-design5-"+width+"px.png"),Buffer.from(shot.data,"base64"));
   }
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:640,mobile:true,deviceScaleFactor:1});
   await command("Page.navigate",{url:base+"/index.html"});
@@ -175,7 +181,7 @@ try{
   assert.ok(zoom.scroll>zoom.height,"Zoom: enlarged page extends beyond the viewport");
   assert.ok(zoom.position>0,"Zoom: user can actually scroll to the enlarged content");
   await evaluate("document.body.style.zoom='';return true;");
-  // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 3.
+  // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 5.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
   await command("Page.navigate",{url:base+"/app/index.html"});
   await waitFor("return !!document.querySelector('.hosted-signup a')");
@@ -186,7 +192,7 @@ try{
   const actualSignup=await evaluate("return {hasForm:!!document.querySelector('#signup-form'),price:document.querySelector('.signup-plan-price strong').textContent.trim()}");
   assert.equal(actualSignup.hasForm,true,"The account-creation form must be shown");
   assert.match(actualSignup.price,/9,99/);
-  console.log("PASS connexion vers inscription Design 3 sur mobile");
+  console.log("PASS connexion vers inscription Design 5 sur mobile");
   for(const name of ["connexion","contact","conditions","confidentialite"]){
     await command("Page.navigate",{url:base+"/"+name+".html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.info-surface')");
