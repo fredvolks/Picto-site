@@ -865,7 +865,7 @@ async function refreshGoogleUser(client){
     if(!verified){authStatus.roleReady=false;authStatus.roleError="";authStatus.recovery=false;resetPrivateBank();render();return;}
     if(previousId!==verified.id){authStatus.roleReady=false;authStatus.roleError="";resetPrivateBank();render();void refreshPrivateBank(client,verified.id);if(state.page==="files")void fetchClientFiles(client,verified.id);return;}
   }catch(error){
-    authStatus.user=null;authStatus.error=String(error.message||error);authStatus.ready=true;authStatus.roleReady=false;
+    authStatus.user=null;authStatus.error=(error?.name==="AuthSessionMissingError"||/auth session missing/i.test(String(error?.message||"")))?"":String(error.message||error);authStatus.ready=true;authStatus.roleReady=false;
     resetPrivateBank();
   }
   render();
@@ -1903,15 +1903,23 @@ function renderNewPassword(){
    +(authStatus.emailError?'<p role="alert" class="hosted-access-error">'+esc(authStatus.emailError)+'</p>':'')
    +'</div></div></section>';
 }
+const HOSTED_LOGIN_PICTOS=Object.freeze([
+  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"39\" cy=\"39\" r=\"23\"/><path d=\"m56 56 21 21\"/></svg>",fr:"Trouver",en:"Find"},
+  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><rect height=\"57\" rx=\"5\" width=\"61\" x=\"14\" y=\"16\"/><path d=\"M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9\"/></svg>",fr:"Personnaliser",en:"Personalize"},
+  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6\"/></svg>",fr:"Imprimer",en:"Print"}
+]);
 function renderHostedAccess(){
   const fr=state.language==="fr",forgot=authStatus.emailView==="forgot";
   const busy=authStatus.emailBusy||authStatus.working;
   const t=(frText,enText)=>esc(fr?frText:enText);
-  const side='<header class="hosted-access-header"><a class="hosted-access-brand" href="../index.html">'+brand()+'</a>'
-    +'<div class="lang-switch" role="group" aria-label="Language">'
+  const side='<header class="hosted-access-header"><a class="hosted-access-brand" href="../index.html" aria-label="Pict-au — Accueil">'
+    +'<picture><source media="(max-width:680px)" srcset="../branding/pictau-logo-le-fil-wordmark.svg">'
+    +'<img class="pictau-brand-img" src="../branding/pictau-logo-le-fil.svg" width="760" height="116" alt="Pict-au" decoding="async"></picture></a>'
+    +'<nav class="lang-switch" aria-label="'+t('Choisir la langue','Choose language')+'">'
     +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
-    +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div></header>';
-  const art='<div class="hosted-access-art" aria-hidden="true"><span>'+icon("routine")+'</span><span>'+icon("library")+'</span><span>'+icon("file-text")+'</span></div>';
+    +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></nav></header>';
+  const art='<div class="hosted-e-tiles" aria-label="'+t('Trouver, Personnaliser, Imprimer','Find, Personalize, Print')+'">'
+    +HOSTED_LOGIN_PICTOS.map(item=>'<div class="hosted-e-tile"><div class="hosted-e-art">'+item.svg+'</div><div class="hosted-e-tile-label">'+esc(fr?item.fr:item.en)+'</div></div>').join('')+'</div>';
   const email='<label for="auth-email">'+t('Adresse courriel','Email address')+'</label>'
     +'<input id="auth-email" name="email" type="email" maxlength="254" autocomplete="email" inputmode="email" required value="'+esc(authStatus.email)+'" placeholder="nom@exemple.com"'+(busy?' disabled':'')+'>';
   const feedback=(authStatus.emailError?'<p role="alert" class="hosted-access-error">'+esc(authStatus.emailError)+'</p>':'')
@@ -1923,7 +1931,7 @@ function renderHostedAccess(){
     +'<form class="hosted-email-form" data-form="email-reset">'+email
     +'<button class="hosted-access-submit" type="submit"'+(busy?' disabled':'')+'>'+t('Envoyer le lien','Send recovery link')+'</button></form>'
     +feedback+'<button type="button" class="hosted-access-link hosted-return-login" data-action="auth-back-login">'+t('← Retour à la connexion','← Back to sign in')+'</button>':
-    '<h1 id="hosted-access-title">'+t('Accéder à mon espace','Access my space')+'</h1>'
+    '<h1 id="hosted-access-title">'+t('Se connecter','Sign in')+'</h1>'
     +'<p class="hosted-access-intro">'+t('Connectez-vous avec votre courriel ou Google.','Sign in with your email or Google.')+'</p>'
     +'<form class="hosted-email-form" data-form="email-login">'+email
     +'<label for="auth-password">'+t('Mot de passe','Password')+'</label><div class="hosted-password-wrap">'
@@ -1934,12 +1942,21 @@ function renderHostedAccess(){
     +'<button class="hosted-access-submit" type="submit"'+(busy||!authStatus.ready?' disabled':'')+'>'+t('Se connecter','Sign in')+'</button></form>'
     +'<div class="hosted-auth-divider">'+t('ou','or')+'</div><div class="hosted-access-action">'+googleButton()+'</div>'
     +feedback+'<p class="hosted-signup">'+t('Pas encore de compte ?','New to Pict-au?')+' <a href="../forfait.html">'+t('Créer un compte','Create an account')+'</a></p>';
-  return '<section class="hosted-access hosted-access-v4" aria-labelledby="hosted-access-title">'+side
-    +'<main class="hosted-access-main">'+art +'<div class="hosted-access-welcome">'+
-    '<span class="hosted-access-eyebrow">'+t('ESPACE PERSONNEL','PERSONAL SPACE')+'</span><h2>'+t('Bonjour, bienvenue !','Hello, welcome!')+'</h2><p>'+t('Retrouvez vos routines, fichiers et pictogrammes.','Find your routines, files and pictograms.')+'</p></div>'
+  const introduction='<div class="hosted-e-intro">'
+    +'<span class="hosted-access-eyebrow">'+t('VOTRE ESPACE PERSONNEL','YOUR PERSONAL SPACE')+'</span>'
+    +'<h2>'+t('Votre espace','Your space')+' <em>Pict-au</em></h2>'
+    +'<p>'+t('Retrouvez vos pictogrammes, vos routines et vos supports personnalisés.','Find your pictograms, routines and personalized materials.')+'</p>'
+    +art+'</div>';
+  return '<section class="hosted-access hosted-access-v5" aria-labelledby="hosted-access-title">'+side
+    +'<main class="hosted-access-main"><div class="hosted-e-layout">'+introduction
     +'<div class="hosted-access-panel">'+content
     +(!authStatus.ready?'<p role="status" class="hosted-access-status">'+t('Vérification de la session…','Checking session…')+'</p>':'')
-    +'<a href="../index.html" class="hosted-access-back">'+t('← Retour à l’accueil Pict-au','← Back to Pict-au home')+'</a></div></main></section>';
+    +'<a href="../index.html" class="hosted-access-back">'+t('← Retour à l’accueil Pict-au','← Back to Pict-au home')+'</a>'
+    +'</div></div></main>'
+    +'<footer class="hosted-e-footer"><span>© Pict-au</span><nav aria-label="'+t('Liens utiles','Useful links')+'">'
+    +'<a href="../index.html">'+t('Accueil','Home')+'</a>'
+    +'<a href="../conditions.html">'+t('Conditions','Terms')+'</a>'
+    +'<a href="../confidentialite.html">'+t('Confidentialité','Privacy')+'</a></nav></footer></section>';
 }
 function renderHostedEmpty(){
   const fr=state.language==="fr";
