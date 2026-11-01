@@ -69,7 +69,8 @@ export async function listUsedPictograms(client,uid,filters={}){
   const r=await q.order("pictogram_id",{ascending:true})
     .range(f.page*USED_PAGE_SIZE,(f.page+1)*USED_PAGE_SIZE-1);
   if(r.error)throw r.error;
-  if(!Number.isSafeInteger(r.count)||r.count<0||!Array.isArray(r.data))
+  if(!Number.isSafeInteger(r.count)||r.count<0||!Array.isArray(r.data)||
+    r.data.length>USED_PAGE_SIZE||r.data.length>r.count)
     throw Error("Historique indisponible.");
   if(r.data.some(row=>row.owner_id!==uid||!UUID.test(row.pictogram_id||"")))
     throw Error("Historique privé invalide.");
@@ -94,9 +95,10 @@ export async function listUsedPictogramsAvailablePage(client,uid,filters={}){
     const last=lastUsedPictogramsPage(result.total);
     if(result.total===0)return {...result,page:0};
     if(page>last){page=last;continue;}
-    // Total > 0 mais page vide : publication retirée pendant la lecture.
-    // Relire au plus trois fois, sans annoncer un faux historique vide.
-    if(result.items.length>0)return {...result,page};
+    // Une page positive mais partielle peut venir d’une publication retirée.
+    // Relire jusqu’à trois fois, sans afficher une fausse liste complète.
+    const expected=Math.min(USED_PAGE_SIZE,result.total-page*USED_PAGE_SIZE);
+    if(result.items.length===expected)return {...result,page};
   }
   throw Error("L’historique a changé. Actualisez vos pictogrammes utilisés.");
 }
