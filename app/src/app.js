@@ -188,12 +188,12 @@ async function fetchCaptionFeature(){
     }
   }
 }
-const editableDrafts={items:[],total:0,page:0,loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
+const editableDrafts={items:[],total:0,page:0,kind:"all",query:"",loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
   openEpoch:{routine:0,board:0},current:{routine:null,board:null},dirty:{routine:false,board:false}};
 function resetEditableDrafts(){
   draftAutosave.reset();editableDrafts.sessionEpoch++;
   editableDrafts.openEpoch.routine++;editableDrafts.openEpoch.board++;
-  editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.loaded=false;
+  editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.kind="all";editableDrafts.query="";editableDrafts.loaded=false;
   editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.deletingKind=null;editableDrafts.copyKind=null;editableDrafts.error="";editableDrafts.message="";
   editableDrafts.current={routine:null,board:null};editableDrafts.dirty={routine:false,board:false};
 }
@@ -203,7 +203,7 @@ async function fetchEditableDrafts(){
   editableDrafts.loading=true;editableDrafts.error="";render();
   try{
     const client=await supabaseClient();
-    const result=await listEditableDraftsAvailablePage(client,uid,{page:editableDrafts.page});
+    const result=await listEditableDraftsAvailablePage(client,uid,{page:editableDrafts.page,kind:editableDrafts.kind,query:editableDrafts.query});
     if(token!==editableDrafts.request||authStatus.user?.id!==uid)return;
     editableDrafts.items=result.items;editableDrafts.total=result.total;editableDrafts.page=result.page;editableDrafts.loaded=true;
   }catch(error){
@@ -1744,15 +1744,32 @@ function renderClientCreate(){
    +'<p class="pa-client-context">'+esc(fr?'Choisissez un format. Les étapes utilisant des images nécessitent des pictogrammes officiels publiés.':'Choose a format. Image-based steps require published official pictograms.')+'</p>'
    +'<div class="pa-client-create-grid">'+items.map(([page,title,copy])=>'<button type="button" data-action="nav" data-page="'+page+'" class="pa-client-create-card">'
    +icon(page==="routines"?"routine":"library")+'<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
-   +'<p class="pa-client-context">'+esc(fr?'Vous possédez déjà un PDF ? Enregistrez-le dans Mes créations pour le retrouver et le réimprimer.':'Already have a PDF? Save it in My creations to find and reprint it later.')+'</p>'
-   +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button>'
+   +'<p class="pa-client-context">'+esc(fr?'Vous possédez déjà un PDF ? Enregistrez-le dans Mes fichiers pour le retrouver et le réimprimer.':'Already have a PDF? Save it in My files to find and reprint it later.')+'</p>'
+   +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes fichiers':'Open My files')+'</button>'
    +'<section class="pa-editable-drafts" aria-labelledby="pa-editable-drafts-title">'
    +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'ENREGISTRÉS DANS VOTRE COMPTE':'SAVED TO YOUR ACCOUNT')+'</span>'
    +'<h2 id="pa-editable-drafts-title">'+esc(fr?'Mes brouillons':'My drafts')+'</h2></div>'
    +'<button type="button" class="btn btn-light" data-action="draft-refresh"'+(editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Actualiser':'Refresh')+'</button></div>'
+   +'<form data-form="draft-filter" class="pa-drafts-filter" role="search">'
+   +'<div class="control"><label for="draft-query">'+esc(fr?'Rechercher un brouillon':'Search drafts')+'</label>'
+   +'<input id="draft-query" name="query" type="search" maxlength="80" value="'+esc(editableDrafts.query)+'"'
+   +' placeholder="'+esc(fr?'Ex. routine du soir':'E.g. evening routine')+'"'+(editableDrafts.busy?' disabled':'')+'></div>'
+   +'<div class="control"><label for="draft-kind">'+esc(fr?'Type de support':'Document type')+'</label>'
+   +'<select id="draft-kind" name="kind"'+(editableDrafts.busy?' disabled':'')+'>'
+   +[['all',fr?'Tous':'All'],['routine',fr?'Routines':'Routines'],['board',fr?'Tableaux':'Boards']]
+     .map(([value,text])=>'<option value="'+value+'"'+(editableDrafts.kind===value?' selected':'')+'>'+esc(text)+'</option>').join("")
+   +'</select></div><button class="btn btn-primary" type="submit"'+(editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'
+   +esc(fr?'Rechercher':'Search')+'</button>'
+   +'<button class="btn btn-light" type="button" data-action="draft-filter-reset"'
+   +(!editableDrafts.query&&editableDrafts.kind==='all'||editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'
+   +esc(fr?'Tout afficher':'Show all')+'</button></form>'
    +(editableDrafts.loading?'<p role="status">'+esc(fr?'Chargement des brouillons…':'Loading drafts…')+'</p>':
      editableDrafts.error?'<p role="alert">'+esc(editableDrafts.error)+'</p>':
-     !editableDrafts.items.length?'<p class="pa-client-context">'+esc(fr?'Aucun brouillon sauvegardé. Créez une routine ou un tableau, puis choisissez « Enregistrer le brouillon ».':'No drafts saved. Create a routine or board, then choose Save editable draft.')+'</p>':
+     !editableDrafts.items.length?'<p class="pa-client-context" role="status">'+esc(
+        editableDrafts.kind!=="all"||editableDrafts.query?
+          (fr?'Aucun brouillon ne correspond à votre recherche. Modifiez les filtres ou choisissez « Tout afficher ».':'No drafts match your search. Adjust the filters or choose Show all.'):
+          (fr?'Aucun brouillon sauvegardé. Créez une routine ou un tableau, puis choisissez « Enregistrer le brouillon ».':'No drafts saved. Create a routine or board, then choose Save editable draft.')
+       )+'</p>':
      '<ul class="pa-drafts-list">'+editableDrafts.items.map(doc=>'<li class="pa-drafts-row"><div><strong>'+esc(doc.title)+'</strong>'
        +'<small>'+esc(doc.kind==="routine"?(fr?'Routine':'Routine'):(fr?'Tableau':'Board'))+' · '+esc(fr?'Version ':'Version ')+doc.revision+'</small></div>'
        +'<div class="pa-drafts-actions"><button type="button" data-action="draft-open" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Modifier':'Edit')+'</button>'
@@ -2013,6 +2030,10 @@ root.addEventListener("click",function(event){
     void fetchEditableDrafts();return;
   }
   if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
+    void fetchEditableDrafts();return;
+  }
+  if(a==="draft-filter-reset"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.loading&&!editableDrafts.busy){
+    editableDrafts.kind="all";editableDrafts.query="";editableDrafts.page=0;
     void fetchEditableDrafts();return;
   }
   if(a==="draft-save"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy&&!officialComposer.busy){
@@ -2996,6 +3017,15 @@ root.addEventListener("input",function(event){
   if(event.target.dataset.field==="size"){state.widthCm=clampWidth(event.target.value);routineLive();}
 });
 root.addEventListener("submit",function(event){
+  if(event.target.matches('form[data-form="draft-filter"]')){
+    event.preventDefault();
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||editableDrafts.busy||editableDrafts.loading)return;
+    const data=new FormData(event.target);
+    editableDrafts.query=String(data.get("query")||"").trim();
+    editableDrafts.kind=String(data.get("kind")||"all");
+    editableDrafts.page=0;editableDrafts.message="";
+    void fetchEditableDrafts();return;
+  }
   if(event.target.matches('form[data-form="email-reset"]')){event.preventDefault();if(authStatus.emailBusy)return;const input=event.target.querySelector("#auth-email");if(!input?.reportValidity())return;authStatus.email=input.value.trim();authStatus.emailBusy=true;authStatus.emailError="";authStatus.emailMessage="";render();void sendPasswordReset(authStatus.email,window.location.href).then(()=>{authStatus.emailMessage=state.language==="fr"?"Si le compte existe et que l’envoi est autorisé, vérifiez votre courriel.":"If the account exists and sending is enabled, check your email.";}).catch(()=>{authStatus.emailError=state.language==="fr"?"Envoi impossible. Veuillez réessayer plus tard.":"Unable to send. Please try again later.";}).finally(()=>{authStatus.emailBusy=false;render();});return;}
   if(event.target.matches('form[data-form="email-login"]')){
     event.preventDefault();

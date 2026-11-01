@@ -1573,3 +1573,19 @@
 /* Connexion Design 4 : avertissement clavier physique, discret sur tous écrans. */
 .hosted-access-v4 .hosted-caps-hint{margin:0;color:#80521b;background:#fff6e3;border:1px solid #ebd9b0;border-radius:9px;padding:7px 10px;font-size:12px;line-height:1.4}
 .hosted-access-v4 .hosted-caps-hint[hidden]{display:none}
+
+/* Mes brouillons : recherche utilisable au clavier, au tactile et en format réduit. */
+.pa-drafts-filter{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto auto;
+  align-items:end;gap:12px;margin:18px 0}
+.pa-drafts-filter .control{min-width:0}
+.pa-drafts-filter label{display:block;margin-bottom:6px;font-size:14px;font-weight:600}
+.pa-drafts-filter input,.pa-drafts-filter select{width:100%;min-height:44px}
+.pa-drafts-filter>.btn{min-height:44px;white-space:nowrap}
+@media(max-width:900px){
+  .pa-drafts-filter{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  .pa-drafts-filter{grid-template-columns:minmax(0,1fr);gap:10px}
+  .pa-drafts-filter>.btn{width:100%}
+}
+@media print{.pa-drafts-filter{display:none!important}}

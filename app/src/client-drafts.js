@@ -66,14 +66,25 @@ export async function listEditableDrafts(client,uid){
   await authorized(client,uid);
   return (q.data||[]).map(row=>validateRow(row,uid));
 }
+// La recherche porte sur tous les brouillons privés, pas seulement sur la page affichée.
+export function normalizeEditableDraftFilters({page=0,kind="all",query=""}={}){
+  if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page de brouillons invalide.");
+  if(!["all","routine","board"].includes(kind))throw Error("Type de brouillons invalide.");
+  if(typeof query!=="string"||query.length>80||/[\p{C}]/u.test(query))
+    throw Error("Recherche de brouillons invalide.");
+  return {page,kind,query:query.trim()};
+}
 // La liste "Mes brouillons" ne doit pas masquer silencieusement le 31e fichier.
 // Chaque feuillet est lu avec la même authentification et la RLS propriétaire.
-export async function listEditableDraftsPage(client,uid,{page=0}={}){
-  if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page de brouillons invalide.");
+export async function listEditableDraftsPage(client,uid,filters={}){
+  const {page,kind,query}=normalizeEditableDraftFilters(filters);
   await authorized(client,uid);
-  const q=await client.from(EDITABLE_DRAFTS_TABLE)
-    .select(COLUMNS,{count:"exact"}).eq("owner_id",uid)
-    .order("updated_at",{ascending:false}).order("id",{ascending:true})
+  const selection=client.from(EDITABLE_DRAFTS_TABLE)
+    .select(COLUMNS,{count:"exact"}).eq("owner_id",uid);
+  if(kind!=="all")selection.eq("kind",kind);
+  // Échapper les jokers SQL : une recherche de % ou _ reste du texte littéral.
+  if(query)selection.ilike("title","%"+query.replace(/[\\%_]/g,"\\$&")+"%");
+  const q=await selection.order("updated_at",{ascending:false}).order("id",{ascending:true})
     .range(page*MAX_EDITABLE_DRAFTS,(page+1)*MAX_EDITABLE_DRAFTS-1);
   if(q.error)throw q.error;
   if(!Number.isSafeInteger(q.count)||q.count<0||!Array.isArray(q.data))
@@ -87,11 +98,10 @@ export async function listEditableDraftsPage(client,uid,{page=0}={}){
   return {items,total:q.count,page};
 }
 export async function listEditableDraftsAvailablePage(client,uid,filters={}){
-  let page=filters.page??0;
-  if(!Number.isSafeInteger(page)||page<0||page>100000)
-    throw Error("Page de brouillons invalide.");
+  const {kind,query,...selection}=normalizeEditableDraftFilters(filters);
+  let page=selection.page;
   for(let attempt=0;attempt<3;attempt++){
-    const result=await listEditableDraftsPage(client,uid,{page});
+    const result=await listEditableDraftsPage(client,uid,{page,kind,query});
     const last=Math.max(0,Math.ceil(result.total/MAX_EDITABLE_DRAFTS)-1);
     if(result.total===0)return {...result,page:0};
     if(page>last){page=last;continue;}
