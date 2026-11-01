@@ -159,6 +159,17 @@ function resetSingleApprovedAdd(){
  singleApprovedAdd.request++;singleApprovedAdd.busy=false;
  singleApprovedAdd.page=null;singleApprovedAdd.message="";singleApprovedAdd.error="";
 }
+// Passage direct de la bibliothèque au vrai compositeur, seulement APRÈS
+// revalidation des IDs approuvés par Supabase. Ne génère aucun PDF ni ne
+// remplace des sélections ou brouillons précédents.
+function openVerifiedCatalogBoard(){
+  clientNavigationEpoch++;
+  resetSingleApprovedAdd();
+  clearPdfReprintRetry();clearClientPreview();
+  state.page="boards";state.toast="";
+  render();
+  window.scrollTo({top:0,behavior:"instant"});
+}
 function renderSingleApprovedAddFeedback(page){
  if(singleApprovedAdd.page!==page)return "";
  if(singleApprovedAdd.error)return '<p class="pa-catalog-notice pa-single-add-notice" data-single-approval="error" role="alert">'+esc(singleApprovedAdd.error)+'</p>';
@@ -1653,7 +1664,10 @@ function renderClientLibrary(){
       +icon(selected?'check':'plus')+esc(selected?(fr?'Sélectionné':'Selected'):(fr?'Sélectionner':'Select'))+'</button>'
       +'<div class="pa-catalog-add">'
       +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?'Routine':'Routine')+'</button>'
-      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button></div></article>';
+      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button>'
+      +'<button type="button" class="pa-catalog-open-board" data-action="approved-open-board" data-kind="board" data-id="'+esc(item.id)+'"'
+      +(singleApprovedAdd.busy||officialComposer.busy||officialComposer.board.length>=16?' disabled':'')
+      +'>'+icon("arrow")+esc(fr?'Ajouter et ouvrir le tableau':'Add & open board')+'</button></div></article>';
   }).join("");
   const feedback=f.loading?'<p class="pa-catalog-notice" role="status">'+esc(fr?'Chargement de la bibliothèque officielle…':'Loading official library…')+'</p>':
     f.error?'<div class="pa-catalog-notice" role="alert"><p>'+esc(fr?'La bibliothèque est momentanément indisponible.':'The library is temporarily unavailable.')+'</p>'
@@ -1694,6 +1708,8 @@ function renderClientLibrary(){
     +(f.bulkBusy||officialComposer.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+esc(fr?'Ajouter à la routine':'Add to routine')+'</button>'
     +'<button type="button" class="btn btn-primary" data-action="catalog-bulk-add" data-kind="board"'
     +(f.bulkBusy||officialComposer.busy||officialComposer.board.length>=16?' disabled':'')+'>'+esc(fr?'Ajouter au tableau':'Add to board')+'</button>'
+    +'<button type="button" class="btn btn-light pa-catalog-open-board" data-action="catalog-bulk-open-board" data-kind="board"'
+    +(f.bulkBusy||singleApprovedAdd.busy||officialComposer.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("arrow")+esc(fr?'Ajouter et ouvrir le tableau':'Add & open board')+'</button>'
     +'<button type="button" class="btn btn-light" data-action="catalog-bulk-clear"'
     +(f.bulkBusy?' disabled':'')+'>'+esc(fr?'Effacer la sélection':'Clear selection')+'</button></div></section>':"";
   return '<section class="pa-client-catalog" aria-labelledby="pa-catalog-title">'
@@ -2418,10 +2434,10 @@ root.addEventListener("click",function(event){
     publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
     render();return;
   }
-  if(a==="catalog-bulk-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+  if((a==="catalog-bulk-add"||a==="catalog-bulk-open-board")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       state.page==="library"&&!publishedCatalog.bulkBusy&&!officialComposer.busy&&
       !editableDrafts.deletingKind&&!editableDrafts.copyKind){
-    const kind=el.dataset.kind;
+    const openBoard=a==="catalog-bulk-open-board",kind=openBoard?"board":el.dataset.kind;
     if(!["routine","board"].includes(kind)||!publishedCatalog.bulkSelected.size)return;
     const uid=authStatus.user.id,session=editableDrafts.sessionEpoch,
       selection=publishedCatalog.bulkSelected,before=officialComposer[kind],
@@ -2447,6 +2463,7 @@ root.addEventListener("click",function(event){
           markDraftChanged(kind);officialComposer.error="";
           const added=new Set(plan.ids);
           publishedCatalog.bulkSelected=new Map([...selection].filter(([id])=>!added.has(id)));
+          if(openBoard){openVerifiedCatalogBoard();return;}
         }
         const fr=state.language==="fr";
         publishedCatalog.bulkFeedback=result.added?
@@ -2468,11 +2485,13 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
-  if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+  if((a==="approved-add"||a==="approved-open-board")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       !singleApprovedAdd.busy&&!usedPictos.adding&&!officialComposer.busy&&
       !editableDrafts.deletingKind&&!editableDrafts.copyKind){
-    const kind=el.dataset.kind,page=state.page,id=el.dataset.id;
-    if(!["routine","board"].includes(kind)||!["library","used"].includes(page))return;
+    const openBoard=a==="approved-open-board",kind=openBoard?"board":el.dataset.kind,
+      page=state.page,id=el.dataset.id;
+    if(!["routine","board"].includes(kind)||!["library","used"].includes(page)||
+       (openBoard&&page!=="library"))return;
     const row=page==="library"?publishedCatalog.items.find(x=>x.id===id):
       usedPictos.items.map(approvedFromUsage).filter(Boolean).find(x=>x.id===id);
     if(!row)return;
@@ -2496,6 +2515,7 @@ root.addEventListener("click",function(event){
         if(!stillCurrent())return;
         officialComposer[kind]=selectApprovedItem(before,fresh,kind);
         markDraftChanged(kind);officialComposer.error="";
+        if(openBoard){openVerifiedCatalogBoard();return;}
         singleApprovedAdd.message=state.language==="fr"?
           (kind==="routine"?"Pictogramme ajouté à votre routine.":"Pictogramme ajouté à votre tableau.") :
           (kind==="routine"?"Pictogram added to your routine.":"Pictogram added to your board.");
