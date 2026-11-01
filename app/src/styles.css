@@ -1648,3 +1648,13 @@
 .admin-publish-confirmation button{min-height:44px;display:inline-flex;align-items:center;gap:7px}
 .admin-publish-confirmation button:focus-visible{outline:3px solid #395f4b;outline-offset:3px}
 @media(max-width:620px){.admin-publish-confirmation button{width:100%;justify-content:center}}
+
+/* Épreuve non publiante : un PDF de contrôle local pour le Super Admin. */
+.admin-private-proof{display:flex;flex-direction:column;align-items:flex-start;gap:10px;
+  border:1px solid #b9c5bb;border-radius:12px;background:#f6f8f4;padding:14px;margin:16px 0}
+.admin-private-proof>p{margin:0;line-height:1.5;font-size:13px;max-width:66ch}
+.admin-private-proof .btn{min-height:44px;max-width:100%;white-space:normal;display:inline-flex;
+  gap:8px;align-items:center;text-align:left}
+.admin-private-proof .btn:focus-visible{outline:3px solid #355942;outline-offset:3px}
+@media(max-width:599px){.admin-private-proof{align-items:stretch}
+  .admin-private-proof .btn{width:100%;justify-content:center}}
