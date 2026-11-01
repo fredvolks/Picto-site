@@ -6,7 +6,7 @@ import {
 } from "../src/admin-artwork-rotation.js";
 
 const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
-const build=readFileSync(new URL("../scripts/build.mjs",import.meta.url),"utf8");
+const moduleSource=readFileSync(new URL("../src/admin-artwork-rotation.js",import.meta.url),"utf8");
 const PNG=Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,0,0,0]);
 
 test("Rotation privée : valeurs entières ±180 seulement, centrées sur l'encre",()=>{
@@ -83,5 +83,5 @@ test("L'éditeur agit sur un nouveau brouillon après confirmation explicite, ja
  assert.doesNotMatch(branch,/\.update\(|\.upsert\(|archivePdf|setAdminTemplatePublication|publishCatalog|remove\(/);
  assert.match(branch,/adjustBusy=true/);
  assert.match(branch,/privatePreview\.request===ticket/);
- assert.match(build,/"src\/admin-artwork-rotation\.js"/);
+ assert.match(moduleSource,/export async function makeRotatedPrivatePng/);
 });
