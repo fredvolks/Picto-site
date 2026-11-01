@@ -36,3 +36,7 @@
 
 /* L'accueil passe à une seule rangée : ne jamais conserver l'ancien en-tête 102px. */
 @media(max-width:520px){body[data-pictau-home-design="5"]{grid-template-rows:56px minmax(0,1fr) 36px}}
+
+/* L'inscription a déjà les mêmes marges externes que l'accueil : ne pas
+   ajouter une seconde fois le padding à l'intérieur de son en-tête. */
+.signup-header[data-pa-universal-header]{padding-left:0;padding-right:0}
