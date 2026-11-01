@@ -16,7 +16,7 @@ function mock({counts=[63],session=uid,revoke=false,partial=false}={}){
  const selection={
   eq(field,value){ops.push(["eq",field,value]);return selection;},
   ilike(field,value){ops.push(["ilike",field,value]);return selection;},
-  order(field){ops.push(["order",field]);return selection;},
+  order(field,options){ops.push(["order",field,options]);return selection;},
   async range(start,end){
    ranges.push([start,end]);
    const count=counts[Math.min(call++,counts.length-1)];
@@ -34,9 +34,9 @@ function mock({counts=[63],session=uid,revoke=false,partial=false}={}){
  return {client,ops,ranges};
 }
 test("Filtres : validation stricte avant accès à la banque",async()=>{
- assert.deepEqual(normalizeEditableDraftFilters({kind:"board",query:"  Soir  ",page:2}),{page:2,kind:"board",query:"Soir"});
- assert.deepEqual(normalizeEditableDraftFilters(),{page:0,kind:"all",query:""});
- for(const f of [{kind:"admin"},{query:"x".repeat(81)},{query:"ligne\n2"},{page:-1},{page:1.4}])
+ assert.deepEqual(normalizeEditableDraftFilters({kind:"board",query:"  Soir  ",page:2}),{page:2,kind:"board",query:"Soir",sort:"recent"});
+ assert.deepEqual(normalizeEditableDraftFilters(),{page:0,kind:"all",query:"",sort:"recent"});
+ for(const f of [{kind:"admin"},{query:"x".repeat(81)},{query:"ligne\n2"},{sort:"invalid"},{page:-1},{page:1.4}])
    assert.throws(()=>normalizeEditableDraftFilters(f),/invalide/);
  const m=mock();
  await assert.rejects(listEditableDraftsPage(m.client,uid,{kind:"published"}),/invalide/);
@@ -51,6 +51,19 @@ test("Type Tableau : filtre serveur propriétaire avant pagination",async()=>{
  assert.equal(m.ops.some(x=>x[0]==="ilike"),false);
  assert.deepEqual(m.ranges,[[30,59]]);
 });
+test("Tri global : date et nom sont ordonnés au serveur avec ID stable",async()=>{
+ for(const [sort,column,ascending] of [
+  ["recent","updated_at",false],["oldest","updated_at",true],
+  ["title-asc","title",true],["title-desc","title",false]]){
+  const m=mock({counts:[61]});
+  await listEditableDraftsPage(m.client,uid,{sort,page:1,kind:"routine",query:"soir"});
+  assert.deepEqual(m.ops.filter(x=>x[0]==="order"),[
+    ["order",column,{ascending}],["order","id",{ascending:true}]]);
+  assert.deepEqual(m.ranges,[[30,59]]);
+  assert.ok(m.ops.some(x=>x[0]==="eq"&&x[1]==="kind"&&x[2]==="routine"));
+  assert.ok(m.ops.some(x=>x[0]==="ilike"&&x[2]==="%soir%"));
+ }
+});
 test("Recherche : les jokers %, _ et antislash deviennent du texte littéral",async()=>{
  const m=mock({counts:[2]});
  await listEditableDraftsAvailablePage(m.client,uid,{page:0,query:"  Matin_%\\ "});
@@ -60,11 +73,12 @@ test("Recherche : les jokers %, _ et antislash deviennent du texte littéral",as
 });
 test("Recherche conservée lors du retour sur la dernière page valide",async()=>{
  const m=mock({counts:[61,31,31]});
- const page=await listEditableDraftsAvailablePage(m.client,uid,{page:4,kind:"routine",query:"Soir"});
+ const page=await listEditableDraftsAvailablePage(m.client,uid,{page:4,kind:"routine",query:"Soir",sort:"title-desc"});
  assert.equal(page.page,1);assert.equal(page.items.length,1);
  assert.deepEqual(m.ranges,[[120,149],[60,89],[30,59]]);
  assert.equal(m.ops.filter(x=>x[0]==="eq"&&x[1]==="kind").length,3);
  assert.equal(m.ops.filter(x=>x[0]==="ilike"&&x[2]==="%Soir%").length,3);
+ assert.equal(m.ops.filter(x=>x[0]==="order"&&x[1]==="title"&&x[2]?.ascending===false).length,3);
 });
 test("Filtres : zéro résultat réel vs réponse serveur incomplète",async()=>{
  const none=mock({counts:[0]});
@@ -86,10 +100,12 @@ test("Interface FR/EN : recherche, type, état vide et réinitialisation",()=>{
  const css=readFileSync(new URL("../app/src/styles.css",import.meta.url),"utf8");
  for(const snippet of ['data-form="draft-filter"','data-action="draft-filter-reset"',
   'name="kind"','Rechercher un brouillon','Search drafts','Type de support','Document type',
-  'Aucun brouillon ne correspond à votre recherche','No drafts match your search','Tout afficher','Show all'])
+  'Aucun brouillon ne correspond à votre recherche','No drafts match your search','Tout afficher','Show all',
+  'name="sort"','Trier les brouillons','Sort drafts','Modifiés récemment','Recently edited',
+  'Plus anciens','Oldest first','Nom A à Z','Name Z to A'])
   assert.ok(app.includes(snippet),"Libellé/contrôle manquant: "+snippet);
  assert.match(app,/editableDrafts\.page=0;editableDrafts\.message=""/);
- assert.match(app,/listEditableDraftsAvailablePage\(client,uid,\{page:editableDrafts\.page,kind:editableDrafts\.kind,query:editableDrafts\.query\}\)/);
+ assert.match(app,/listEditableDraftsAvailablePage\(client,uid,\{page:editableDrafts\.page,kind:editableDrafts\.kind,query:editableDrafts\.query,sort:editableDrafts\.sort\}\)/);
  assert.match(css,/\.pa-drafts-filter/);
  assert.match(css,/@media\(max-width:480px\)/);
 });
