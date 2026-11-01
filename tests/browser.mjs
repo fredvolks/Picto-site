@@ -333,6 +333,48 @@ try{
   assert.ok(zoom.scroll>zoom.height,"Zoom: enlarged page extends beyond the viewport");
   assert.ok(zoom.position>0,"Zoom: user can actually scroll to the enlarged content");
   await evaluate("document.body.style.zoom='';return true;");
+  // Régression réelle constatée par captures Samsung 1 novembre :
+  // AUCUNE taille / position de FR, EN ou Connexion ne doit changer en
+  // basculant la langue, sur n'importe quelle page du site.
+  const languageGeometry=[
+    "const header=document.querySelector('[data-pa-universal-header]');",
+    "if(!header)throw Error('En-tête partagé absent');",
+    "const element=(sel)=>{const e=header.querySelector(sel);if(!e)throw Error('Contrôle absent : '+sel);const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};};",
+    "return {fr:element('[data-lang=fr]'),en:element('[data-lang=en]'),action:element('.login-link,.signup-login,.pa-universal-current,.pa-universal-account'),logo:element('.pictau-brand-img'),viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth};"
+  ].join("\n");
+  for(const [width,height] of [[320,568],[350,700],[360,640],[390,844],[430,932],[520,900],[521,900],[750,1024],[768,1024],[1024,768],[1440,900]]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
+    for(const page of ["index.html","forfait.html","connexion.html","contact.html","conditions.html","confidentialite.html","app/index.html"]){
+      await command("Page.navigate",{url:base+"/"+page});
+      await waitFor("return document.readyState==='complete' && !!document.querySelector('[data-pa-universal-header] [data-lang=fr]') && !!document.querySelector('[data-pa-universal-header] .pictau-brand-img')",16000);
+      await evaluate("document.querySelector('[data-pa-universal-header] [data-lang=fr]').click();return true;");
+      await waitFor("return document.documentElement.lang==='fr'");
+      const frGeometry=await evaluate(languageGeometry);
+      await evaluate("document.querySelector('[data-pa-universal-header] [data-lang=en]').click();return true;");
+      await waitFor("return document.documentElement.lang==='en'");
+      const enGeometry=await evaluate(languageGeometry);
+      const where=page+" "+width+"x"+height;
+      for(const control of ["fr","en","action","logo"]){
+        for(const dimension of ["x","y","w","h"]){
+          assert.ok(Math.abs(frGeometry[control][dimension]-enGeometry[control][dimension])<=1.1,
+            "Bascule FR/EN déplace ou redimensionne "+control+" "+dimension+" "+where+" FR="+JSON.stringify(frGeometry[control])+" EN="+JSON.stringify(enGeometry[control]));
+        }
+      }
+      for(const g of [frGeometry,enGeometry]){
+        assert.ok(g.scrollWidth<=g.viewport+1,"En-tête débordant "+where+" "+JSON.stringify(g));
+        assert.ok(g.logo.right+1<=g.fr.x&&g.fr.right<=g.en.x+1&&g.en.right<=g.action.x+1,
+          "Logo / langues / connexion chevauchés "+where+" "+JSON.stringify(g));
+        for(const key of ["fr","en","action"])
+          assert.ok(Math.abs((g.logo.y+g.logo.h/2)-(g[key].y+g[key].h/2))<=13,
+            "En-tête sur plusieurs rangées "+where+" "+JSON.stringify(g));
+      }
+      if(width===390 && ["index.html","forfait.html","app/index.html"].includes(page)){
+        const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
+        await writeFile(join(screenshots,"lang-stable-"+page.replace("/","-")+"-"+width+"-en.png"),Buffer.from(shot.data,"base64"));
+      }
+      console.log("PASS LANGUE EN-TÊTE STABLE",where);
+    }
+  }
   // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 5.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
   // Contrôle d'harmonisation universelle : rendu réel Chromium de la maquette E
