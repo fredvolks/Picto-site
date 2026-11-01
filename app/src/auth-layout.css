@@ -1,0 +1,104 @@
+/* Pict-au / BOSS Harmonisation — contrat commun des pages Connexion et Créer un compte.
+   Les cartes de droite sont identiques en mode deux colonnes, le panneau
+   visuel de gauche occupe le même gabarit. Pas de hauteur forcée sur mobile,
+   lors d'un zoom ou lorsqu'un formulaire affiche un message long. */
+:root{
+ --pa-auth-card-width:500px;
+ --pa-auth-card-min-height:620px;
+ --pa-auth-column-gap:clamp(28px,4.25vw,76px);
+}
+/* Les deux pages adoptent le MÊME seuil tablette. */
+@media(min-width:900px){
+ .signup-page{
+   grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+   column-gap:var(--pa-auth-column-gap);
+ }
+ .signup-showcase{
+   width:min(100%,var(--pa-auth-card-width));
+   min-height:var(--pa-auth-card-min-height);
+   max-width:var(--pa-auth-card-width);
+   justify-self:end;
+   justify-content:center;
+   gap:clamp(18px,2.25vw,30px);
+ }
+ .signup-intro h1{
+   font-size:clamp(35px,3.45vw,52px);
+   line-height:1.09;
+   margin-bottom:11px;
+ }
+ .signup-intro>p:last-child{font-size:clamp(13px,1.1vw,16px)}
+ .signup-tiles{max-width:450px;width:100%}
+ .signup-plan{max-width:var(--pa-auth-card-width);width:100%}
+ .signup-form-card{
+   width:min(100%,var(--pa-auth-card-width));
+   max-width:var(--pa-auth-card-width);
+   min-height:var(--pa-auth-card-min-height);
+   justify-self:start;
+   display:flex;
+   flex-direction:column;
+   justify-content:center;
+ }
+ .hosted-access-v5 .hosted-e-layout{
+   width:100%;
+   max-width:calc(2 * var(--pa-auth-card-width) + var(--pa-auth-column-gap));
+   grid-template-columns:repeat(2,minmax(0,var(--pa-auth-card-width)));
+   justify-content:center;
+   align-items:center;
+   gap:var(--pa-auth-column-gap);
+ }
+ .hosted-access-v5 .hosted-e-intro{
+   width:100%;
+   max-width:var(--pa-auth-card-width);
+   min-height:var(--pa-auth-card-min-height);
+   display:flex;
+   flex-direction:column;
+   justify-content:center;
+ }
+ .hosted-access-v5 .hosted-e-intro h2{
+   font-size:clamp(35px,3.45vw,52px);
+   line-height:1.09;
+ }
+ .hosted-access-v5 .hosted-e-tiles{max-width:450px;width:100%}
+ .hosted-access-v5 .hosted-access-panel{
+   width:100%;
+   max-width:var(--pa-auth-card-width);
+   min-height:var(--pa-auth-card-min-height);
+   display:flex;
+   flex-direction:column;
+   justify-content:center;
+ }
+}
+/* Aux formats tablette, toutes les colonnes s'empilent; les cartes
+   suivent le contenu plutôt qu'une hauteur prévue pour l'ordinateur. */
+@media(min-width:681px) and (max-width:899px){
+ .hosted-access-v5 .hosted-e-layout{
+   grid-template-columns:minmax(0,1fr);
+   width:100%;
+   max-width:760px;
+   gap:20px;
+   justify-content:stretch;
+ }
+ .hosted-access-v5 .hosted-e-intro{
+   width:100%;
+   max-width:none;
+   min-height:0;
+   text-align:center;
+ }
+ .hosted-access-v5 .hosted-e-intro h2 em{display:inline}
+ .hosted-access-v5 .hosted-e-intro>p{max-width:560px;margin:0 auto 10px}
+ .hosted-access-v5 .hosted-e-tiles{margin:auto;max-width:330px}
+ .hosted-access-v5 .hosted-access-panel{
+   width:100%;
+   max-width:590px;
+   min-height:0;
+   margin:auto;
+ }
+ .signup-showcase,.signup-form-card{min-height:0}
+}
+/* Conserver les règles d'un seul écran de la connexion et de l'inscription :
+   aucun formulaire n'est écrasé pour reproduire la hauteur desktop. */
+@media(max-width:680px){
+ .hosted-access-v5 .hosted-e-intro,
+ .hosted-access-v5 .hosted-access-panel,
+ .signup-showcase,.signup-form-card{min-height:0}
+}
