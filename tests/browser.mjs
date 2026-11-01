@@ -191,11 +191,11 @@ try{
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=700,deviceScaleFactor:1});
     await command("Page.navigate",{url:base+"/index.html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.brand')");
-    await evaluate("await document.fonts.ready;return true;");
+    await evaluate("return document.fonts.ready.then(()=>true);");
     const homeHeader=await evaluate(headerMetrics);
     await command("Page.navigate",{url:base+"/forfait.html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-brand')");
-    await evaluate("await document.fonts.ready;return true;");
+    await evaluate("return document.fonts.ready.then(()=>true);");
     const signupHeader=await evaluate(headerMetrics);
     for(const key of ["logo","fr","en","login"]){
       const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
