@@ -92,6 +92,15 @@ try{
    if(width<=430)check(r.top>=-1&&r.bottom<=result.h+1,id+" : "+selector+" est caché verticalement");
   }
   if(width<=430)check(result.docH<=result.h+1,id+" : scroll vertical "+result.docH+"/"+result.h);
+
+  // Anti-faux-positif : l'ancienne validation se limitait à la largeur/hauteur.
+  // Les captures du propriétaire montrent un formulaire tassé tout en haut.
+  if(width<=430&&height>=740){
+   const composition=await evaluate('const h=document.querySelector(".signup-header").getBoundingClientRect(),s=document.querySelector(".signup-showcase").getBoundingClientRect(),t=document.querySelector(".signup-tiles").getBoundingClientRect(),f=document.querySelector(".signup-form-card").getBoundingClientRect();return {header:h.bottom,showcase:s.top,tiles:t.height,form:f.bottom};');
+   check(composition.form>=result.h*.82,id+" : FORMULAIRE TASSÉ EN HAUT "+JSON.stringify(composition));
+   check(composition.showcase-composition.header>=result.h*.035,id+" : TITRE COLLÉ AU LOGO "+JSON.stringify(composition));
+   check(composition.tiles>=88,id+" : PICTOGRAMMES ÉCRASÉS "+JSON.stringify(composition));
+  }
   await evaluate('document.querySelector("[data-lang=en]").click();return true;');
   const english=await evaluate('return {lang:document.documentElement.lang,labels:[...document.querySelectorAll(".picto-label")].map(el=>el.textContent.trim()),cta:document.querySelector(".signup-action").textContent.trim()};');
   check(english.lang==="en"&&english.labels.join("|")==="Find|Personalize|Print"&&english.cta.includes("Continue"),id+" : traduction EN incorrecte");
