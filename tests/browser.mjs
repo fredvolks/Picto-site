@@ -150,8 +150,8 @@ try{
     }
   }
   // Le CTA de l'accueil doit réellement ouvrir le forfait; pas de faux paiement.
-  for(const width of [320,768,1440]){
-    await command("Emulation.setDeviceMetricsOverride",{width,height:width===320?568:width===768?1024:900,mobile:width===320,deviceScaleFactor:1});
+  for(const width of [320,375,390,430,768,1440]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height:width===320?568:width===375?667:width===390?740:width===430?932:width===768?1024:900,mobile:width<=430,deviceScaleFactor:1});
     await command("Page.navigate",{url:base+"/index.html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
     await evaluate("document.querySelector('.signup-button').click();return true;");
@@ -159,17 +159,22 @@ try{
     // L'accueil mémorise légitimement EN; choisir FR avant la vérification
     // FR, puis vérifier une seconde fois que le formulaire passe en anglais.
     await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
-    const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked};");
+    const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked,visibleForm:document.querySelector('#signup-status').getBoundingClientRect().bottom};");
     assert.equal(p.plan,1,"One distinct signup plan page");
     assert.match(p.price,/9,99/);
     assert.equal(p.forms,1,"Preparatory form, no account or payment creation");
     assert.equal(p.consent,false,"Consent is never prechecked");
     assert.equal(p.back,"./index.html","Valid navigation back");
     assert.ok(p.docWidth<=width+1,"Signup has no horizontal scroll");
+    if(width<=430){
+      const viewport=width===320?568:width===375?667:width===390?740:932;
+      assert.ok(p.docHeight<=viewport+1,"ONE mobile screen "+width+": "+JSON.stringify(p));
+      assert.ok(p.visibleForm<=viewport+1,"Form visible without scrolling "+width+": "+JSON.stringify(p));
+    }
     assert.equal(await evaluate("return document.body.dataset.pictauSignupDesign"),"5","Approved signup Design 5");
-    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".signup-tile-label")].map(el=>el.textContent.trim())'),["Trouver","Personnaliser","Imprimer"]);
+    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".picto-label")].map(el=>el.textContent.trim())'),["Trouver","Personnaliser","Imprimer"]);
     await evaluate("document.querySelector('[data-lang=en]').click();return true;");
-    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".signup-tile-label")].map(el=>el.textContent.trim())'),["Find","Personalize","Print"]);
+    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".picto-label")].map(el=>el.textContent.trim())'),["Find","Personalize","Print"]);
     await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
     const reachable=await evaluate('window.scrollTo(0,document.documentElement.scrollHeight);const f=document.querySelector(".signup-footer").getBoundingClientRect();return {bottom:f.bottom,top:f.top,height:innerHeight,overflow:getComputedStyle(document.documentElement).overflowY};');
     assert.notEqual(reachable.overflow,"hidden","Scrolling remains possible with keyboard/zoom");
