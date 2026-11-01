@@ -197,7 +197,7 @@ try{
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
     const signupHeader=await evaluate(headerMetrics);
-    if(width===768)console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader}));
+    if(width===768){const layout=await evaluate('const el=document.querySelector(".signup-page"),h=document.querySelector(".signup-header"),s=getComputedStyle(el),r=el.getBoundingClientRect(),rh=h.getBoundingClientRect();return {marginLeft:s.marginLeft,marginRight:s.marginRight,width:s.width,pageX:r.x,pageRight:r.right,headerX:rh.x,headerWidth:rh.width,viewport:innerWidth,clientWidth:document.documentElement.clientWidth}');console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader,layout}));}
     for(const key of ["logo","fr","en","login"]){
       const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
       for(const dim of ["x","y","w","h"])
