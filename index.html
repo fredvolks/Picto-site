@@ -145,6 +145,12 @@ footer a:hover{text-decoration:underline}
  .topbar nav{justify-self:end}
  .brand .pictau-brand-img{width:clamp(210px,62vw,260px)}
 }
+
+/* Harmonisation BOSS : retirer UNIQUEMENT le support blanc extérieur.
+   Garder le contour noir complet (dessin + légende) carré à tous les formats. */
+.poster-tiles .p-card{
+  padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;
+}
 </style><link rel="stylesheet" href="./branding/pictau-universal-header.css"></head>
 <body data-pictau-home-design="5"><a href="#page-main" class="skip" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
 <header class="topbar" data-pa-universal-header><a class="brand home-logo" data-pa-universal-logo href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home"><picture><source media="(max-width: 680px)" srcset="./branding/pictau-logo-le-fil-mobile.svg"><img class="pictau-brand-img" src="./branding/pictau-logo-le-fil.svg" alt="" width="760" height="116" decoding="async"></picture></a><nav class="pa-universal-controls" aria-label="Navigation principale" data-fr-aria="Navigation principale" data-en-aria="Main navigation"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button><a class="signin login-link" href="./app/" data-fr="Connexion" data-en="Sign in" data-fr-aria="Se connecter à mon espace Pict-au" data-en-aria="Sign in to my Pict-au space">Connexion</a></nav></header>

@@ -439,6 +439,58 @@ try{
     }
     console.log("PASS AUTH RESPONSIVE SANS HAUTEUR FORCÉE",width+"x"+height);
   }
+  // Vérification visuelle réglementaire de @Boss : retirer les supports blancs
+  // externes sans supprimer la bordure NOIRE et le carré des trois pictos.
+  // Vérifie le CSS COMPUTÉ Chromium et non une simple présence de sélecteur.
+  for(const [width,height] of [[320,568],[360,640],[390,844],[430,932],[768,1024],[899,900],[900,900],[1024,800],[1440,900],[1920,1080]]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
+    for(const [page,tile,inside] of [
+      ["index.html",".poster-tiles .p-card",".poster-tiles .p-card .picto"],
+      ["forfait.html",".signup-tiles .p-card",".signup-tiles .p-card .picto"],
+      ["app/index.html",".hosted-e-tiles .hosted-e-tile",".hosted-e-tiles .hosted-e-tile .hosted-e-art"]
+    ]){
+      await command("Page.navigate",{url:base+"/"+page});
+      await waitFor("return document.readyState==='complete' && document.querySelectorAll("+JSON.stringify(tile)+").length===3",16000);
+      for(const lang of ["fr","en"]){
+        if(page==="app/index.html"){
+          await evaluate("document.querySelector('[data-action=lang][data-lang="+lang+"]').click();return true");
+        }else{
+          await evaluate("document.querySelector('[data-lang="+lang+"]').click();return true");
+        }
+        await waitFor("return document.documentElement.lang==='"+lang+"'");
+        const result=await evaluate([
+          "const tileSel="+JSON.stringify(tile)+";const inSel="+JSON.stringify(inside)+";",
+          "const cards=[...document.querySelectorAll(tileSel)];",
+          "const items=cards.map(c=>{const cs=getComputedStyle(c),r=c.getBoundingClientRect(),inner=c.querySelector(inSel.replace(tileSel,'').trim()),is=getComputedStyle(inner);return {",
+          "  width:r.width,height:r.height,aspect:cs.aspectRatio,padding:[cs.paddingTop,cs.paddingRight,cs.paddingBottom,cs.paddingLeft],",
+          "  borders:[cs.borderTopWidth,cs.borderRightWidth,cs.borderBottomWidth,cs.borderLeftWidth],",
+          "  radius:cs.borderTopLeftRadius,shadow:cs.boxShadow,bg:cs.backgroundColor,",
+          "  insideBorder:is.borderTopWidth,insideColor:is.borderTopColor,insideBg:is.backgroundColor,innerRect:inner.getBoundingClientRect().width",
+          "};});",
+          "return {lang:document.documentElement.lang,w:innerWidth,scrollW:document.documentElement.scrollWidth,items};"
+        ].join("\n"));
+        const where=page+" "+width+"×"+height+" "+lang;
+        assert.equal(result.items.length,3,"Trio absent "+where);
+        for(const item of result.items){
+          assert.ok(Math.abs(item.width-item.height)<=1.2,"Le picto n'est plus carré "+where+" "+JSON.stringify(item));
+          assert.ok(item.padding.every(p=>parseFloat(p)===0),"Marge blanche externe "+where+" "+JSON.stringify(item));
+          assert.ok(item.borders.every(p=>parseFloat(p)===0),"Bordure de support extérieure "+where+" "+JSON.stringify(item));
+          assert.equal(item.radius,"0px","Coin arrondi externe "+where);
+          assert.equal(item.shadow,"none","Ombre support externe "+where);
+          assert.equal(item.bg,"rgba(0, 0, 0, 0)","Fond de support externe "+where);
+          assert.ok(parseFloat(item.insideBorder)>=1,"Contour noir interne absent "+where+" "+JSON.stringify(item));
+          assert.equal(item.insideColor,"rgb(44, 56, 52)","Contour noir interne modifié "+where);
+          assert.ok(item.innerRect>0,"Dessin interne disparu "+where);
+        }
+        assert.ok(result.scrollW<=result.w+2,"Overflow horizontal "+where);
+        if(width===390&&lang==="fr"){
+          const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
+          await writeFile(join(screenshots,"sans-cadre-exterieur-"+page.replace("/","-")+".png"),Buffer.from(shot.data,"base64"));
+        }
+        console.log("PASS PICTOS SANS CADRE BLANC",where);
+      }
+    }
+  }
   // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 5.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
   // Contrôle d'harmonisation universelle : rendu réel Chromium de la maquette E
