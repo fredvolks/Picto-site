@@ -247,6 +247,12 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
  .signup-tiles .p-card{max-width:78px}
  .signup-form-card{padding:6px 12px}
 }
+
+/* Harmonisation BOSS : retirer UNIQUEMENT le support blanc extérieur.
+   Garder le contour noir complet (dessin + légende) carré à tous les formats. */
+.signup-tiles .p-card{
+  padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;
+}
 </style><link rel="stylesheet" href="./branding/pictau-universal-header.css">
     <link rel="stylesheet" href="./app/src/auth-layout.css">
 </head>
