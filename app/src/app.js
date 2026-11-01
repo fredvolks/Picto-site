@@ -9,7 +9,7 @@ import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPic
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
-import {importPrivateDraft,validateDraftMetadata} from "./admin-import.js";
+import {importPrivateDraft,validateDraftMetadata,importPrivateDraftBatch,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
 import {editPrivateDraftMetadata} from "./admin-draft-edit.js";
 import {assessDraftQuality} from "./admin-quality.js";
 import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
@@ -655,6 +655,7 @@ async function fetchAdminNamedTemplates(){
 }
 let bankQueryTimer=null;
 const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
+const batchImport={files:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",request:0};
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
 const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
@@ -924,6 +925,7 @@ function resetPrivateBank(){
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
   bankFilters.query="";bankFilters.status="all";bankFilters.theme="all";bankFilters.sort="recent";
   privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
+  batchImport.request++;Object.assign(batchImport,{files:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:""});
 }
 async function refreshPrivateBank(client,userId){
   clearBankThumbs();
@@ -1527,10 +1529,37 @@ function renderAdmin(){
    +themes.map(([v,label])=>'<option value="'+v+'"'+(v===privateImport.draft.theme?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
    +'<div class="control"><label for="draft-file">'+esc(fr?"Image PNG * (max. 6 Mo)":"PNG image * (max. 6 MB)")+'</label><input id="draft-file" data-field="admin-import-file" type="file" accept=".png,image/png" aria-describedby="draft-file-status"><small id="draft-file-status" role="status">'
    +esc(privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):(fr?"Aucun fichier sélectionné":"No file selected"))+'</small></div>'
-   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
+   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading||batchImport.busy?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
    +'<small>'+esc(fr?"PNG seulement; aucune publication automatique.":"PNG only; never auto-published.")+'</small></div></form>'
    +(privateImport.error?'<p class="admin-import-alert" role="alert">'+esc(privateImport.error)+'</p>':"")
    +(privateImport.message?'<p class="admin-import-success" role="status">'+esc(privateImport.message)+'</p>':"")
+   +'<section class="admin-batch-import" aria-labelledby="admin-batch-heading">'
+   +'<h3 id="admin-batch-heading">'+esc(fr?"Importer plusieurs PNG à la fois":"Import multiple PNG files at once")+'</h3>'
+   +'<p>'+esc(fr?"Jusqu’à 20 images par lot. Le nom français provient du nom de fichier; chaque image reste un brouillon privé jusqu’à approbation.":"Up to 20 images per batch. The French label comes from the filename; every image remains a private draft until approval.")+'</p>'
+   +'<form data-form="admin-batch-import" class="admin-import-form">'
+   +'<div class="control"><label for="batch-theme">'+esc(fr?"Thème du lot":"Batch theme")+'</label>'
+   +'<select id="batch-theme" data-field="admin-batch-theme" name="theme"'+(batchImport.busy?' disabled':'')+'>'
+   +themes.map(([v,label])=>'<option value="'+v+'"'+(v===batchImport.theme?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
+   +'<div class="control"><label for="batch-files">'+esc(fr?"Fichiers PNG (1 à 20, maximum 6 Mo chacun)":"PNG files (1–20, up to 6 MB each)")+'</label>'
+   +'<input id="batch-files" data-field="admin-batch-files" type="file" accept=".png,image/png" multiple'+(batchImport.busy?' disabled':'')+' aria-describedby="batch-file-status">'
+   +'<small id="batch-file-status" role="status">'+esc(batchImport.files.length?
+     (fr?batchImport.files.length+" fichier(s) sélectionné(s) :":batchImport.files.length+" selected file(s):"):
+     (fr?"Aucun lot sélectionné.":"No batch selected."))+'</small></div>'
+   +(batchImport.files.length?'<ol class="admin-batch-list">'+batchImport.files.map(f=>
+      '<li>'+esc(f.name)+' <span>→ '+esc(draftTitleFromFilename(f.name))+'</span></li>').join("")+'</ol>':"")
+   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+
+     (batchImport.busy||privateImport.loading||!batchImport.files.length?' disabled':'')+'>'+
+     esc(batchImport.busy?(fr?"Importation en cours…":"Importing…"):(fr?"Créer les brouillons privés du lot":"Create private drafts from batch"))+'</button></div>'
+   +'</form>'
+   +(batchImport.busy?'<p role="status" aria-live="polite">'+esc(
+      (fr?"Importés : ":"Imported: ")+batchImport.completed+" / "+batchImport.total+
+      (batchImport.currentName?" · "+batchImport.currentName:""))+'</p>':"")
+   +(batchImport.error?'<p class="admin-import-alert" role="alert">'+esc(batchImport.error)+'</p>':"")
+   +(batchImport.message?'<p class="admin-import-success" role="status">'+esc(batchImport.message)+'</p>':"")
+   +'<p class="admin-batch-note">'+esc(fr?
+      "Le lot s’arrête à la première erreur. Vérifiez les brouillons déjà créés avant de sélectionner de nouveau les fichiers restants : aucune reprise automatique.":
+      "The batch stops at the first error. Check drafts already created before selecting remaining files again; no automatic retry.")+'</p>'
+   +'</section>'
    +'</section>';
   const activeThemes=themeUI.items.filter(t=>!t.merged_into);
   const selectedThemeAsset=privateBank.items.find(a=>a.id===themeUI.assetId);
@@ -4325,10 +4354,55 @@ root.addEventListener("submit",function(event){
     })();
     return;
   }
+  if(event.target.matches('form[data-form="admin-batch-import"]')){
+    event.preventDefault();
+    if(!canOpenAdmin()||!authStatus.user||batchImport.busy||privateImport.loading)return;
+    const files=[...batchImport.files],theme=batchImport.theme;
+    if(!files.length){batchImport.error=state.language==="fr"?"Sélectionnez des PNG.":"Select PNG files.";render();return;}
+    const fr=state.language==="fr",uid=authStatus.user.id,ticket=++batchImport.request;
+    if(!window.confirm(fr?
+      "Préparer "+files.length+" brouillon(s) privé(s) avec les noms issus des fichiers ? Aucun pictogramme ne sera publié.":
+      "Prepare "+files.length+" private draft(s) using filenames? No pictogram will be published."))return;
+    const current=()=>ticket===batchImport.request&&authStatus.user?.id===uid&&canOpenAdmin();
+    batchImport.busy=true;batchImport.completed=0;batchImport.total=files.length;
+    batchImport.error="";batchImport.message="";batchImport.currentName="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        if(!current())return;
+        const report=await importPrivateDraftBatch(client,uid,files,theme,{
+          isCurrent:current,
+          onProgress:({completed,name})=>{
+            if(!current())return;
+            batchImport.completed=completed;batchImport.currentName=name;render();
+          }
+        });
+        if(!current())return;
+        // Ne jamais relancer automatiquement une écriture dont le reçu est incertain.
+        batchImport.files=[];
+        if(report.error){
+          batchImport.error=(fr?
+            report.completed+" / "+report.total+" brouillons confirmés. Échec à « "+(report.name||files[report.failedIndex]?.name||"—")+" » : ":
+            report.completed+" / "+report.total+" drafts confirmed. Failed at “"+(report.name||files[report.failedIndex]?.name||"—")+"”: ")+report.error+
+            (fr?" Vérifiez la banque avant toute nouvelle importation.":" Check the bank before another import.");
+        }else{
+          batchImport.message=fr?
+            report.completed+" brouillons privés créés. Vérifiez et approuvez chaque fiche séparément.":
+            report.completed+" private drafts created. Review and approve each record individually.";
+        }
+        await refreshPrivateBank(client,uid);
+      }catch(error){
+        if(current())batchImport.error=String(error?.message||error);
+      }finally{
+        if(ticket===batchImport.request){batchImport.busy=false;render();}
+      }
+    })();
+    return;
+  }
   const form=event.target.closest('form[data-form="admin-import"]');
   if(!form)return;
   event.preventDefault();
-  if(!canOpenAdmin()||privateImport.loading||!authStatus.user)return;
+  if(!canOpenAdmin()||privateImport.loading||batchImport.busy||!authStatus.user)return;
   const file=privateImport.file;
   if(!file){privateImport.error=state.language==="fr"?"Sélectionnez un fichier PNG.":"Select a PNG file.";render();return;}
   const formData=new FormData(form);
@@ -4403,6 +4477,23 @@ root.addEventListener("change",function(event){
   }
   if(event.target.closest('form[data-form="admin-import"]') && event.target.name==="theme"){
     privateImport.draft.theme=event.target.value;return;
+  }
+  if(event.target.dataset.field==="admin-batch-theme"){
+    if(!canOpenAdmin()||batchImport.busy)return;
+    batchImport.theme=event.target.value;return;
+  }
+  if(event.target.dataset.field==="admin-batch-files"){
+    if(!canOpenAdmin()||batchImport.busy)return;
+    const chosen=[...(event.target.files||[])];
+    try{
+      if(!chosen.length||chosen.length>MAX_PRIVATE_DRAFT_BATCH)
+        throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
+      chosen.forEach(file=>draftTitleFromFilename(file.name));
+      batchImport.files=chosen;batchImport.error="";batchImport.message="";
+    }catch(error){
+      batchImport.files=[];batchImport.error=String(error?.message||error);
+    }
+    render();return;
   }
   if(event.target.dataset.field==="admin-import-file"){
     if(!canOpenAdmin()||privateImport.loading)return;
