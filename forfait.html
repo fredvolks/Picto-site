@@ -3,142 +3,158 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#e9f4f8">
-<meta name="description" content="Pict-au — votre espace visuel. Forfait prévu à 9,99 $ CA par mois. Inscriptions à venir.">
+<meta name="theme-color" content="#f5f5f0">
+<meta name="description" content="Pict-au — créez et personnalisez vos repères visuels. Forfait prévu à 9,99 $ CA par mois. Inscriptions à venir.">
 <title>Créer mon compte — Pict-au</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{font-family:"DM Sans",system-ui,-apple-system,sans-serif;color:#192f39;background:#e9f4f8;font-synthesis:none}
+:root{color-scheme:light;font-family:"DM Sans",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#26352f;background:#f5f5f0;font-synthesis:none;--ink:#26352f;--accent:#607a6f;--muted:#62766d;--line:#d7e0d8;--paper:#f5f5f0;--leaf:#e4eae1;--white:#fff}
 *,*::before,*::after{box-sizing:border-box}
-html{margin:0;min-width:320px}body{margin:0;min-width:320px;background:linear-gradient(165deg,#e9f4f8 0%,#eef7fa 65%,#fafcfd 100%)}
-button,input{font:inherit}button{cursor:pointer}a{color:#28617c;text-underline-offset:3px}
-:focus-visible{outline:3px solid #529bb8;outline-offset:3px}
-.signup-page{width:min(100%,510px);margin:0 auto;padding:12px 18px 12px;min-height:100dvh;display:flex;flex-direction:column;gap:10px}
-.signup-showcase{display:contents}
-.signup-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;min-height:43px}
-.signup-brand{display:flex;align-items:center;gap:7px;text-decoration:none;min-width:0;color:#192f39}
-.signup-logo{width:43px;height:43px;display:grid;place-items:center;border-radius:12px;background:#357b96;color:white;font-size:28px;font-weight:700;line-height:1}
-.signup-brand-text{min-width:0;display:flex;flex-direction:column}
-.signup-brand-text strong{font-size:26px;font-weight:800;letter-spacing:-.07em;line-height:1}
-.signup-brand-text small{font-size:8px;letter-spacing:.17em;color:#7d929e;white-space:nowrap;margin-top:4px}
-.signup-languages{display:flex;align-items:center;padding:3px;background:#e3eef3;border-radius:13px;gap:2px}
-.signup-languages button{border:0;background:transparent;min-width:38px;min-height:35px;padding:5px 7px;border-radius:10px;color:#657f8e;font-size:12px;font-weight:800}
-.signup-languages button[aria-pressed=true]{background:#fff;color:#28617c;box-shadow:0 2px 6px #204e6310}
-.signup-intro{text-align:center;flex:none;padding:1px 0 0}
-.signup-eyebrow{margin:0 0 5px;color:#69899a;font-size:10px;letter-spacing:.22em;font-weight:800}
-.signup-intro h1{font-size:clamp(22px,6.2vw,26px);line-height:1.12;letter-spacing:-.043em;margin:0 auto 5px;font-weight:800;max-width:440px;text-wrap:balance}
-.signup-intro p:last-child{margin:0;color:#6e8895;font-size:11px;line-height:1.3}
-.signup-plan{flex:none;border-radius:21px;background:linear-gradient(145deg,#347b96,#255b74);color:white;padding:16px 20px;box-shadow:0 10px 26px #255b7418}
-.signup-plan-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.signup-plan-name{font-size:14px;font-weight:800}
-.signup-plan-badge{font-size:9px;letter-spacing:.08em;background:#e8f6fb;color:#28617c;border-radius:50px;font-weight:800;padding:5px 10px}
-.signup-plan-price{display:flex;align-items:baseline;gap:7px;margin:6px 0 4px;white-space:nowrap}
-.signup-plan-price strong{font-size:38px;letter-spacing:-.055em;line-height:1.1;font-weight:800}
-.signup-plan-price span{font-size:12px;font-weight:700}
-.signup-plan-benefits{display:flex;flex-wrap:wrap;gap:5px 13px;font-size:10px;line-height:1.35;color:#f2fafc}
-.signup-plan-benefits span{white-space:nowrap}
-.signup-plan-benefits span::before{content:"✓";margin-right:6px;font-weight:800}
-.signup-plan-note{font-size:9px;color:#e0eff5;line-height:1.3;margin:7px 0 0}
-.signup-form-card{border:1px solid #d4e4eb;flex:none;background:#fff;border-radius:22px;padding:15px 19px 12px;box-shadow:0 4px 12px #255b7408}
-.signup-form-card h2{font-size:20px;line-height:1.2;letter-spacing:-.03em;margin:0 0 3px;font-weight:800}
-.signup-form-card .signup-subtitle{color:#6e8895;margin:0 0 10px;font-size:11px;line-height:1.35}
-.signup-form{display:flex;flex-direction:column;gap:7px}
-.signup-field{display:flex;flex-direction:column;gap:3px}
-.signup-field label{font-size:11px;font-weight:800;color:#365767}
-.signup-field input{width:100%;height:41px;border:1px solid #cbdfe8;background:#f8fbfc;color:#192f39;border-radius:10px;padding:9px 12px;font-size:13px;min-width:0}
-.signup-field input::placeholder{color:#8aa1ad;opacity:1}
-.signup-field input:focus{border-color:#307b9c;background:#fff;outline:2px solid #b8dce9;outline-offset:1px}
-.signup-consent{display:flex;align-items:center;gap:7px;font-size:10px;line-height:1.35;color:#536e7b;margin:2px 0 0;min-width:0}
-.signup-consent input{width:17px;height:17px;accent-color:#28617c;flex:none;margin:0;cursor:pointer}
-.signup-consent span{min-width:0}
-.signup-consent-copy{min-width:0}
-.signup-consent-copy label{cursor:pointer}
-.signup-consent a{font-weight:700}
-.signup-action{width:100%;background:#28617c;color:white;border:0;border-radius:12px;min-height:44px;font-size:13px;font-weight:800;line-height:1.2;padding:10px 8px;margin-top:1px}
-.signup-action:hover{background:#214f67}
-.signup-existing{margin:8px 0 0;text-align:center;font-size:11px;color:#5d7887;line-height:1.35}
+html,body{margin:0;min-width:320px;width:100%}html{overflow-x:clip}
+body{background:var(--paper);min-height:100dvh}
+button,input{font:inherit}button{cursor:pointer}a{color:inherit;text-underline-offset:3px}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a75;outline-offset:3px}
+.signup-skip{position:absolute;left:-10000px;top:0;background:#fff;padding:12px;z-index:100}
+.signup-skip:focus{left:10px;top:10px}
+.signup-page{width:min(100% - 64px,1320px);min-height:100dvh;margin:auto;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);grid-template-rows:auto minmax(0,1fr) auto;column-gap:clamp(34px,6vw,96px);row-gap:24px;padding:20px 0 16px;align-items:center}
+.signup-header{grid-column:1/-1;grid-row:1;display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}
+.signup-brand{display:inline-flex;align-items:baseline;white-space:nowrap;text-decoration:none;font-size:clamp(24px,2.3vw,29px);font-weight:800;letter-spacing:-1.6px}
+.signup-brand .hand{font-family:"Comic Sans MS","Patrick Hand",cursive;font-size:1.18em;font-weight:500}
+.signup-brand .dot{color:var(--accent)}
+.signup-header-right{display:flex;align-items:center;gap:12px}
+.signup-languages{display:flex;gap:2px;align-items:center}
+.signup-languages button{min-height:44px;min-width:42px;border:0;background:transparent;color:var(--muted);border-radius:9px;font-size:12px;font-weight:800}
+.signup-languages button[aria-pressed=true]{background:#e3ebe5;color:var(--ink)}
+.signup-login{display:inline-flex;align-items:center;justify-content:center;background:var(--white);border:1px solid var(--line);border-radius:12px;min-height:44px;padding:9px 19px;text-decoration:none;font-size:13px;font-weight:800;white-space:nowrap}
+.signup-login:hover{border-color:#8ea599}
+.signup-showcase{grid-column:1;grid-row:2;display:flex;flex-direction:column;justify-content:center;gap:clamp(22px,3.8vh,38px);min-width:0;max-width:680px}
+.signup-intro{min-width:0}
+.signup-eyebrow{margin:0 0 16px;color:var(--muted);font-size:11px;letter-spacing:.13em;font-weight:800}
+.signup-intro h1{font-size:clamp(36px,4.2vw,65px);font-weight:800;letter-spacing:-.063em;line-height:1.08;max-width:680px;text-wrap:balance;margin:0 0 14px}
+.signup-intro>p:last-child{color:var(--muted);font-size:clamp(13px,1.25vw,17px);line-height:1.5;margin:0;max-width:570px}
+.signup-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,1.55vw,20px);max-width:540px}
+.signup-tile{border:1px solid var(--line);border-radius:15px;background:var(--white);padding:clamp(8px,1.1vw,14px);min-width:0;box-shadow:0 5px 14px #26352f0a}
+.signup-tile:nth-child(1){transform:rotate(-3deg)}
+.signup-tile:nth-child(2){transform:translateY(6px) rotate(2deg)}
+.signup-tile:nth-child(3){transform:rotate(-2deg)}
+.signup-tile-art{aspect-ratio:1;display:grid;place-items:center;background:#f7f8f4;border:1px solid #e8ebe5;border-radius:9px;color:#111}
+.signup-tile-art svg{width:62%;height:62%;max-width:84px}
+.signup-tile-label{display:block;text-align:center;font-size:clamp(10px,.95vw,14px);font-weight:800;padding:10px 0 2px;white-space:normal;line-height:1.3}
+.signup-plan{max-width:540px;background:var(--leaf);border:1px solid #cbd7ca;border-radius:20px;padding:22px 26px;color:var(--ink);position:relative;min-width:0}
+.signup-plan-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.signup-plan-name{font-size:clamp(16px,1.4vw,20px);font-weight:800}
+.signup-plan-badge{font-size:10px;letter-spacing:.08em;border:1px solid #9daf9f;color:#40594c;border-radius:999px;padding:6px 11px;font-weight:800}
+.signup-plan-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:9px;margin:8px 0 9px}
+.signup-plan-price strong{font-size:clamp(38px,4vw,54px);font-weight:800;letter-spacing:-.065em;line-height:1.08}
+.signup-plan-price span{font-size:14px;font-weight:750}
+.signup-plan-benefits{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12px;color:#40594c;font-weight:650;line-height:1.4}
+.signup-plan-benefits span::before{content:"✓";font-weight:900;margin-right:6px}
+.signup-plan-note{font-size:11px;color:#53675b;line-height:1.45;margin:12px 0 0}
+.signup-form-card{grid-column:2;grid-row:2;min-width:0;width:100%;align-self:center;background:var(--white);border:1px solid #dbe3dc;border-radius:24px;padding:clamp(23px,3vw,42px);box-shadow:0 14px 45px #22382b0b}
+.signup-form-card h2{font-size:clamp(24px,2.5vw,32px);letter-spacing:-.04em;line-height:1.15;margin:0 0 7px;font-weight:800}
+.signup-subtitle{font-size:13px;line-height:1.45;color:var(--muted);margin:0 0 21px}
+.signup-form{display:flex;flex-direction:column;gap:14px}
+.signup-field{display:flex;flex-direction:column;gap:6px}
+.signup-field label{font-size:13px;color:var(--ink);font-weight:800}
+.signup-field input{display:block;width:100%;min-width:0;min-height:47px;border:1px solid #cbd8cf;background:#f8faf7;color:var(--ink);border-radius:11px;padding:11px 13px;font-size:16px}
+.signup-field input::placeholder{color:#788a80;opacity:1}
+.signup-field input:focus{background:#fff;border-color:#607a6f}
+.signup-consent{display:flex;align-items:flex-start;gap:10px;font-size:12px;line-height:1.6;color:#475b4f;margin:2px 0 0}
+.signup-consent input{flex:none;width:20px;height:20px;margin:1px 0 0;accent-color:#2c4338;cursor:pointer}
+.signup-consent-copy{min-width:0}.signup-consent-copy label{cursor:pointer}.signup-consent a{font-weight:800}
+.signup-action{display:block;width:100%;min-height:49px;border:0;border-radius:12px;background:#2c4338;color:#fff;padding:12px 17px;font-size:15px;font-weight:800;line-height:1.25;margin-top:2px}
+.signup-action:hover{background:#385c49}
+.signup-existing{text-align:center;font-size:13px;color:var(--muted);margin:16px 0 0;line-height:1.4}
 .signup-existing a{font-weight:800}
-.signup-status{font-size:10px;color:#697f8b;line-height:1.3;text-align:center;margin:7px 0 0}
-.signup-status[role=alert]{font-size:11px;color:#923a40;font-weight:700}
-.signup-status[role=status]{color:#345e73}
-.signup-footer{margin-top:auto;text-align:center;padding-top:2px;font-size:10px;line-height:1.3;color:#758d99}
-.signup-footer a{text-decoration:none}
-@media(max-width:370px){.signup-page{padding:8px 10px 8px;gap:6px}.signup-header{min-height:37px}.signup-logo{width:36px;height:36px;font-size:23px}.signup-brand-text strong{font-size:22px}.signup-brand-text small{font-size:7px}.signup-languages button{min-height:31px;min-width:34px}.signup-intro h1{font-size:20px}.signup-eyebrow{font-size:8px;margin-bottom:2px}.signup-intro p:last-child{font-size:9px}.signup-plan{padding:10px 12px;border-radius:17px}.signup-plan-name{font-size:11px}.signup-plan-price{margin:2px 0 3px}.signup-plan-price strong{font-size:29px}.signup-plan-price span{font-size:10px}.signup-plan-benefits{font-size:9px;gap:2px 9px}.signup-plan-note{font-size:8px;margin-top:3px}.signup-form-card{padding:9px 12px 8px;border-radius:16px}.signup-form-card h2{font-size:17px}.signup-form-card .signup-subtitle{font-size:9px;margin-bottom:6px}.signup-form{gap:4px}.signup-field{gap:2px}.signup-field label{font-size:10px}.signup-field input{height:36px;font-size:11px;padding:6px 9px}.signup-consent{font-size:9px;gap:5px;margin-top:1px}.signup-consent input{width:15px;height:15px}.signup-action{min-height:42px;font-size:12px;margin:0}.signup-existing{font-size:10px;margin-top:5px}.signup-status{font-size:9px;margin-top:4px}.signup-footer{font-size:9px}}
-@media(max-height:700px){.signup-page{gap:6px}.signup-plan{padding-top:11px;padding-bottom:11px}.signup-intro h1{font-size:clamp(19px,5.8vw,22px)}.signup-form-card{padding-top:10px;padding-bottom:9px}.signup-form-card .signup-subtitle{margin-bottom:6px}.signup-form{gap:5px}.signup-field input{height:37px}.signup-plan-price strong{font-size:30px}.signup-footer{font-size:9px}}
-@media(max-height:590px){.signup-page{gap:4px;padding-top:6px;padding-bottom:5px}.signup-intro h1{font-size:19px}.signup-intro p:last-child{font-size:9px}.signup-plan{padding:9px 12px}.signup-plan-note{margin-top:2px}.signup-plan-price strong{font-size:28px}.signup-form-card{padding:8px 12px 7px}.signup-form-card h2{font-size:16px}.signup-form-card .signup-subtitle{font-size:9px;margin-bottom:4px}.signup-form{gap:3px}.signup-field input{height:34px}.signup-consent{font-size:9px;line-height:1.2}.signup-action{min-height:39px}.signup-existing{margin-top:4px}.signup-status{font-size:8.5px;margin-top:3px}.signup-footer{font-size:8px}}
-/* Tablet and desktop use a genuine two-column composition, not a stretched phone card. */
-@media(min-width:700px){
- .signup-page{width:min(calc(100% - 48px),1120px);min-height:100dvh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.02fr);grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(14px,2.5vw,32px) clamp(24px,4vw,64px);padding:clamp(16px,3vh,32px) 0}
- .signup-header{grid-column:1/-1;grid-row:1}
- .signup-showcase{grid-column:1;grid-row:2;display:flex;flex-direction:column;justify-content:center;gap:clamp(14px,3vh,28px);min-width:0}
- .signup-intro{text-align:left}
- .signup-intro h1{font-size:clamp(30px,3.6vw,46px);max-width:520px;margin:0 0 10px}
- .signup-intro p:last-child{font-size:clamp(13px,1.2vw,16px)}
- .signup-eyebrow{font-size:11px}
- .signup-plan{padding:clamp(20px,3vw,32px);border-radius:26px}
- .signup-plan-name{font-size:clamp(15px,1.5vw,19px)}
- .signup-plan-price strong{font-size:clamp(40px,4vw,57px)}
- .signup-plan-price span{font-size:14px}
- .signup-plan-benefits{font-size:12px;gap:9px 16px}
- .signup-plan-note{font-size:11px;margin-top:12px}
- .signup-form-card{grid-column:2;grid-row:2;align-self:center;min-width:0;padding:clamp(20px,2.8vw,36px);border-radius:26px}
- .signup-form-card h2{font-size:clamp(23px,2.4vw,30px)}
- .signup-form-card .signup-subtitle{font-size:13px;margin:0 0 19px}
- .signup-form{gap:12px}
- .signup-field{gap:6px}
- .signup-field label{font-size:13px}
- .signup-field input{height:48px;font-size:15px}
- .signup-consent{font-size:12px;gap:9px;margin-top:4px}
- .signup-consent input{width:18px;height:18px;align-self:flex-start;margin-top:1px}
- .signup-action{min-height:48px;font-size:15px;margin-top:4px}
- .signup-existing{font-size:13px;margin-top:14px}
- .signup-status{font-size:11px;margin-top:11px}
- .signup-footer{grid-column:1/-1;grid-row:3;align-self:end;margin-top:0;font-size:12px}
+.signup-status{font-size:11px;line-height:1.5;color:var(--muted);text-align:center;margin:11px 0 0}
+.signup-status[role=alert]{color:#874034;font-weight:800}
+.signup-footer{grid-column:1/-1;grid-row:3;align-self:end;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+.signup-footer a{text-decoration:none}.signup-footer a:hover{text-decoration:underline}.signup-footer-links{display:flex;align-items:center;gap:17px}
+@media(max-width:899px){
+ .signup-page{width:min(100% - 40px,760px);display:flex;flex-direction:column;gap:23px;min-height:100dvh;padding:15px 0 18px}
+ .signup-header,.signup-showcase,.signup-form-card,.signup-footer{width:100%}
+ .signup-showcase{max-width:760px;gap:17px}
+ .signup-intro h1{font-size:clamp(31px,5vw,48px);margin-bottom:10px;max-width:650px}
+ .signup-eyebrow{margin-bottom:9px}
+ .signup-tiles{max-width:520px}
+ .signup-plan{max-width:none}
+ .signup-form-card{padding:clamp(23px,4vw,31px)}
+ .signup-footer{margin-top:auto}
 }
-@media(min-width:700px) and (max-height:700px){
- .signup-page{gap:12px 24px;padding:12px 0}
- .signup-showcase{gap:12px}
- .signup-intro h1{font-size:clamp(26px,3vw,38px)}
- .signup-plan{padding:16px 20px}
- .signup-plan-price strong{font-size:38px}
- .signup-form-card{padding:18px 22px}
- .signup-form{gap:7px}
- .signup-field input{height:42px}
+@media(max-width:520px){
+ .signup-page{width:calc(100% - 28px);gap:14px;padding:10px 0 16px}
+ .signup-header{gap:6px}
+ .signup-brand{font-size:25px}
+ .signup-header-right{gap:5px}
+ .signup-languages button{min-width:36px;min-height:44px;font-size:11px}
+ .signup-login{min-height:42px;font-size:11px;padding:8px 11px}
+ .signup-showcase{gap:15px}
+ .signup-eyebrow{font-size:9px;letter-spacing:.09em;margin-bottom:7px}
+ .signup-intro h1{font-size:clamp(30px,9vw,39px);margin-bottom:8px}
+ .signup-intro>p:last-child{font-size:12px}
+ .signup-tiles{gap:9px;padding:0 3px}
+ .signup-tile{border-radius:11px;padding:6px}
+ .signup-tile-art{border-radius:7px}
+ .signup-tile-art svg{width:64%}
+ .signup-tile-label{font-size:10px;padding:6px 0 1px}
+ .signup-plan{padding:16px 17px;border-radius:15px}
+ .signup-plan-name{font-size:15px}.signup-plan-badge{font-size:9px;padding:5px 8px}
+ .signup-plan-price{margin:6px 0}.signup-plan-price strong{font-size:38px}.signup-plan-price span{font-size:12px}
+ .signup-plan-benefits{font-size:11px;gap:5px 12px}
+ .signup-plan-note{font-size:10px;margin-top:9px}
+ .signup-form-card{border-radius:16px;padding:19px 17px}
+ .signup-form-card h2{font-size:23px}.signup-subtitle{font-size:12px;margin-bottom:15px}
+ .signup-form{gap:11px}.signup-field input{min-height:46px}.signup-consent{font-size:11px}
+ .signup-existing{margin-top:12px}
+ .signup-footer{font-size:10px;align-items:flex-start}.signup-footer-links{gap:10px}
 }
-/* At rest the page fits the viewport on supported phones; do not clip content.
-   The layout intentionally scrolls when on-screen keyboards, text zoom or short viewports need more space. */
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+@media(max-width:340px){
+ .signup-page{width:calc(100% - 20px)}
+ .signup-brand{font-size:23px}
+ .signup-login{padding:8px}
+ .signup-intro h1{font-size:29px}
+ .signup-plan-benefits{gap:5px 10px}
+ .signup-footer-links{gap:7px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
+<body data-pictau-signup-design="5">
+<a href="#page-main" class="signup-skip" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
 <main id="page-main" class="signup-page">
  <header class="signup-header">
-  <a class="signup-brand" href="./index.html" aria-label="Pict-au — accueil">
-   <span class="signup-logo" aria-hidden="true">P</span><span class="signup-brand-text"><strong>Pict-au</strong><small>VISUAL ROUTINES</small></span>
-  </a>
-  <div class="signup-languages" role="group" aria-label="Langue / Language">
-   <button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button>
+  <a class="signup-brand" href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home">Pict-<span class="hand">a</span>u<span class="dot">.</span></a>
+  <div class="signup-header-right">
+   <div class="signup-languages" role="group" aria-label="Langue / Language">
+    <button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button>
+   </div>
+   <a class="signup-login" href="./app/" data-fr="Connexion" data-en="Sign in">Connexion</a>
   </div>
  </header>
  <div class="signup-showcase">
- <section class="signup-intro" aria-labelledby="signup-title">
-  <p class="signup-eyebrow"><span data-fr="UN SEUL FORFAIT" data-en="ONE SIMPLE PLAN">UN SEUL FORFAIT</span></p>
-  <h1 id="signup-title"><span data-fr="Bienvenue dans votre espace visuel." data-en="Welcome to your visual space.">Bienvenue dans votre espace visuel.</span></h1>
-  <p><span data-fr="Des outils simples pour vos routines." data-en="Simple tools for your routines.">Des outils simples pour vos routines.</span></p>
- </section>
- <section class="signup-plan" aria-label="Forfait Pict-au / Pict-au plan">
-  <div class="signup-plan-top"><strong class="signup-plan-name">Forfait Pict-au</strong><span class="signup-plan-badge" data-fr="MENSUEL" data-en="MONTHLY">MENSUEL</span></div>
-  <div class="signup-plan-price"><strong>9,99 $</strong><span data-fr="CA / mois" data-en="CAD / month">CA / mois</span></div>
-  <div class="signup-plan-benefits"><span data-fr="Pictogrammes" data-en="Pictograms">Pictogrammes</span><span data-fr="Routines et tableaux" data-en="Routines and boards">Routines et tableaux</span><span data-fr="PDF et impression" data-en="PDF and printing">PDF et impression</span></div>
-  <p class="signup-plan-note"><span data-fr="Tarif prévu · Taxes et modalités à confirmer" data-en="Planned price · Taxes and terms to be confirmed">Tarif prévu · Taxes et modalités à confirmer</span></p>
- </section>
+  <section class="signup-intro" aria-labelledby="signup-title">
+   <p class="signup-eyebrow" data-fr="DES OUTILS POUR VOTRE QUOTIDIEN" data-en="TOOLS FOR EVERYDAY LIFE">DES OUTILS POUR VOTRE QUOTIDIEN</p>
+   <h1 id="signup-title" data-fr="Créez et personnalisez vos repères visuels." data-en="Create and personalize your visual supports.">Créez et personnalisez vos repères visuels.</h1>
+   <p data-fr="Des pictogrammes simples, des routines à votre image et des supports faciles à imprimer." data-en="Simple pictograms, visual routines made your way and supports ready to print.">Des pictogrammes simples, des routines à votre image et des supports faciles à imprimer.</p>
+  </section>
+  <div class="signup-tiles" aria-label="Trouver, personnaliser et imprimer" data-fr-aria="Trouver, personnaliser et imprimer" data-en-aria="Find, personalize and print">
+   <div class="signup-tile"><div class="signup-tile-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="39" cy="39" r="23"/><path d="m56 56 21 21"/></svg></div><span class="signup-tile-label" data-fr="Trouver" data-en="Find">Trouver</span></div>
+   <div class="signup-tile"><div class="signup-tile-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect height="57" rx="5" width="61" x="14" y="16"/><path d="M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9"/></svg></div><span class="signup-tile-label" data-fr="Personnaliser" data-en="Personalize">Personnaliser</span></div>
+   <div class="signup-tile"><div class="signup-tile-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6"/></svg></div><span class="signup-tile-label" data-fr="Imprimer" data-en="Print">Imprimer</span></div>
+  </div>
+  <section class="signup-plan" aria-label="Forfait Pict-au / Pict-au plan">
+   <div class="signup-plan-top"><strong class="signup-plan-name">Forfait Pict-au</strong><span class="signup-plan-badge" data-fr="MENSUEL" data-en="MONTHLY">MENSUEL</span></div>
+   <div class="signup-plan-price"><strong>9,99 $</strong><span data-fr="CA / mois" data-en="CAD / month">CA / mois</span></div>
+   <div class="signup-plan-benefits"><span data-fr="Pictogrammes" data-en="Pictograms">Pictogrammes</span><span data-fr="Routines et tableaux" data-en="Routines and boards">Routines et tableaux</span><span data-fr="PDF et impression" data-en="PDF and printing">PDF et impression</span></div>
+   <p class="signup-plan-note" data-fr="Tarif prévu · Taxes et modalités à confirmer" data-en="Planned price · Taxes and terms to be confirmed">Tarif prévu · Taxes et modalités à confirmer</p>
+  </section>
  </div>
  <section class="signup-form-card" aria-labelledby="signup-form-title">
-  <h2 id="signup-form-title"><span data-fr="Créer mon compte" data-en="Create my account">Créer mon compte</span></h2>
-  <p class="signup-subtitle"><span data-fr="Préparez votre inscription en quelques instants." data-en="Get ready to sign up in a few steps.">Préparez votre inscription en quelques instants.</span></p>
-  <form class="signup-form" id="signup-form" novalidate>
+  <h2 id="signup-form-title" data-fr="Créer mon compte" data-en="Create my account">Créer mon compte</h2>
+  <p class="signup-subtitle" data-fr="Votre espace visuel commence ici." data-en="Your visual space starts here.">Votre espace visuel commence ici.</p>
+  <form class="signup-form" id="signup-form">
    <div class="signup-field"><label for="signup-name" data-fr="Nom complet" data-en="Full name">Nom complet</label><input id="signup-name" name="name" type="text" autocomplete="name" placeholder="Votre nom" maxlength="120" required></div>
    <div class="signup-field"><label for="signup-email" data-fr="Adresse courriel" data-en="Email address">Adresse courriel</label><input id="signup-email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="nom@exemple.com" maxlength="254" required></div>
    <div class="signup-field"><label for="signup-password" data-fr="Mot de passe" data-en="Password">Mot de passe</label><input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="8 caractères minimum" required></div>
@@ -148,7 +164,7 @@ button,input{font:inherit}button{cursor:pointer}a{color:#28617c;text-underline-o
   <p class="signup-existing"><span data-fr="Déjà inscrit ?" data-en="Already a member?">Déjà inscrit ?</span> <a href="./app/" data-fr="Connexion" data-en="Sign in">Connexion</a></p>
   <p class="signup-status" id="signup-status" role="status" aria-live="polite"><span data-fr="Inscriptions à venir · Aucun paiement ni compte créé ici." data-en="Registration coming soon · No payment or account created here.">Inscriptions à venir · Aucun paiement ni compte créé ici.</span></p>
  </section>
- <footer class="signup-footer"><a href="./index.html" data-fr="← Accueil" data-en="← Home">← Accueil</a> · <a href="./conditions.html" data-fr="Conditions" data-en="Terms">Conditions</a> · <a href="./confidentialite.html" data-fr="Confidentialité" data-en="Privacy">Confidentialité</a></footer>
+ <footer class="signup-footer"><span>© Pict-au</span><div class="signup-footer-links"><a href="./index.html" data-fr="Accueil" data-en="Home">Accueil</a><a href="./conditions.html" data-fr="Conditions" data-en="Terms">Conditions</a><a href="./confidentialite.html" data-fr="Confidentialité" data-en="Privacy">Confidentialité</a></div></footer>
 </main>
 <script type="module">
 const translations=[...document.querySelectorAll('[data-fr][data-en]')];
@@ -158,10 +174,15 @@ function setLanguage(next){
  language=next==='en'?'en':'fr';document.documentElement.lang=language;
  for(const item of translations)item.textContent=item.dataset[language];
  for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.lang===language));
+ for(const element of document.querySelectorAll("[data-fr-aria][data-en-aria]"))element.setAttribute("aria-label",element.dataset[language+"Aria"]);
  for(const input of document.querySelectorAll('.signup-field input')){
   if(input.id==='signup-name')input.placeholder=language==='fr'?'Votre nom':'Your name';
+  if(input.id==='signup-email')input.placeholder=language==='fr'?'nom@exemple.com':'name@example.com';
   if(input.id==='signup-password')input.placeholder=language==='fr'?'8 caractères minimum':'8 characters minimum';
  }
+ const status=document.querySelector('#signup-status');
+ status.setAttribute('role','status');
+ status.textContent=language==='fr'?'Inscriptions à venir · Aucun paiement ni compte créé ici.':'Registration coming soon · No payment or account created here.';
  document.title=language==='fr'?'Créer mon compte — Pict-au':'Create an account — Pict-au';
  try{localStorage.setItem('pictau-language',language)}catch{}
 }
@@ -178,4 +199,5 @@ form.addEventListener('submit',event=>{
 });
 </script>
 </body>
+
 </html>
