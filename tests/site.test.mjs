@@ -216,17 +216,23 @@ test('accueil → inscription utilise exactement le même logo et les mêmes des
 
 test("logo Le Fil archivé et identique sur les en-têtes publics",()=>{
   const full=read("branding/pictau-logo-le-fil.svg");
-  const compact=read("branding/pictau-logo-le-fil-wordmark.svg");
+  const compact=read("branding/pictau-logo-le-fil-mobile.svg");
   const pages=["index.html","forfait.html","connexion.html","contact.html","conditions.html","confidentialite.html"];
   assert.match(full,/viewBox="116 103 760 116"/);
   assert.match(full,/id="pictau-wordmark"/);
   assert.match(compact,/id="pictau-wordmark"/);
+  assert.match(compact,/id="pictau-progress-tiles"/);
+  const tiles=[...compact.matchAll(/<rect[^>]*width="(\d+)" height="(\d+)"[^>]*>/g)];
+  assert.equal(tiles.length,3,"Le logo mobile doit afficher les trois carrés");
+  for(const [,w,h] of tiles) assert.equal(w,h,"Les tuiles sont carrées");
+  const glyphs=svg=>svg.match(/<g id="pictau-wordmark"[^>]*>([\s\S]*?)<\/g>/)?.[1];
+  assert.equal(glyphs(compact),glyphs(full),"Lettrage identique sur mobile et PC");
   assert.doesNotMatch(full,/font-family|Comic Sans|Patrick Hand/);
   assert.doesNotMatch(compact,/font-family|Comic Sans|Patrick Hand/);
   for(const name of pages){
     const source=read(name);
     assert.match(source,/src="\.\/branding\/pictau-logo-le-fil\.svg"/,name+" image du logo");
-    assert.match(source,/srcset="\.\/branding\/pictau-logo-le-fil-wordmark\.svg"/,name+" version mobile");
+    assert.match(source,/srcset="\.\/branding\/pictau-logo-le-fil-mobile\.svg"/,name+" version mobile");
     assert.match(source,/<picture><source media="\(max-width: 680px\)"/,name+" logo responsive");
   }
 });
