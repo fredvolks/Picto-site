@@ -1575,7 +1575,7 @@
 .hosted-access-v4 .hosted-caps-hint[hidden]{display:none}
 
 /* Mes brouillons : recherche utilisable au clavier, au tactile et en format réduit. */
-.pa-drafts-filter{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto auto;
+.pa-drafts-filter{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr)) auto auto;
   align-items:end;gap:12px;margin:18px 0}
 .pa-drafts-filter .control{min-width:0}
 .pa-drafts-filter label{display:block;margin-bottom:6px;font-size:14px;font-weight:600}
