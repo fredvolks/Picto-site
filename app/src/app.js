@@ -2,7 +2,7 @@ import {samples} from "./data.js";
 import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
-import {readAdminBank,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
+import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
 import {importPrivateDraft,validateDraftMetadata} from "./admin-import.js";
@@ -770,7 +770,7 @@ async function refreshPrivateBank(client,userId){
   privateBank.loading=true;privateBank.error="";
   render();
   try{
-    const result=await readAdminBank(client,userId,{...bankFilters,page:privateBank.page});
+    const result=await readAdminBankAvailablePage(client,userId,{...bankFilters,page:privateBank.page});
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
     authStatus.roleReady=true;authStatus.roleError="";
@@ -780,8 +780,10 @@ async function refreshPrivateBank(client,userId){
       if(state.page==="home")void fetchClientFiles(client,userId);
       if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();
     }
-    if(SITE_EMBEDDED&&result.authorized){state.page="admin";state.adminTab="overview";}
-    else if(SITE_EMBEDDED&&state.page==="admin")state.page="home";
+    if(SITE_EMBEDDED&&result.authorized){
+      // Garder l'onglet actif après filtres, pagination et approbation.
+      if(state.page!=="admin"){state.page="admin";state.adminTab="overview";}
+    }else if(SITE_EMBEDDED&&state.page==="admin")state.page="home";
     privateBank.items=result.items;privateBank.total=result.total;privateBank.page=result.page;
     if(result.authorized){
       try{
@@ -1385,6 +1387,12 @@ function renderAdmin(){
       +(draftEditor.message?'<p class="admin-import-success" role="status">'+esc(draftEditor.message)+'</p>':"")
       +'</section>';
   }
+  const draftReviewAction=state.adminTab==="bank"&&bankFilters.status==="draft"&&
+    !privateBank.loading&&!privateBank.error&&
+    privateBank.items.some(item=>item.status==="draft")?
+      '<button type="button" class="btn btn-primary" data-action="admin-review-next"'+
+      (privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'+
+      icon("search","btn-icon")+esc(fr?'Examiner un brouillon':'Review a draft')+'</button>':"";
   let body="";
   if(state.adminTab==="overview"){
     body='<div class="admin-overview-grid"><article class="admin-stat"><span>'+esc(sectionNames.samples)+'</span><strong>'+samples.length+'</strong><small>'+esc(sectionNames.sample)+'</small></article>'
@@ -1395,7 +1403,7 @@ function renderAdmin(){
       +'<button class="admin-feature-action" data-action="admin-tab" data-tab="tools">'+icon("upload")+esc(sectionNames.toolChrome)+' '+icon("arrow","btn-icon")+'</button>'
       +'<button class="admin-feature-action" data-action="admin-tab" data-tab="templates">'+icon("settings")+esc(sectionNames.toolGabarit)+' '+icon("arrow","btn-icon")+'</button></section></div>'+info;
   }else if(state.adminTab==="bank"){
-    body=importForm+'<section class="admin-surface"><div class="admin-surface-head"><div><h2>'+esc(sectionNames.bankTitle)+'</h2><p>'+esc(sectionNames.bankSub)+'</p></div><button type="button" class="btn btn-light" data-action="refresh-admin-bank"'+(privateBank.loading?" disabled":"")+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
+    body=importForm+'<section class="admin-surface"><div class="admin-surface-head"><div><h2>'+esc(sectionNames.bankTitle)+'</h2><p>'+esc(sectionNames.bankSub)+'</p></div>'+draftReviewAction+'<button type="button" class="btn btn-light" data-action="refresh-admin-bank"'+(privateBank.loading?" disabled":"")+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
       +(privateBank.error?'<p role="alert">'+esc(fr?"Impossible de lire la banque privée.":"Unable to load private bank.")+'</p>':"")
       +filters+bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
@@ -1441,6 +1449,13 @@ function renderAdminHome(){
     +'<p>'+esc(fr?'Gérez vos pictogrammes, vos demandes et vos gabarits en un seul endroit.':'Manage your pictograms, requests, and templates in one place.')+'</p>'
     +'<div class="admin-dashboard-summary"><div><span>'+esc(fr?'Fiches dans la banque privée':'Private bank records')+'</span><strong>'+privateBank.total+'</strong></div>'
     +'<div><span>'+esc(fr?'Statut':'Status')+'</span><strong>'+esc(fr?'Accès administrateur vérifié':'Administrator verified')+'</strong></div></div>'
+    +'<section class="admin-review-shortcut" aria-labelledby="admin-review-shortcut-title">'
+    +'<h2 id="admin-review-shortcut-title">'+esc(fr?'Brouillons à approuver':'Drafts to review')+'</h2>'
+    +'<p>'+esc(fr?
+      "Les images restent privées jusqu’à leur vérification et à une approbation explicite. Retrouvez les brouillons en attente.":
+      "Artwork stays private until it is reviewed and explicitly approved. Open drafts awaiting publication.")+'</p>'
+    +'<button type="button" class="btn btn-primary" data-action="admin-review-queue">'
+      +icon("library","btn-icon")+esc(fr?'Examiner les brouillons privés':'Review private drafts')+'</button></section>'
     +'<div class="admin-dashboard-grid">'+links.map(([tab,title,copy,ico])=>
       '<button type="button" class="admin-dashboard-card" data-action="admin-tab" data-tab="'+tab+'">'
       +icon(ico)+ '<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
@@ -2904,6 +2919,27 @@ root.addEventListener("click",function(event){
         }
       }
     })();return;
+  }
+  if(a==="admin-review-queue"){
+    if(!canOpenAdmin()||!authStatus.user)return;
+    clearTimeout(bankQueryTimer);bankQueryTimer=null;
+    clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
+    bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
+    bankFilters.sort="recent";privateBank.page=0;
+    state.page="admin";state.adminTab="bank";state.adminMenuOpen=false;
+    state.toast="";render();
+    queueAdminBankRefresh();
+    return;
+  }
+  if(a==="admin-review-next"){
+    if(!canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank"||
+       bankFilters.status!=="draft"||privateBank.loading||privatePreview.loading||
+       publishedCatalog.publishing)return;
+    const drafts=privateBank.items.filter(item=>item.status==="draft");
+    if(!drafts.length)return;
+    const current=drafts.findIndex(item=>item.id===privatePreview.id);
+    void openAdminPreview(drafts[(current+1)%drafts.length].id);
+    return;
   }
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
