@@ -43,6 +43,22 @@ export function selectVisibleCatalogPage(current,visibleRows){
   return {selected,added,capacityReached};
 }
 
+// Déplace un vrai pictogramme déjà choisi, sans le remplacer ni relire le réseau.
+// L'ordre de Map est l'ordre transmis à la routine / au tableau après contrôle RLS.
+// Ne modifie pas les données de publication, y compris les choix sur d'autres pages.
+export function moveCatalogChoice(current,id,direction){
+  if(!(current instanceof Map)||current.size>MAX_CATALOG_CHOICES||
+     !UUID.test(id||"")||![-1,1].includes(direction)||
+     [...current].some(([key,row])=>key!==row?.id||!validRow(row)))
+    throw Error("Ordre de la sélection invalide.");
+  const entries=[...current.entries()],from=entries.findIndex(([key])=>key===id);
+  if(from<0)throw Error("Pictogramme absent de la sélection.");
+  const to=from+direction;
+  if(to<0||to>=entries.length)return new Map(entries);
+  [entries[from],entries[to]]=[entries[to],entries[from]];
+  return new Map(entries);
+}
+
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PNG_MAGIC=[137,80,78,71,13,10,26,10];
 const MAX_BYTES=6*1024*1024;
