@@ -181,3 +181,94 @@
 
 /* Affichage cohérent pendant connexion, réinitialisation et vérification de rôle. */
 .hosted-access-v5 .hosted-access-header[data-pa-universal-header]{background:transparent}
+
+
+/* Connexion E — mobile réellement sur UNE vue au repos.
+   Réduction du décor seulement; email, password, Google, reset et création
+   restent visibles, tappables et accessibles. Aucune coupure de scroll pour
+   clavier virtuel, zoom ou messages d'erreur. */
+@media(max-width:680px){
+ .hosted-access-v5 .hosted-access-main{
+   min-height:0;flex:1 0 auto;display:flex;align-items:center;
+   justify-content:center;padding:3px 15px 4px;
+ }
+ .hosted-access-v5 .hosted-e-layout{gap:5px;max-width:440px}
+ .hosted-access-v5 .hosted-e-intro{text-align:center}
+ .hosted-access-v5 .hosted-access-eyebrow{display:none}
+ .hosted-access-v5 .hosted-e-intro h2{
+   font-size:clamp(20px,5.7vw,25px);line-height:1.12;
+   margin:0;letter-spacing:-.035em
+ }
+ .hosted-access-v5 .hosted-e-intro>p{display:none}
+ .hosted-access-v5 .hosted-e-tiles{
+   width:100%;max-width:225px;gap:7px;padding:3px 2px 3px;
+   margin:3px auto 0;
+ }
+ .hosted-access-v5 .hosted-e-tile{
+   border-radius:9px;padding:3px;
+   box-shadow:0 4px 10px #243c3014
+ }
+ .hosted-access-v5 .hosted-e-art{border-width:1.5px}
+ .hosted-access-v5 .hosted-e-art svg{max-width:46px;max-height:46px}
+ .hosted-access-v5 .hosted-e-tile-label{
+   min-height:24%;font-size:9px;line-height:1;letter-spacing:-.03em;
+   padding:2px 1px;border-width:1.5px
+ }
+ .hosted-access-v5 .hosted-access-panel{
+   max-width:440px;border-radius:16px;padding:13px 17px;
+   box-shadow:0 8px 22px #26352f0e
+ }
+ .hosted-access-v5 .hosted-access-panel h1{
+   font-size:23px;line-height:1.12;margin:0 0 5px
+ }
+ .hosted-access-v5 .hosted-access-intro{display:none}
+ .hosted-access-v5 .hosted-email-form{gap:4px}
+ .hosted-access-v5 .hosted-email-form label{
+   font-size:12px;line-height:1.15;margin:3px 0 0
+ }
+ .hosted-access-v5 .hosted-email-form input{
+   height:44px;min-height:44px;padding:8px 12px;
+   border-radius:10px;font-size:14px
+ }
+ .hosted-access-v5 .hosted-password-toggle{
+   top:0;right:1px;min-height:44px;min-width:44px
+ }
+ .hosted-access-v5 .hosted-access-link{
+   min-height:29px;padding:4px 0;font-size:12px
+ }
+ .hosted-access-v5 .hosted-access-submit{
+   min-height:44px;height:44px;margin:3px 0 0!important;
+   border-radius:10px;font-size:14px
+ }
+ .hosted-access-v5 .hosted-auth-divider{margin:5px 0;line-height:1.1}
+ .hosted-access-v5 .hosted-access-action .login-google{
+   min-height:44px;padding:6px 10px;font-size:12px;border-radius:10px
+ }
+ .hosted-access-v5 .hosted-signup{
+   font-size:12px;line-height:1.35;margin:7px 0 0
+ }
+ .hosted-access-v5 .hosted-access-back,.hosted-access-v5 .hosted-e-footer{display:none}
+ .hosted-access-v5 .hosted-access-error,
+ .hosted-access-v5 .hosted-email-success{
+   font-size:12px;line-height:1.3;margin:5px 0
+ }
+}
+@media(max-width:680px) and (max-height:650px){
+ .hosted-access-v5 .hosted-e-tiles{max-width:198px;gap:5px}
+ .hosted-access-v5 .hosted-e-layout{gap:2px}
+ .hosted-access-v5 .hosted-access-panel{padding:10px 14px}
+ .hosted-access-v5 .hosted-access-panel h1{font-size:21px;margin-bottom:3px}
+ .hosted-access-v5 .hosted-email-form{gap:3px}
+ .hosted-access-v5 .hosted-email-form input{min-height:42px;height:42px}
+ .hosted-access-v5 .hosted-access-submit{min-height:42px;height:42px}
+ .hosted-access-v5 .hosted-auth-divider{margin:3px 0}
+ .hosted-access-v5 .hosted-signup{margin-top:4px}
+ .hosted-access-v5 .hosted-access-main{padding-top:2px;padding-bottom:3px}
+}
+@media(max-width:680px) and (max-height:540px){
+ /* Paysage, zoom et clavier : la priorité est le parcours, pas la décoration.
+    Le document continue à défiler normalement lorsqu'il dépasse la hauteur. */
+ .hosted-access-v5 .hosted-e-tiles{display:none}
+ .hosted-access-v5 .hosted-e-layout{gap:3px}
+ .hosted-access-v5 .hosted-e-intro h2{font-size:19px}
+}
