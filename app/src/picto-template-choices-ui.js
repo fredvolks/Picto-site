@@ -6,12 +6,20 @@ const escapeHtml=v=>String(v??"").replace(/[&<>"']/g,c=>({
 }[c]));
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const formats={square:["Carré","Square"],portrait:["Rectangle haut","Tall rectangle"]};
+const isBetween=(value,min,max)=>value!==null&&value!==undefined&&value!==""&&
+  Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
 function validTemplate(t){
  return t&&typeof t==="object"&&UUID.test(t.id||"")&&
   typeof t.name==="string"&&t.name.trim().length>0&&
   ["square","portrait"].includes(t.shape)&&
-  Number.isFinite(Number(t.width_cm))&&Number(t.width_cm)>=2&&
-  Number(t.width_cm)<=10&&/^#[A-Fa-f0-9]{6}$/.test(t.border_color)&&
+  isBetween(t.width_cm,2,10)&&
+  isBetween(t.art_percent,30,95)&&
+  isBetween(t.band_mm,6,30)&&isBetween(t.stroke_mm,0.4,4)&&
+  isBetween(t.separator_mm,0.5,4)&&isBetween(t.font_pt,7,26)&&
+  isBetween(t.rotation_deg,-180,180)&&
+  ["upper_illustration_area","entire_inner_square_height"].includes(t.square_center_mode)&&
+  /^#[A-Fa-f0-9]{6}$/.test(t.border_color)&&
+  /^#[A-Fa-f0-9]{6}$/.test(t.font_color)&&
   typeof t.colored==="boolean";
 }
 function heading(t,fr){
@@ -24,16 +32,28 @@ function ensureList(templates){
    throw Error("Liste de gabarits invalide. Actualisez la fiche.");
 }
 function renderMiniPreview(t,{artworkUrl=null,pictoName=""}={}){
- const rotation=Number(t.rotation_deg);
- const angle=Number.isFinite(rotation)&&Math.abs(rotation)<=180?rotation:0;
+ // Le gabarit est enregistré pour une cellule de référence de 5 cm.
+ // La largeur choisie redimensionne tous les millimètres de la même façon.
+ // Ainsi, les proportions de la bande et des traits ne changent pas avec la taille.
+ const heightRatio=t.shape==="portrait"?1.35:1;
+ const bandPercent=(Number(t.band_mm)*2/heightRatio).toFixed(2);
+ const artPercent=Number(t.art_percent);
+ const lineWidth=(Number(t.stroke_mm)*2).toFixed(2);
+ const separatorWidth=(Number(t.separator_mm)*2).toFixed(2);
+ const fontSize=(Number(t.font_pt)*0.65).toFixed(2);
+ const angle=Number(t.rotation_deg);
  const colored=t.colored?" is-colored":"";
- const color=escapeHtml(t.border_color);
  const shape=t.shape==="portrait"?" tall":"";
+ const whole=t.shape==="square"&&t.square_center_mode==="entire_inner_square_height";
  const picture=artworkUrl?
    '<img src="'+escapeHtml(artworkUrl)+'" alt="" loading="lazy" style="transform:rotate('+angle+'deg)">' :
    '<span class="pa-template-no-art" aria-hidden="true">○</span>';
- return '<span class="pa-template-mini'+colored+shape+'" style="--template-edge:'+color+'">'
-   +'<span class="pa-template-mini-inner"><span class="pa-template-mini-art">'+picture+'</span>'
+ return '<span class="pa-template-mini'+colored+shape+'" style="--template-edge:'+escapeHtml(t.border_color)+
+   ';--template-ink:'+escapeHtml(t.font_color)+
+   ';--template-band:'+bandPercent+'%;--template-art-scale:'+artPercent+
+   '%;--template-stroke:'+lineWidth+'px;--template-separator:'+separatorWidth+
+   'px;--template-font-size:'+fontSize+'px">'
+   +'<span class="pa-template-mini-inner"><span class="pa-template-mini-art'+(whole?" is-whole":"")+'">'+picture+'</span>'
    +'<span class="pa-template-mini-label">'+escapeHtml(pictoName||t.name)+'</span></span></span>';
 }
 export function renderAdminPictoTemplatePicker({
@@ -99,7 +119,7 @@ export function confirmationMessage({pictoName,selected=[],fr=true}={}){
   'Confirm '+selected.length+' visible template(s) for "'+name+'"? This replaces the choices on the customer detail.';
 }
 export function renderClientPictoTemplateOptions({
- pictoName="",templates=[],fr=true,selectedId=null,artworkUrl=null
+ pictoName="",templates=[],fr=true,selectedId=null,artworkUrl=null,busy=false
 }={}){
  ensureList(templates);
  if(templates.some(t=>t.is_published!==true))
@@ -113,10 +133,14 @@ export function renderClientPictoTemplateOptions({
      '<div class="pa-template-choice-grid" role="radiogroup" aria-label="'+escapeHtml(headingText)+'">'
      +templates.map(t=>'<label class="pa-template-choice"><input type="radio" name="picto-client-template" '
        +'data-input="client-template-select" value="'+escapeHtml(t.id)+'"'
-       +(selectedId===t.id?" checked":"")+' />'
+       +(selectedId===t.id?" checked":"")+(busy?" disabled":"")+' />'
        +renderMiniPreview(t,{artworkUrl,pictoName})
        +'<span>'+heading(t,fr)+'</span>'
        +'<small>'+escapeHtml(t.colored?(fr?"Avec contour coloré":"Colored border"):
           (fr?"Sans contour coloré":"No colored border"))+'</small></label>').join("")+'</div>')
+   +(templates.length?'<button type="button" class="btn btn-primary" data-action="client-template-print"'
+      +(!selectedId||busy?" disabled":"")+'>'+escapeHtml(fr?
+        (busy?"Préparation du PDF…":"Créer le PDF de ce pictogramme"):
+        (busy?"Preparing PDF…":"Create this pictogram PDF"))+'</button>':"")
    +'</section>';
 }
