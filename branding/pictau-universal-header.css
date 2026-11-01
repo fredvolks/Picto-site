@@ -40,3 +40,7 @@
 /* L'inscription a déjà les mêmes marges externes que l'accueil : ne pas
    ajouter une seconde fois le padding à l'intérieur de son en-tête. */
 .signup-header[data-pa-universal-header]{padding-left:0;padding-right:0}
+
+/* La grille d'inscription a son propre padding-top historique (6/14 px).
+   L'en-tête partagé doit commencer à la même coordonnée y que l'accueil. */
+.signup-page{padding-top:0}
