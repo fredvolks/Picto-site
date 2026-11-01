@@ -1780,3 +1780,13 @@
 
 /* Sans contour coloré, seul le cadre noir structurel de la case reste visible. */
 .pa-client-template-choices .pa-template-mini:not(.is-colored){border-color:#111}
+
+/* L3 : choix du format physique du PDF sans redimensionner les pictogrammes. */
+.pa-template-print-controls{display:grid;gap:10px;max-width:100%;margin-top:14px}
+.pa-template-print-controls label{font-weight:650;color:#293649}
+.pa-template-print-controls select{width:min(100%,320px);min-height:44px;padding:10px 12px;border:1px solid #788a83;border-radius:10px;background:#fff;color:#1c293b;font:inherit}
+.pa-template-print-controls select:focus-visible{outline:3px solid #84b0e9;outline-offset:2px}
+.pa-template-print-controls select:disabled{opacity:.65;cursor:not-allowed}
+.pa-template-print-controls .pa-template-print-note{margin:0;color:#516558;font-size:.92rem;line-height:1.45}
+.pa-template-print-controls .btn{justify-self:start;max-width:100%;white-space:normal}
+@media(max-width:599px){.pa-template-print-controls select,.pa-template-print-controls .btn{width:100%;justify-self:stretch}}
