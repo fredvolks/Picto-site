@@ -193,6 +193,24 @@ try{
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
     const homeHeader=await evaluate(headerMetrics);
+
+    const mobileAsset=width<=680;
+    const logoInfo=await evaluate(`return (async()=>{
+      const img=document.querySelector(".brand .pictau-brand-img");
+      await img.decode();
+      const source=img.currentSrc;
+      const text=await (await fetch(source)).text();
+      const doc=new DOMParser().parseFromString(text,"image/svg+xml");
+      const tiles=[...doc.querySelectorAll("rect")];
+      return {source,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight,
+        tiles:tiles.map(r=>({width:r.getAttribute("width"),height:r.getAttribute("height")}))};
+    })();`);
+    assert.ok(logoInfo.naturalWidth>0&&logoInfo.naturalHeight>0,"SVG du logo chargé à "+width);
+    assert.ok(logoInfo.source.endsWith(mobileAsset?"pictau-logo-le-fil-mobile.svg":"pictau-logo-le-fil.svg"),
+      "Source responsive erronée du logo : "+JSON.stringify(logoInfo));
+    assert.equal(logoInfo.tiles.length,3,"Les trois carrés du logo manquent à "+width);
+    for(const tile of logoInfo.tiles) assert.equal(tile.width,tile.height,"Tuile logo non carrée à "+width);
+
     await command("Page.navigate",{url:base+"/forfait.html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
