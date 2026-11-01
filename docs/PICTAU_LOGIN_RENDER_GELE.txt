@@ -1,0 +1,50 @@
+const HOSTED_LOGIN_PICTOS=Object.freeze([
+  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"39\" cy=\"39\" r=\"23\"/><path d=\"m56 56 21 21\"/></svg>",fr:"Trouver",en:"Find"},
+  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><rect height=\"57\" rx=\"5\" width=\"61\" x=\"14\" y=\"16\"/><path d=\"M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9\"/></svg>",fr:"Personnaliser",en:"Personalize"},
+  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6\"/></svg>",fr:"Imprimer",en:"Print"}
+]);
+function renderHostedAccess(){
+  const fr=state.language==="fr",forgot=authStatus.emailView==="forgot";
+  const busy=authStatus.emailBusy||authStatus.working;
+  const t=(frText,enText)=>esc(fr?frText:enText);
+  const side=universalHeader("hosted-access-header",false);
+  const art='<div class="hosted-e-tiles" aria-label="'+t('Trouver, Personnaliser, Imprimer','Find, Personalize, Print')+'">'
+    +HOSTED_LOGIN_PICTOS.map(item=>'<div class="hosted-e-tile"><div class="hosted-e-art">'+item.svg+'</div><div class="hosted-e-tile-label">'+esc(fr?item.fr:item.en)+'</div></div>').join('')+'</div>';
+  const email='<label for="auth-email">'+t('Adresse courriel','Email address')+'</label>'
+    +'<input id="auth-email" name="email" type="email" maxlength="254" autocomplete="email" inputmode="email" required value="'+esc(authStatus.email)+'" placeholder="nom@exemple.com"'+(busy?' disabled':'')+'>';
+  const feedback=(authStatus.emailError?'<p role="alert" class="hosted-access-error">'+esc(authStatus.emailError)+'</p>':'')
+    +(authStatus.emailMessage?'<p role="status" class="hosted-email-success">'+esc(authStatus.emailMessage)+'</p>':'')
+    +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'');
+  const content=forgot?
+    '<h1 id="hosted-access-title">'+t('Mot de passe oublié ?','Forgot your password?')+'</h1>'
+    +'<p class="hosted-access-intro">'+t('Entrez votre courriel pour recevoir un lien de récupération.','Enter your email to receive a recovery link.')+'</p>'
+    +'<form class="hosted-email-form" data-form="email-reset">'+email
+    +'<button class="hosted-access-submit" type="submit"'+(busy?' disabled':'')+'>'+t('Envoyer le lien','Send recovery link')+'</button></form>'
+    +feedback+'<button type="button" class="hosted-access-link hosted-return-login" data-action="auth-back-login">'+t('← Retour à la connexion','← Back to sign in')+'</button>':
+    '<h1 id="hosted-access-title">'+t('Se connecter','Sign in')+'</h1>'
+    +'<p class="hosted-access-intro">'+t('Connectez-vous avec votre courriel ou Google.','Sign in with your email or Google.')+'</p>'
+    +'<form class="hosted-email-form" data-form="email-login">'+email
+    +'<label for="auth-password">'+t('Mot de passe','Password')+'</label><div class="hosted-password-wrap">'
+    +'<input id="auth-password" name="password" type="'+(authStatus.showPassword?'text':'password')+'" autocomplete="current-password" required minlength="1"'+(busy?' disabled':'')+'>'
+    +'<button class="hosted-password-toggle" type="button" data-action="auth-show-password" aria-controls="auth-password" aria-label="'+t(authStatus.showPassword?'Masquer le mot de passe':'Afficher le mot de passe',authStatus.showPassword?'Hide password':'Show password')+'" aria-pressed="'+authStatus.showPassword+'">'+icon(authStatus.showPassword?"eye-off":"eye")+'</button></div>'
+    +'<p class="hosted-caps-hint" data-auth-caps role="status" aria-live="polite" hidden>'+t('Verr. maj. est activé.','Caps Lock is on.')+'</p>'
+    +'<button class="hosted-access-link hosted-forgot" type="button" data-action="auth-forgot">'+t('Mot de passe oublié ?','Forgot password?')+'</button>'
+    +'<button class="hosted-access-submit" type="submit"'+(busy||!authStatus.ready?' disabled':'')+'>'+t('Se connecter','Sign in')+'</button></form>'
+    +'<div class="hosted-auth-divider">'+t('ou','or')+'</div><div class="hosted-access-action">'+googleButton()+'</div>'
+    +feedback+'<p class="hosted-signup">'+t('Pas encore de compte ?','New to Pict-au?')+' <a href="../forfait.html">'+t('Créer un compte','Create an account')+'</a></p>';
+  const introduction='<div class="hosted-e-intro">'
+    +'<span class="hosted-access-eyebrow">'+t('VOTRE ESPACE PERSONNEL','YOUR PERSONAL SPACE')+'</span>'
+    +'<h2>'+t('Votre espace','Your space')+' <em>Pict-au</em></h2>'
+    +'<p>'+t('Retrouvez vos pictogrammes, vos routines et vos supports personnalisés.','Find your pictograms, routines and personalized materials.')+'</p>'
+    +art+'</div>';
+  return '<section class="hosted-access hosted-access-v5" aria-labelledby="hosted-access-title">'+side
+    +'<main class="hosted-access-main"><div class="hosted-e-layout">'+introduction
+    +'<div class="hosted-access-panel">'+content
+    +(!authStatus.ready?'<p role="status" class="hosted-access-status">'+t('Vérification de la session…','Checking session…')+'</p>':'')
+    +'<a href="../index.html" class="hosted-access-back">'+t('← Retour à l’accueil Pict-au','← Back to Pict-au home')+'</a>'
+    +'</div></div></main>'
+    +'<footer class="hosted-e-footer"><span>© Pict-au</span><nav aria-label="'+t('Liens utiles','Useful links')+'">'
+    +'<a href="../index.html">'+t('Accueil','Home')+'</a>'
+    +'<a href="../conditions.html">'+t('Conditions','Terms')+'</a>'
+    +'<a href="../confidentialite.html">'+t('Confidentialité','Privacy')+'</a></nav></footer></section>';
+}
