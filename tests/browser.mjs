@@ -209,6 +209,20 @@ try{
     assert.ok(logoInfo.source.endsWith(mobileAsset?"pictau-logo-le-fil-mobile.svg":"pictau-logo-le-fil.svg"),
       "Source responsive erronée du logo : "+JSON.stringify(logoInfo));
     assert.equal(logoInfo.tiles.length,3,"Les trois carrés du logo manquent à "+width);
+    if(mobileAsset){
+      const glyphTest=await evaluate(`return (()=>{
+        const img=document.querySelector(".brand .pictau-brand-img");
+        const r=img.getBoundingClientRect(),header=document.querySelector(".topbar").getBoundingClientRect();
+        const nav=document.querySelector(".topbar nav").getBoundingClientRect();
+        return {logoWidth:r.width,logoHeight:r.height,navY:nav.top,logoY:r.top,
+          logoBottom:r.bottom,headerBottom:header.bottom,docWidth:document.documentElement.scrollWidth};
+      })();`);
+      assert.ok(glyphTest.logoWidth>=190,"Logo complet illisible à "+width+": "+JSON.stringify(glyphTest));
+      assert.ok(glyphTest.docWidth<=width+1,"Débordement horizontal à "+width+": "+JSON.stringify(glyphTest));
+      if(width<=520)assert.ok(glyphTest.navY>=glyphTest.logoBottom-1,
+        "Mobile : boutons ne sont pas sous le logo à "+width+": "+JSON.stringify(glyphTest));
+    }
+
     for(const tile of logoInfo.tiles) assert.equal(tile.width,tile.height,"Tuile logo non carrée à "+width);
 
     await command("Page.navigate",{url:base+"/forfait.html"});
