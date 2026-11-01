@@ -30,3 +30,10 @@ test("Le portage L3 n'introduit aucun import de module en double",()=>{
  const duplicates=specifiers.filter((value,index)=>specifiers.indexOf(value)!==index);
  assert.deepEqual(duplicates,[], "Imports répétés : "+duplicates.join(", "));
 });
+
+test("Les états et gestionnaires L3 ne sont pas déclarés deux fois",()=>{
+ for(const token of ["const adminTemplateChoices=","const clientPictoTemplates=",
+   "function resetAdminTemplateChoices(){","function resetClientPictoTemplates(){",
+   "function renderClientPictoTemplateModal(){"])
+  assert.equal(app.split(token).length-1,1,"Déclaration en double : "+token);
+});
