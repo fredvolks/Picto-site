@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {DEFAULT_PRESET} from "../src/core.js";
 import {
-  normalizeTemplateName,prepareNamedTemplate,listAdminNamedTemplates,
+  normalizeTemplateName,prepareNamedTemplate,prepareNamedTemplateCopy,listAdminNamedTemplates,
   listClientPublishedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication
 } from "../src/admin-template-bank.js";
 
@@ -138,3 +138,50 @@ test("Les versions empêchent écrasements simultanés et publication implicite"
 });
 
 // Les assertions SQL sont exécutées uniquement dans le dépôt privé sur PostgreSQL isolé.
+
+test("Dupliquer un gabarit publié prépare uniquement une copie privée sans altérer la source",async()=>{
+  const original=fixture({name:"Routine école",is_published:true,revision:9,
+    width_cm:6.5,rotation_deg:-24,art_percent:88,colored:false});
+  const {client,state}=mockDb({rows:[original]});
+  const [source]=await listAdminNamedTemplates(client,ADMIN);
+  const snapshot=structuredClone(source);
+  const copy=prepareNamedTemplateCopy(source,[source],true);
+  assert.deepEqual([copy.id,copy.name,copy.widthCm,copy.rotationDeg],
+    [null,"Routine école (copie)",6.5,-24]);
+  assert.deepEqual(copy.preset,source.preset);
+  assert.notEqual(copy.preset,source.preset,"Preset distinct pour préserver l'original");
+  assert.deepEqual(source,snapshot,"Aucune mutation du modèle publié");
+  assert.equal(state.writes.length,0,"La duplication ne doit pas sauvegarder");
+  const saved=await saveAdminNamedTemplate(client,ADMIN,{
+    name:copy.name,preset:copy.preset,widthCm:copy.widthCm,
+    rotationDeg:copy.rotationDeg
+  });
+  assert.equal(saved.is_published,false);
+  assert.equal(saved.revision,1);
+  assert.equal(saved.name,"Routine école (copie)");
+  assert.equal(state.writes.length,1);
+  assert.equal(state.writes[0].method,"insert");
+  assert.equal(state.writes[0].data.is_published,false);
+  assert.equal(original.name,"Routine école");
+  assert.equal(original.is_published,true);
+});
+
+test("Les noms des copies restent uniques, bilingues, plafonnés et insensibles à la casse",()=>{
+  const row={...fixture({name:"Pictogramme",width_cm:4.5,rotation_deg:30}),
+    widthCm:4.5,rotationDeg:30,preset:{...DEFAULT_PRESET}};
+  const names=[row,fixture({id:"00000000-0000-4000-8000-000000000224",
+    name:"pictogramme (COPIE)"})];
+  assert.equal(prepareNamedTemplateCopy(row,names,true).name,"Pictogramme (copie 2)");
+  assert.equal(prepareNamedTemplateCopy(row,names,false).name,"Pictogramme (copy)");
+  const long={...fixture({name:"É".repeat(80)}),
+    widthCm:5,rotationDeg:0,preset:{...DEFAULT_PRESET}};
+  const prepared=prepareNamedTemplateCopy(long,[long],false);
+  assert.equal([...prepared.name].length,80);
+  assert.match(prepared.name,/ \(copy\)$/);
+  assert.throws(()=>prepareNamedTemplateCopy(row,[]),/dupliquer/);
+  assert.throws(()=>prepareNamedTemplateCopy(row,Array.from({length:100},(_,i)=>({
+    id:i===0?row.id:`00000000-0000-4000-8000-${String(i).padStart(12,"0")}`,
+    name:`Modèle ${i}`
+  }))),/dupliquer/);
+  assert.throws(()=>prepareNamedTemplateCopy({...row,preset:{...DEFAULT_PRESET,colored:"true"}},[row]),/dupliquer/);
+});

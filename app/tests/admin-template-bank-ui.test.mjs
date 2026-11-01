@@ -43,10 +43,36 @@ test("Chargement ou sauvegarde bloque les actions concurrentes",()=>{
 test("Le site public réserve les gabarits au vrai Super Admin et ne simule jamais la sauvegarde",async()=>{
  const {readFileSync}=await import("node:fs");
  const source=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
- assert.match(source,/import \{listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication\}/);
+ assert.match(source,/import \{listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy\}/);
  assert.match(source,/if\(state\.adminTab==="templates"&&authStatus\.user\)void fetchAdminNamedTemplates\(\)/);
  assert.match(source,/if\(a==="admin-named-template-save"\)/);
  assert.match(source,/adminNamedTemplates\.loaded=false/);
  assert.match(source,/!adminNamedTemplates\.loaded/);
  assert.match(source,/resetAdminNamedTemplates\(\)/);
+});
+
+test("Dupliquer en français/anglais garde la source publiée, propose un brouillon explicite",()=>{
+  for(const [fr,button] of [[true,"Dupliquer"],[false,"Duplicate"]]){
+    const html=renderAdminNamedTemplateBank({
+      templates:[{...row,is_published:true}],selectedId:ID,name:row.name,fr
+    });
+    assert.match(html,/data-action="admin-named-template-duplicate"/);
+    assert.match(html,new RegExp(button));
+    assert.match(html,/data-id="00000000-0000-4000-8000-000000000123"/);
+    assert.match(html,/aria-label="(?:Dupliquer le gabarit|Duplicate template) Routine école"/);
+    assert.match(html,/data-action="admin-named-template-publish"/);
+  }
+  const full=Array.from({length:100},(_,i)=>({
+    id:`00000000-0000-4000-8000-${String(i+1).padStart(12,"0")}`,
+    name:`Modèle ${i}`,revision:1,is_published:false
+  }));
+  const atLimit=renderAdminNamedTemplateBank({templates:full});
+  assert.match(atLimit,/data-action="admin-named-template-duplicate"[^>]*disabled/);
+});
+
+test("Chargement et écriture désactivent les duplications concurrentes",()=>{
+  for(const busy of [true,false]){
+    const html=renderAdminNamedTemplateBank({templates:[row],busy,loading:!busy});
+    assert.match(html,/data-action="admin-named-template-duplicate"[^>]*disabled/);
+  }
 });
