@@ -1790,3 +1790,15 @@
 .pa-template-print-controls .pa-template-print-note{margin:0;color:#516558;font-size:.92rem;line-height:1.45}
 .pa-template-print-controls .btn{justify-self:start;max-width:100%;white-space:normal}
 @media(max-width:599px){.pa-template-print-controls select,.pa-template-print-controls .btn{width:100%;justify-self:stretch}}
+
+/* Atelier privé : rotation non destructive de l'encre avant nouveau brouillon. */
+.admin-art-rotation{display:grid;gap:10px;margin:18px 0 0;padding:14px;border:1px solid #cbdad2;border-radius:12px;background:#f8faf8}
+.admin-art-rotation label{font-weight:700;color:#294939;font-size:14px}
+.admin-art-rotation output{font-variant-numeric:tabular-nums}
+.admin-art-rotation input[type="range"]{width:100%;min-height:44px;accent-color:#294939;cursor:grab}
+.admin-art-rotation input[type="range"]:focus-visible{outline:3px solid #84b0e9;outline-offset:3px}
+.admin-art-rotation input[type="range"]:disabled{cursor:not-allowed}
+.admin-art-rotation-actions{display:flex;gap:9px;flex-wrap:wrap}
+.admin-art-rotation-actions .btn{min-height:44px;white-space:normal}
+.admin-art-rotation p{margin:0;text-align:left;font-size:12px;line-height:1.55;color:#516558}
+@media(max-width:480px){.admin-art-rotation{padding:10px}.admin-art-rotation-actions .btn{flex:1 1 100%}}
