@@ -147,31 +147,77 @@ export async function downloadPublishedArtwork(client,uid,row){
   return r.data;
 }
 // Publication UNIQUEMENT après un clic de revue manuelle explicite Super Admin.
+// Preuve de publication : un reçu SQL seul n'atteste jamais le vrai PNG privé.
+// Calcul identique avant copie et après relecture, sans lien public permanent.
+async function pngDigest(blob){
+  await checkPng(blob);
+  if(typeof crypto==="undefined"||!crypto.subtle)
+    throw Error("Vérification cryptographique PNG indisponible : HTTPS requis.");
+  const bytes=new Uint8Array(await crypto.subtle.digest("SHA-256",await blob.arrayBuffer()));
+  return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function confirmApprovedPublication(client,uid,assetId,source,sourceDigest,sourceSize){
+  await requireAdmin(client,uid);
+  const q=await client.from("pictau_catalog_items").select(FIELDS).eq("id",assetId).maybeSingle();
+  if(q.error)throw q.error;
+  const row=q.data;
+  if(!row)return null;
+  if(!validRow(row)||row.id!==assetId||row.title_fr!==source.title_fr||
+     (row.title_en??null)!==(source.title_en||null)||row.theme!==source.theme||
+     typeof row.published_at!=="string"||!row.published_at.trim())
+    throw Error("La fiche publiée ne correspond pas au pictogramme approuvé. Vérification manuelle requise.");
+  await requireAdmin(client,uid);
+  const actual=await client.storage.from(CATALOG_BUCKET).download("items/"+assetId+".png");
+  if(actual.error||!actual.data)
+    throw Error("PNG approuvé absent du stockage privé. Publication non confirmée.");
+  if(actual.data.size!==sourceSize||await pngDigest(actual.data)!==sourceDigest)
+    throw Error("Intégrité du PNG approuvé non confirmée. Aucun remplacement automatique.");
+  await requireAdmin(client,uid);
+  return row;
+}
+
+// Publication UNIQUEMENT après un clic de revue manuelle explicite Super Admin.
 export async function publishReviewedPictogram(client,uid,assetId){
   if(!UUID.test(assetId||""))throw Error("Identifiant invalide.");
   await requireAdmin(client,uid);
   const source=await loadPrivateAdminPreview(client,uid,assetId);
   if(source.asset.status!=="draft")throw Error("Seul un brouillon peut être approuvé.");
-  await checkPng(source.blob);
+  const sourceDigest=await pngDigest(source.blob);
   await requireAdmin(client,uid);
   const path="items/"+assetId+".png",bucket=client.storage.from(CATALOG_BUCKET);
   const uploaded=await bucket.upload(path,source.blob,{contentType:"image/png",cacheControl:"0",upsert:false});
-  if(uploaded.error)throw uploaded.error;
+  if(uploaded.error){
+    // Upload 409, ACK Storage perdu ou panne : il peut déjà exister une
+    // publication complète. Ne pas publier à l'aveugle et ne pas faire upsert.
+    const previouslyPublished=await confirmApprovedPublication(client,uid,assetId,
+      source.asset,sourceDigest,source.blob.size);
+    if(previouslyPublished)return previouslyPublished;
+    // Un INSERT précédemment refusé peut avoir laissé seulement la copie PNG
+    // privée. La réutiliser UNIQUEMENT si les octets correspondent exactement.
+    const stored=await bucket.download(path);
+    if(stored.error||!stored.data)throw uploaded.error;
+    const storedDigest=await pngDigest(stored.data);
+    if(stored.data.size!==source.blob.size||storedDigest!==sourceDigest)
+      throw Error("Conflit de pictogramme : le PNG privé existant n'est pas identique. Aucun remplacement.");
+    await requireAdmin(client,uid);
+  }
+  let insertError=null;
   try{
     await requireAdmin(client,uid);
     const r=await client.from("pictau_catalog_items").insert({
       id:assetId,title_fr:source.asset.title_fr,title_en:source.asset.title_en||null,
       theme:source.asset.theme,image_path:path,published_by:uid
     }).select(FIELDS).single();
-    if(r.error)throw r.error;
-    if(!validRow(r.data)||r.data.id!==assetId)throw Error("L'approbation n'a pas été confirmée.");
-    await requireAdmin(client,uid);
-    return r.data;
-  }catch(err){
-    try{await requireAdmin(client,uid);await bucket.remove([path]);}
-    catch{/* Copie orpheline illisible par un client sans fiche approuvée. */}
-    throw err;
-  }
+    if(r.error)insertError=r.error;
+    else if(!r.data)insertError=Error("L'approbation n'a pas été confirmée.");
+  }catch(error){insertError=error;}
+  // Une erreur INSERT peut être une réponse perdue après COMMIT. On ne
+  // supprime JAMAIS ici le PNG : une ligne publiée peut déjà le référencer.
+  // Même en cas de réussite SQL, relire la fiche ET les octets privés.
+  const confirmed=await confirmApprovedPublication(client,uid,assetId,
+    source.asset,sourceDigest,source.blob.size);
+  if(confirmed)return confirmed;
+  throw insertError||Error("L'approbation n'a pas été confirmée. PNG privé conservé pour vérification.");
 }
 
 // Le retrait coupe l'accès client immédiatement (RLS) avant le nettoyage du PNG privé.
