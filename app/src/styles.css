@@ -1704,3 +1704,14 @@
 .pa-client-workspace .pa-client-secondary-nav{display:flex;justify-content:center;flex-wrap:wrap;width:100%;gap:0;padding:4px 15px;background:#fff;border-bottom:1px solid #ecefec}
 @media(max-width:980px){.pa-client-workspace .pa-client-secondary-nav{display:none}}
 @media print{.pa-client-workspace .pa-client-secondary-nav{display:none!important}}
+
+/* Bibliothèque cliente : tri FR/EN et réinitialisation accessibles, sans affecter les pages publiques gelées. */
+@media screen{
+  .pa-client-workspace .pa-catalog-sort-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;margin:14px 0}
+  .pa-client-workspace .pa-catalog-sort-bar>div{display:flex;flex-direction:column;gap:5px;flex:1;min-width:165px}
+  .pa-client-workspace .pa-catalog-sort-bar label{font-size:13px;font-weight:700}
+  .pa-client-workspace .pa-catalog-sort-bar select{min-height:44px;width:100%;padding:8px 12px;border:1px solid #c9d0c9;border-radius:11px;background:#fff;color:#182a20}
+  .pa-client-workspace .pa-catalog-clear{min-height:44px;white-space:normal;text-align:center}
+  .pa-client-workspace .pa-catalog-sort-bar :is(button,select):focus-visible{outline:3px solid #294939;outline-offset:2px}
+}
+@media screen and (max-width:599px){.pa-client-workspace .pa-catalog-sort-bar>div,.pa-client-workspace .pa-catalog-clear{flex-basis:100%;width:100%}}

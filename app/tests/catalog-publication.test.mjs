@@ -207,3 +207,33 @@ test("Bibliothèque : objet existant altéré, aucun INSERT ou remplacement sous
  assert.equal(s.calls.filter(x=>x[0]==="remove").length,0);
 });
 
+
+// Tri public bilingue : même contrat que le code privé, sans accès aux brouillons.
+test("Tri public bilingue serveur avant pagination et filtres bornés",async()=>{
+  const {normalizeCatalogFilters,listPublishedCatalog}=await import("../src/catalog.js");
+  assert.deepEqual(normalizeCatalogFilters({query:"ecole",theme:"ecole",page:2}),
+    {query:"ecole",theme:"ecole",sort:"recent",page:2,language:"fr"});
+  assert.throws(()=>normalizeCatalogFilters({language:"autre"}),/Langue/);
+  assert.throws(()=>normalizeCatalogFilters({sort:"invalide"}),/Tri/);
+  const calls=[];
+  const query={eq(k,v){calls.push(["eq",k,v]);return this;},order(k,o){calls.push(["order",k,o]);return this;},
+    range(a,b){calls.push(["range",a,b]);return Promise.resolve({data:[],count:0,error:null});}};
+  const client={auth:{getUser:async()=>({data:{user:{id:uid}},error:null})},from(name){calls.push(["table",name]);return {select(){return query;}}}};
+  await listPublishedCatalog(client,uid,{sort:"name_desc",language:"en",page:1});
+  assert.deepEqual(calls.filter(x=>x[0]==="order"),[
+    ["order","title_en",{ascending:false,nullsFirst:false}],["order","id",{ascending:true}]]);
+  assert.deepEqual(calls.find(x=>x[0]==="range"),["range",24,47]);
+  assert.deepEqual(calls.find(x=>x[0]==="table"),["table","pictau_catalog_items"]);
+});
+test("L'interface client expose le tri et retour à tous sans vider les sélections",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const source=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+  const render=source.split("function renderClientLibrary(){")[1]?.split("function renderClientUsed(){")[0]||"";
+  const clear=source.split('if(a==="catalog-clear-filters"')[1]?.split('if(a==="client-category")')[0]||"";
+  assert.match(render,/data-field="catalog-sort"/);
+  assert.match(render,/data-action="catalog-clear-filters"/);
+  for(const term of ['state.search=""','state.clientCategory=""','publishedCatalog.sort="recent"','publishedCatalog.page=0'])
+    assert.ok(clear.includes(term),term);
+  assert.doesNotMatch(clear,/bulkSelected\.clear|officialComposer\.(routine|board)\s*=/);
+  assert.match(source,/language:state\.language,page:publishedCatalog\.page/);
+});

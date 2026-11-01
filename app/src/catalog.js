@@ -93,12 +93,14 @@ async function checkPng(blob){
   const sig=new Uint8Array(await blob.slice(0,8).arrayBuffer());
   if(PNG_MAGIC.some((b,i)=>sig[i]!==b))throw Error("Signature PNG invalide.");
 }
-export function normalizeCatalogFilters({query="",theme="all",page=0}={}){
+export function normalizeCatalogFilters({query="",theme="all",sort="recent",page=0,language="fr"}={}){
   const search=cleanQuery(query);
   if(theme!=="all"&&(typeof theme!=="string"||!/^[a-z0-9][a-z0-9_-]{0,59}$/.test(theme)))
     throw Error("Catégorie invalide.");
+  if(!["recent","name","name_desc"].includes(sort))throw Error("Tri du catalogue invalide.");
+  if(!["fr","en"].includes(language))throw Error("Langue du catalogue invalide.");
   if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
-  return {query:search,theme,page};
+  return {query:search,theme,sort,page,language};
 }
 export async function listPublishedCatalog(client,uid,filters={}){
   const f=normalizeCatalogFilters(filters);
@@ -106,7 +108,11 @@ export async function listPublishedCatalog(client,uid,filters={}){
   let q=client.from("pictau_catalog_items").select(FIELDS,{count:"exact"});
   if(f.theme!=="all")q=q.eq("theme",f.theme);
   if(f.query)q=q.or("title_fr.ilike.%"+f.query+"%,title_en.ilike.%"+f.query+"%");
-  const r=await q.order("published_at",{ascending:false}).order("id",{ascending:true})
+  // Le serveur trie AVANT la pagination; traductions anglaises manquantes en dernier.
+  const sortField=f.sort==="recent"?"published_at":f.language==="en"?"title_en":"title_fr";
+  const sortOptions=f.sort!=="recent"&&f.language==="en"
+    ?{ascending:f.sort==="name",nullsFirst:false}:{ascending:f.sort==="name"};
+  const r=await q.order(sortField,sortOptions).order("id",{ascending:true})
     .range(f.page*CATALOG_PAGE_SIZE,(f.page+1)*CATALOG_PAGE_SIZE-1);
   if(r.error)throw r.error;
   if(!Number.isSafeInteger(r.count)||r.count<0)throw Error("Catalogue indisponible.");

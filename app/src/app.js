@@ -374,14 +374,14 @@ async function fetchUsedPictos(){
     }
   }
 }
-const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
+const publishedCatalog={items:[],total:0,page:0,sort:"recent",loading:false,loaded:false,error:"",request:0,
   imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:"",
   bulkSelected:new Map(),bulkBusy:false,bulkRequest:0,bulkFeedback:"",bulkError:""};
 function clearPublishedCatalog(){
   publishedCatalog.request++;
   for(const url of publishedCatalog.imageUrls.values())URL.revokeObjectURL(url);
   publishedCatalog.imageUrls.clear();publishedCatalog.loadingImages.clear();
-  publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.page=0;
+  publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.page=0;publishedCatalog.sort="recent";
   publishedCatalog.loading=false;publishedCatalog.loaded=false;publishedCatalog.error="";
   publishedCatalog.approvedByAdmin.clear();publishedCatalog.publishing=false;
   publishedCatalog.publishError="";publishedCatalog.publishMessage="";
@@ -396,7 +396,8 @@ async function fetchPublishedCatalog(){
   try{
     const client=await supabaseClient();
     const result=await listPublishedCatalogAvailablePage(client,uid,{
-      query:state.search,theme:state.clientCategory||"all",page:publishedCatalog.page
+      query:state.search,theme:state.clientCategory||"all",sort:publishedCatalog.sort,
+      language:state.language,page:publishedCatalog.page
     });
     if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
     const held=new Set([...officialComposer.routine,...officialComposer.board].map(row=>row.id));
@@ -1684,8 +1685,6 @@ function renderClientLibrary(){
       +'<p>'+esc(fr?'Seules les images réellement validées par le Super Admin apparaissent ici. Aucun brouillon ni dessin d’essai.':'Only artwork reviewed by the Super Admin appears here. No drafts or sample illustrations.')+'</p>'
       +(c?'<p>'+esc(fr?'Catégorie : ':'Category: ')+esc(fr?c[1]:c[2])+'</p>':'')
       +'<div class="pa-catalog-empty-actions">'
-      +(state.clientCategory||state.search?
-        '<button type="button" class="btn btn-light" data-action="catalog-clear-filters">'+esc(fr?'Voir toutes les catégories':'Show all categories')+'</button>':"")
       +'<button type="button" class="btn btn-primary" data-action="request-open">'+icon("plus","btn-icon")
       +esc(fr?'Demander un pictogramme':'Request a pictogram')+'</button>'
       +'</div></div></div>':
@@ -1747,6 +1746,12 @@ function renderClientLibrary(){
     +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="80"'
     +' value="'+esc(state.search)+'" placeholder="'+esc(fr?'Ex. : toilette, manger, école…':'E.g. bathroom, eat, school…')+'">'
     +'<button class="pa-catalog-search-button" type="submit">'+esc(fr?'Rechercher':'Search')+'</button></div></form>'
+    +'<div class="pa-catalog-sort-bar"><div><label for="pa-catalog-sort">'+esc(fr?'Trier les pictogrammes':'Sort pictograms')+'</label>'
+    +'<select id="pa-catalog-sort" data-field="catalog-sort">'
+    +'<option value="recent"'+(f.sort==="recent"?' selected':'')+'>'+esc(fr?'Plus récents':'Newest first')+'</option>'
+    +'<option value="name"'+(f.sort==="name"?' selected':'')+'>'+esc(fr?'Nom A à Z':'Name A to Z')+'</option>'
+    +'<option value="name_desc"'+(f.sort==="name_desc"?' selected':'')+'>'+esc(fr?'Nom Z à A':'Name Z to A')+'</option></select></div>'
+    +'<button type="button" class="btn btn-light pa-catalog-clear" data-action="catalog-clear-filters"'+(f.loading?' disabled':'')+'>'+esc(fr?'Tous les pictogrammes':'All pictograms')+'</button></div>'
     +(officialComposer.routine.length||officialComposer.board.length?
        '<div class="pa-composer-toolbar"><strong>'+esc(fr?'Votre sélection':'Your selection')+'</strong>'
        +'<button data-action="nav" data-page="routines" type="button">'+esc(fr?'Routine':'Routine')+' · '+officialComposer.routine.length+'</button>'
@@ -2413,7 +2418,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="catalog-clear-filters"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       state.page==="library"){
-    state.clientCategory="";state.search="";publishedCatalog.page=0;
+    state.clientCategory="";state.search="";publishedCatalog.page=0;publishedCatalog.sort="recent";
     publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
     render();void fetchPublishedCatalog();
     requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());
@@ -2836,6 +2841,8 @@ root.addEventListener("click",function(event){
     state.language=el.dataset.lang;store("pictau-language",state.language);state.toast="";render();
     if(SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&state.page==="used"&&
        usedPictos.sort==="name")void fetchUsedPictos();
+    if(SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&state.page==="library"&&
+       publishedCatalog.sort!=="recent")void fetchPublishedCatalog();
   }
   if(a==="view-picto"){
     if(!samples.some(item=>item.id===el.dataset.id))return;
@@ -3812,6 +3819,11 @@ root.addEventListener("change",function(event){
     return;
   }
   const field=event.target.dataset.field;
+  if(field==="catalog-sort"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&state.page==="library"){
+    if(!["recent","name","name_desc"].includes(event.target.value)||publishedCatalog.loading)return;
+    publishedCatalog.sort=event.target.value;publishedCatalog.page=0;
+    render();void fetchPublishedCatalog();return;
+  }
   if(field==="board-cols"){state.boardCols=boardColumnCount(event.target.value);saveDemoBoard();render();return;}
   if(field==="board-size"){state.boardWidthCm=clampWidth(event.target.value);render();return;}
   if(field==="board-paper"){state.paper=event.target.value==="a4"?"a4":"letter";render();return;}
