@@ -269,6 +269,54 @@ try{
   await evaluate("document.body.style.zoom='';return true;");
   // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 5.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
+  // Contrôle d'harmonisation universelle : rendu réel Chromium de la maquette E
+  // sur la VRAIE application (/app/), et comparaison de ses dessins avec l'accueil.
+  for(const [width,height] of [[320,568],[360,640],[390,740],[390,844],[430,932],[768,1024],[1024,768],[1440,900]]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
+    await command("Page.navigate",{url:base+"/index.html"});
+    await waitFor("return document.querySelectorAll('.poster-tiles svg').length===3");
+    const referenceSvgs=await evaluate("return [...document.querySelectorAll('.poster-tiles svg')].map(svg=>svg.outerHTML)");
+    const referenceLogo=await evaluate("return document.querySelector('.home-logo .pictau-brand-img').getAttribute('src').split('/').pop()");
+    await command("Page.navigate",{url:base+"/app/index.html"});
+    await waitFor("return !!document.querySelector('.hosted-access-v5 .hosted-email-form') && document.querySelectorAll('.hosted-e-tile').length===3",16000);
+    const metrics=await evaluate(`
+      const box=selector=>{const e=document.querySelector(selector),r=e.getBoundingClientRect();return {x:r.left,y:r.top,right:r.right,bottom:r.bottom,w:r.width,h:r.height};};
+      return {w:innerWidth,docW:document.documentElement.scrollWidth,design:document.querySelector('.hosted-access-v5')!==null,
+        header:box('.hosted-access-header'),logo:box('.hosted-access-brand'),intro:box('.hosted-e-intro'),
+        panel:box('.hosted-access-panel'),tiles:[...document.querySelectorAll('.hosted-e-tile')].map(e=>({w:e.offsetWidth,h:e.offsetHeight})),
+        svgs:[...document.querySelectorAll('.hosted-e-tile svg')].map(svg=>svg.outerHTML),
+        logoFile:document.querySelector('.hosted-access-brand img').getAttribute('src').split('/').pop(),
+        forgot:!!document.querySelector('[data-action=auth-forgot]'),
+        google:!!document.querySelector('[data-action=google-login]'),
+        email:!!document.querySelector('form[data-form=email-login]'),
+        signup:document.querySelector('.hosted-signup a')?.getAttribute('href'),
+        footer:document.querySelector('.hosted-e-footer')?.getBoundingClientRect().bottom,
+        lang:document.documentElement.lang};
+    `);
+    assert.equal(metrics.design,true,"Maquette E absente "+width);
+    assert.equal(metrics.logoFile,referenceLogo,"Logo réel non harmonisé "+width);
+    assert.equal(metrics.tiles.length,3,"Trois pictogrammes officiels requis "+width);
+    for(let i=0;i<3;i++){
+      assert.equal(metrics.svgs[i],referenceSvgs[i],"Dessin officiel différent : "+i+" sur "+width);
+      assert.ok(Math.abs(metrics.tiles[i].w-metrics.tiles[i].h)<=1,"Picto non carré "+width+": "+JSON.stringify(metrics.tiles[i]));
+    }
+    assert.ok(metrics.docW<=metrics.w+1,"Débordement horizontal Login E "+width+": "+JSON.stringify(metrics));
+    assert.ok(metrics.email&&metrics.google&&metrics.forgot&&metrics.signup==="../forfait.html","Auth ou lien perdu "+width);
+    if(width<=768)assert.ok(metrics.panel.y>=metrics.intro.bottom-2,"Login mobile : éléments se chevauchent "+width);
+    else assert.ok(metrics.panel.x>=metrics.intro.right-2,"Login desktop : colonnes se chevauchent "+width);
+    const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
+    await writeFile(join(screenshots,"login-design-e-"+width+"x"+height+".png"),Buffer.from(shot.data,"base64"));
+    await evaluate("document.querySelector('[data-action=lang][data-lang=en]').click();return true;");
+    await waitFor("return document.documentElement.lang==='en'");
+    const en=await evaluate("return {cards:[...document.querySelectorAll('.hosted-e-tile-label')].map(e=>e.textContent.trim()),title:document.querySelector('#hosted-access-title').textContent.trim()}");
+    assert.deepEqual(en.cards,["Find","Personalize","Print"],"English icons "+width);
+    assert.equal(en.title,"Sign in","English form "+width);
+    await evaluate("document.querySelector('[data-action=auth-forgot]').click();return true;");
+    await waitFor("return !!document.querySelector('form[data-form=email-reset]')");
+    await evaluate("document.querySelector('[data-action=auth-back-login]').click();return true;");
+    await waitFor("return !!document.querySelector('form[data-form=email-login]')");
+    console.log("HARMONISATION LOGIN E PASS",width+"x"+height);
+  }
   await command("Page.navigate",{url:base+"/app/index.html"});
   await waitFor("return !!document.querySelector('.hosted-signup a')");
   const createLink=await evaluate("return document.querySelector('.hosted-signup a').getAttribute('href')");
