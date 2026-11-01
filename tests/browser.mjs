@@ -375,6 +375,70 @@ try{
       console.log("PASS LANGUE EN-TÊTE STABLE",where);
     }
   }
+
+  // Contrat anti-régression demandé : les DEUX cartes blanches ont exactement
+  // les mêmes dimensions, et le contenu de gauche forme un bloc de la
+  // largeur/hauteur de la carte blanche à droite. Pas de fausse validation par
+  // présence de sélecteur CSS — rectangles réellement rendus par Chromium.
+  for(const [width,height] of [[900,900],[1024,800],[1280,900],[1440,900],[1920,1080]]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:false,deviceScaleFactor:1});
+    for(const language of ["fr","en"]){
+      await command("Page.navigate",{url:base+"/forfait.html"});
+      await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-form-card')");
+      await evaluate("return document.fonts.ready.then(()=>true)");
+      await evaluate("document.querySelector('[data-lang="+language+"]').click();return true;");
+      await waitFor("return document.documentElement.lang==='"+language+"'");
+      const signup=await evaluate(`
+        const get=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,centerY:r.y+r.height/2};};
+        return {left:get('.signup-showcase'),card:get('.signup-form-card'),documentW:document.documentElement.scrollWidth,windowW:innerWidth,display:getComputedStyle(document.querySelector('.signup-page')).display};
+      `);
+      await command("Page.navigate",{url:base+"/app/index.html"});
+      await waitFor("return document.readyState==='complete' && !!document.querySelector('.hosted-access-v5 .hosted-access-panel')",16000);
+      await evaluate("return document.fonts.ready.then(()=>true)");
+      await evaluate("document.querySelector('[data-action=lang][data-lang="+language+"]').click();return true;");
+      await waitFor("return document.documentElement.lang==='"+language+"'");
+      const login=await evaluate(`
+        const get=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,centerY:r.y+r.height/2};};
+        return {left:get('.hosted-e-intro'),card:get('.hosted-access-panel'),documentW:document.documentElement.scrollWidth,windowW:innerWidth,display:getComputedStyle(document.querySelector('.hosted-e-layout')).display};
+      `);
+      const where=width+"x"+height+" "+language;
+      const close=(a,b,what)=>assert.ok(Math.abs(a-b)<=2,
+        "Panneaux non harmonisés "+what+" "+where+" signup="+JSON.stringify(signup)+" login="+JSON.stringify(login));
+      close(signup.card.w,login.card.w,"largeur carte login/signup");
+      close(signup.card.h,login.card.h,"hauteur carte login/signup");
+      for(const page of [signup,login]){
+        close(page.left.w,page.card.w,"largeur gauche/droite");
+        close(page.left.h,page.card.h,"hauteur gauche/droite");
+        close(page.left.centerY,page.card.centerY,"alignement vertical gauche/droite");
+        assert.ok(page.left.right+8<page.card.x,"Colonnes en chevauchement "+where+" "+JSON.stringify(page));
+        assert.ok(page.documentW<=page.windowW+2,"Débordement horizontal "+where+" "+JSON.stringify(page));
+      }
+      if(width===1440){
+        const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
+        await writeFile(join(screenshots,"auth-equal-cards-login-"+language+".png"),Buffer.from(shot.data,"base64"));
+      }
+      console.log("PASS CARTES BLANCHES IDENTIQUES",where,signup.card.w,signup.card.h);
+    }
+  }
+  // Tablette et téléphone : pas de hauteur de carte desktop forcée,
+  // pas de rupture à 899/900 px, pas de scroll horizontal.
+  for(const [width,height] of [[320,568],[390,844],[680,800],[768,1024],[899,900]]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
+    for(const path of ["/forfait.html","/app/index.html"]){
+      await command("Page.navigate",{url:base+path});
+      await waitFor("return document.readyState==='complete' && !!document.querySelector('form')");
+      const layout=await evaluate(`
+        const s=document.querySelector('.signup-form-card,.hosted-access-panel'),r=s.getBoundingClientRect();
+        return {height:r.height,scroll:document.documentElement.scrollWidth,window:innerWidth,
+          forcedMin:getComputedStyle(s).minHeight,form:!!document.querySelector('form'),
+          action:!!document.querySelector('button[type=submit]')};
+      `);
+      assert.ok(layout.scroll<=layout.window+2,"Débordement responsive "+width+" "+path);
+      assert.ok(layout.form&&layout.action,"Formulaire disparu "+width+" "+path);
+      assert.equal(layout.forcedMin,"0px","Hauteur desktop imposée au mobile/tablette "+width+" "+path);
+    }
+    console.log("PASS AUTH RESPONSIVE SANS HAUTEUR FORCÉE",width+"x"+height);
+  }
   // Parcours réel : depuis le bouton sous la connexion vers le forfait Design 5.
   await command("Emulation.setDeviceMetricsOverride",{width:390,height:844,mobile:true,deviceScaleFactor:1});
   // Contrôle d'harmonisation universelle : rendu réel Chromium de la maquette E
