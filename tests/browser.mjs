@@ -115,6 +115,13 @@ try{
       await waitFor("return document.documentElement.lang==='"+lang+"'");
       const value=await evaluate("\nconst selectors=[\".topbar\",\".login-link\",\".hero\",\".poster-heading\",\".poster-tiles\",\".poster-bottom\",\".signup-button\",\"footer\"];\nconst bounds={};\nfor(const selector of selectors){\n  const el=document.querySelector(selector);\n  if(!el)throw Error(\"missing \"+selector);\n  const r=el.getBoundingClientRect();\n  bounds[selector]={left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,visible:getComputedStyle(el).display!==\"none\"};\n}\nconst rect=el=>{const r=el.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};};\nconst hit=(a,b)=>a.left<b.right-2&&b.left<a.right-2&&a.top<b.bottom-2&&b.top<a.bottom-2;\nconst labels=[...document.querySelectorAll(\".picto-label\")].map(el=>({\n text:el.textContent.trim(),border:getComputedStyle(el).borderTopWidth,\n borderColor:getComputedStyle(el).borderTopColor,align:getComputedStyle(el).textAlign,\n fontSize:Number.parseFloat(getComputedStyle(el).fontSize)\n}));\nconst cards=[...document.querySelectorAll(\".p-card\")].map(rect);\nconst words=[...document.querySelectorAll(\".poster-heading span,.poster-heading em\")].map(rect);\nreturn {\n width:innerWidth,height:innerHeight,scrollW:document.documentElement.scrollWidth,\n scrollH:document.documentElement.scrollHeight,bounds,labels,cardCount:cards.length,\n titleCollision:cards.some(card=>words.some(word=>hit(card,word))),\n labelCollision:[...document.querySelectorAll(\".picto-label\")].map(rect).some((label,i)=>cards.some((card,j)=>i!==j&&hit(label,card))),\n actionCollision:cards.some(card=>hit(card,rect(document.querySelector(\".poster-bottom\")))),\n signupCount:document.querySelectorAll(\".signup-button\").length,\n signupHref:document.querySelector(\".signup-button\")?.getAttribute(\"href\"),\n loginText:document.querySelector(\".login-link\")?.textContent.trim(),\n loginCount:document.querySelectorAll(\".login-link\").length,\n language:document.documentElement.lang,legal:document.querySelectorAll(\"footer nav a\").length,\n repeatedBenefits:document.querySelectorAll(\".steps,.benefits\").length,\n navLabel:document.querySelector(\".topbar nav\")?.getAttribute(\"aria-label\"),\n brandLabel:document.querySelector(\".brand\")?.getAttribute(\"aria-label\"),\n design:document.body.dataset.pictauHomeDesign\n};");
 
+
+    const dimensions=await evaluate('return [...document.querySelectorAll(".p-card")].map(card=>{const art=card.querySelector(".picto");return {cardWidth:card.offsetWidth,cardHeight:card.offsetHeight,pictoWidth:art.offsetWidth,pictoHeight:art.offsetHeight}});');
+    assert.equal(dimensions.length,3,"Trois pictogrammes doivent rester présents sur les pages");
+    for(const [i,d] of dimensions.entries()){
+      assert.ok(Math.abs(d.cardWidth-d.cardHeight)<=1,"Carte pictogramme "+(i+1)+" non carrée : "+JSON.stringify(d));
+      assert.ok(Math.abs(d.pictoWidth-d.pictoHeight)<=1,"Cadre noir pictogramme "+(i+1)+" non carré : "+JSON.stringify(d));
+    }
       const name=lang+"-"+width+"x"+height;
       assert.equal(value.design,"5",name+" official Design 5");
       assert.equal(value.language,lang,name+" language");
@@ -149,6 +156,22 @@ try{
       console.log("PASS "+name+" : page unique, deux actions, bénéfices et ligne noire");
     }
   }
+
+  // Le responsive change aux seuils 520/521, 750/751 et 899/900.
+  // Une capture peut paraître acceptable en dépit d'un ratio faux : mesurer le DOM.
+  for(const width of [340,520,521,700,750,751,820,899,900,980,1100]){
+    const height=width<=520?780:width<=900?1024:900;
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=520,deviceScaleFactor:1});
+    for(const pageName of ["index","forfait"]){
+      await command("Page.navigate",{url:base+"/"+pageName+".html"});
+      await waitFor("return document.readyState==='complete' && document.querySelectorAll('.p-card').length===3");
+      const squares=await evaluate('return [...document.querySelectorAll(".p-card")].map(card=>{const p=card.querySelector(".picto");return {cw:card.offsetWidth,ch:card.offsetHeight,pw:p.offsetWidth,ph:p.offsetHeight};});');
+      for(const d of squares){
+        assert.ok(Math.abs(d.cw-d.ch)<=1&&Math.abs(d.pw-d.ph)<=1,
+          "Ratio 1:1 non respecté sur "+pageName+" "+width+"x"+height+": "+JSON.stringify(d));
+      }
+    }
+  }
   // Le CTA de l'accueil doit réellement ouvrir le forfait; pas de faux paiement.
   for(const width of [320,375,390,430,768,1440]){
     await command("Emulation.setDeviceMetricsOverride",{width,height:width===320?568:width===375?667:width===390?740:width===430?932:width===768?1024:900,mobile:width<=430,deviceScaleFactor:1});
@@ -159,6 +182,13 @@ try{
     // L'accueil mémorise légitimement EN; choisir FR avant la vérification
     // FR, puis vérifier une seconde fois que le formulaire passe en anglais.
     await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
+
+    const dimensions=await evaluate('return [...document.querySelectorAll(".p-card")].map(card=>{const art=card.querySelector(".picto");return {cardWidth:card.offsetWidth,cardHeight:card.offsetHeight,pictoWidth:art.offsetWidth,pictoHeight:art.offsetHeight}});');
+    assert.equal(dimensions.length,3,"Trois pictogrammes doivent rester présents sur les pages");
+    for(const [i,d] of dimensions.entries()){
+      assert.ok(Math.abs(d.cardWidth-d.cardHeight)<=1,"Carte pictogramme "+(i+1)+" non carrée : "+JSON.stringify(d));
+      assert.ok(Math.abs(d.pictoWidth-d.pictoHeight)<=1,"Cadre noir pictogramme "+(i+1)+" non carré : "+JSON.stringify(d));
+    }
     const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked,visibleForm:document.querySelector('#signup-status').getBoundingClientRect().bottom};");
     assert.equal(p.plan,1,"One distinct signup plan page");
     assert.match(p.price,/9,99/);
