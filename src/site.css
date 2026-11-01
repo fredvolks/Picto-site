@@ -210,3 +210,9 @@ a:focus-visible,button:focus-visible{outline:3px solid #2b7297;outline-offset:3p
 @media screen and (max-width:370px) and (max-height:620px){
  .hero-visual{display:none!important}
 }
+
+/* En-têtes d'information : même marque vectorielle que l'accueil. */
+.info-header .home-logo{display:inline-flex;align-items:center;flex:none;line-height:1}
+.info-header .home-logo picture{display:block;line-height:0}
+.info-header .pictau-brand-img{display:block;width:clamp(170px,20vw,240px);height:auto;max-width:none}
+@media(max-width:680px){.info-header .pictau-brand-img{width:clamp(99px,30vw,135px)}}
