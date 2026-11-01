@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'app/src/catalog.js'
+      - 'app/src/client-categories.js'
+      - 'app/tests/client-categories.test.mjs'
       - 'app/src/app.js'
       - 'app/src/official-composer.js'
       - 'app/tests/catalog-board-navigation.test.mjs'
@@ -16,6 +18,8 @@ on:
     branches: [main]
     paths:
       - 'app/src/catalog.js'
+      - 'app/src/client-categories.js'
+      - 'app/tests/client-categories.test.mjs'
       - 'app/src/app.js'
       - 'app/src/official-composer.js'
       - 'app/tests/catalog-board-navigation.test.mjs'
@@ -39,4 +43,4 @@ jobs:
         with:
           node-version: '22'
       - name: Tests des modules publication et épreuve privée (sans Supabase réel)
-        run: node --experimental-default-type=module --test app/tests/catalog-publication.test.mjs app/tests/admin-private-proof.test.mjs app/tests/catalog-board-navigation.test.mjs
+        run: node --experimental-default-type=module --test app/tests/catalog-publication.test.mjs app/tests/admin-private-proof.test.mjs app/tests/catalog-board-navigation.test.mjs app/tests/client-categories.test.mjs
