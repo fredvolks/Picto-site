@@ -20,7 +20,7 @@ import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
 import {CLIENT_CATEGORIES,clientCategoryLabel} from "./client-categories.js";
-import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE,toggleCatalogChoice,selectVisibleCatalogPage} from "./catalog.js";
+import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE,toggleCatalogChoice,selectVisibleCatalogPage,moveCatalogChoice} from "./catalog.js";
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer,updateComposerPrintFit} from "./official-composer.js";
@@ -1710,12 +1710,22 @@ function renderClientLibrary(){
     +'<p class="pa-client-context">'+esc(fr?
       "Choisissez sur plusieurs pages. Les pictogrammes seront revérifiés avant d’être ajoutés à votre support.":
       "Select across several pages. Pictograms are rechecked before being added to your support.")+'</p>'
-    +'<ul class="pa-used-selection-list">'+chosen.map(item=>{
+    +'<ol class="pa-used-selection-list pa-catalog-ordered-selection">'+chosen.map((item,index)=>{
       const title=fr?item.title_fr:(item.title_en||item.title_fr);
-      return '<li><button type="button" data-action="catalog-bulk-remove" data-id="'+esc(item.id)+'"'
-        +(f.bulkBusy?' disabled':'')+' aria-label="'+esc(fr?'Retirer '+title+' de la sélection':'Remove '+title+' from selection')+'">'
-        +'<span>'+esc(title)+'</span>'+icon("close")+'</button></li>';
-    }).join("")+'</ul>'
+      const disabled=f.bulkBusy||officialComposer.busy;
+      return '<li class="pa-catalog-order-item" data-choice-id="'+esc(item.id)+'">'
+        +'<span class="pa-catalog-choice-title">'+esc((index+1)+'. '+title)+'</span>'
+        +'<div class="pa-catalog-choice-controls">'
+        +'<button type="button" data-action="catalog-bulk-move" data-id="'+esc(item.id)+'" data-direction="-1"'
+        +(disabled||index===0?' disabled':'')+' aria-label="'+esc(fr?'Monter '+title:'Move '+title+' up')+'">'
+        +'<span aria-hidden="true">↑</span></button>'
+        +'<button type="button" data-action="catalog-bulk-move" data-id="'+esc(item.id)+'" data-direction="1"'
+        +(disabled||index===chosen.length-1?' disabled':'')+' aria-label="'+esc(fr?'Descendre '+title:'Move '+title+' down')+'">'
+        +'<span aria-hidden="true">↓</span></button>'
+        +'<button type="button" data-action="catalog-bulk-remove" data-id="'+esc(item.id)+'"'
+        +(disabled?' disabled':'')+' aria-label="'+esc(fr?'Retirer '+title+' de la sélection':'Remove '+title+' from selection')+'">'
+        +'<span aria-hidden="true">×</span></button></div></li>';
+    }).join("")+'</ol>'
     +'<div class="pa-catalog-bulk-actions">'
     +'<button type="button" class="btn btn-primary" data-action="catalog-bulk-add" data-kind="routine"'
     +(f.bulkBusy||officialComposer.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+esc(fr?'Ajouter à la routine':'Add to routine')+'</button>'
@@ -2449,6 +2459,30 @@ root.addEventListener("click",function(event){
       publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
     }catch(error){publishedCatalog.bulkError=String(error?.message||error);}
     render();return;
+  }
+  if(a==="catalog-bulk-move"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      state.page==="library"&&!publishedCatalog.loading&&!publishedCatalog.bulkBusy&&
+      !officialComposer.busy){
+    const id=el.dataset.id,direction=Number(el.dataset.direction);
+    try{
+      publishedCatalog.bulkSelected=moveCatalogChoice(publishedCatalog.bulkSelected,id,direction);
+      const order=[...publishedCatalog.bulkSelected.keys()],position=order.indexOf(id)+1;
+      publishedCatalog.bulkError="";
+      publishedCatalog.bulkFeedback=state.language==="fr"?
+        "Ordre de la sélection modifié : position "+position+" sur "+order.length+".":
+        "Selection order updated: position "+position+" of "+order.length+".";
+    }catch(error){
+      publishedCatalog.bulkError=String(error?.message||error);
+      publishedCatalog.bulkFeedback="";
+    }
+    render();
+    requestAnimationFrame(()=>{
+      const row=root.querySelector('.pa-catalog-order-item[data-choice-id="'+id+'"]');
+      (row?.querySelector('[data-action="catalog-bulk-move"][data-direction="'+direction+'"]:not(:disabled)')||
+       row?.querySelector('[data-action="catalog-bulk-move"]:not(:disabled)')||
+       row?.querySelector('[data-action="catalog-bulk-remove"]'))?.focus();
+    });
+    return;
   }
   if(a==="catalog-bulk-remove"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       state.page==="library"&&!publishedCatalog.bulkBusy){
