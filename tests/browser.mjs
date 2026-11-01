@@ -193,6 +193,23 @@ try{
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
     const homeHeader=await evaluate(headerMetrics);
+    const headerRow=await evaluate(`return (()=>{
+      const rect=el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,right:r.right,bottom:r.bottom,cx:r.x+r.width/2,cy:r.y+r.height/2}};
+      const hdr=document.querySelector('[data-pa-universal-header]');
+      const logo=hdr.querySelector('.pictau-brand-img'),fr=hdr.querySelector('[data-lang=fr]'),
+        en=hdr.querySelector('[data-lang=en]'),login=hdr.querySelector('.login-link,.signup-login,.pa-universal-current,.pa-universal-account');
+      if(!logo||!fr||!en||!login)throw Error("En-tête incomplet");
+      return {logo:rect(logo),fr:rect(fr),en:rect(en),login:rect(login),
+        scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth};
+    })();`);
+    const item=headerRow;
+    assert.ok(item.scrollWidth<=item.viewport+1,"En-tête déborde : "+JSON.stringify(item));
+    assert.ok(item.logo.right+2<=item.fr.x&&item.fr.right<=item.en.x+1&&item.en.right<=item.login.x+1,
+      "Logo + FR + EN + Connexion chevauchés : "+JSON.stringify(item));
+    for(const x of ["fr","en","login"])
+      assert.ok(Math.abs(item.logo.cy-item[x].cy)<=13,
+        "Logo, FR, EN et Connexion ne sont PAS sur une seule ligne : "+JSON.stringify(item));
+
 
     const mobileAsset=width<=680;
     const logoInfo=await evaluate(`return (async()=>{
@@ -217,10 +234,10 @@ try{
         return {logoWidth:r.width,logoHeight:r.height,navY:nav.top,logoY:r.top,
           logoBottom:r.bottom,headerBottom:header.bottom,docWidth:document.documentElement.scrollWidth};
       })();`);
-      assert.ok(glyphTest.logoWidth>=190,"Logo complet illisible à "+width+": "+JSON.stringify(glyphTest));
+      assert.ok(glyphTest.logoWidth>=110,"Logo complet illisible à "+width+": "+JSON.stringify(glyphTest));
       assert.ok(glyphTest.docWidth<=width+1,"Débordement horizontal à "+width+": "+JSON.stringify(glyphTest));
-      if(width<=520)assert.ok(glyphTest.navY>=glyphTest.logoBottom-1,
-        "Mobile : boutons ne sont pas sous le logo à "+width+": "+JSON.stringify(glyphTest));
+      assert.ok(glyphTest.navY<glyphTest.logoBottom&&glyphTest.navY+44>glyphTest.logoY,
+        "Logo et boutons doivent être SUR LA MÊME LIGNE à "+width+": "+JSON.stringify(glyphTest));
     }
 
     for(const tile of logoInfo.tiles) assert.equal(tile.width,tile.height,"Tuile logo non carrée à "+width);
@@ -229,6 +246,23 @@ try{
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
     const signupHeader=await evaluate(headerMetrics);
+    const signupHeaderRow=await evaluate(`return (()=>{
+      const rect=el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,right:r.right,bottom:r.bottom,cx:r.x+r.width/2,cy:r.y+r.height/2}};
+      const hdr=document.querySelector('[data-pa-universal-header]');
+      const logo=hdr.querySelector('.pictau-brand-img'),fr=hdr.querySelector('[data-lang=fr]'),
+        en=hdr.querySelector('[data-lang=en]'),login=hdr.querySelector('.login-link,.signup-login,.pa-universal-current,.pa-universal-account');
+      if(!logo||!fr||!en||!login)throw Error("En-tête incomplet");
+      return {logo:rect(logo),fr:rect(fr),en:rect(en),login:rect(login),
+        scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth};
+    })();`);
+    const item=signupHeaderRow;
+    assert.ok(item.scrollWidth<=item.viewport+1,"En-tête déborde : "+JSON.stringify(item));
+    assert.ok(item.logo.right+2<=item.fr.x&&item.fr.right<=item.en.x+1&&item.en.right<=item.login.x+1,
+      "Logo + FR + EN + Connexion chevauchés : "+JSON.stringify(item));
+    for(const x of ["fr","en","login"])
+      assert.ok(Math.abs(item.logo.cy-item[x].cy)<=13,
+        "Logo, FR, EN et Connexion ne sont PAS sur une seule ligne : "+JSON.stringify(item));
+
     if(width===768){const layout=await evaluate('const el=document.querySelector(".signup-page"),h=document.querySelector(".signup-header"),s=getComputedStyle(el),r=el.getBoundingClientRect(),rh=h.getBoundingClientRect();return {marginLeft:s.marginLeft,marginRight:s.marginRight,width:s.width,pageX:r.x,pageRight:r.right,headerX:rh.x,headerWidth:rh.width,viewport:innerWidth,clientWidth:document.documentElement.clientWidth}');console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader,layout}));}
     for(const key of ["logo","fr","en","login"]){
       const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
@@ -314,10 +348,10 @@ try{
     const metrics=await evaluate(`
       const box=selector=>{const e=document.querySelector(selector),r=e.getBoundingClientRect();return {x:r.left,y:r.top,right:r.right,bottom:r.bottom,w:r.width,h:r.height};};
       return {w:innerWidth,docW:document.documentElement.scrollWidth,design:document.querySelector('.hosted-access-v5')!==null,
-        header:box('.hosted-access-header'),logo:box('.hosted-access-brand'),intro:box('.hosted-e-intro'),
+        header:box('.hosted-access-header'),logo:box('.hosted-access-header .pa-universal-logo-link'),intro:box('.hosted-e-intro'),
         panel:box('.hosted-access-panel'),tiles:[...document.querySelectorAll('.hosted-e-tile')].map(e=>({w:e.offsetWidth,h:e.offsetHeight})),
         svgs:[...document.querySelectorAll('.hosted-e-tile svg')].map(svg=>svg.outerHTML),
-        logoFile:document.querySelector('.hosted-access-brand img').getAttribute('src').split('/').pop(),
+        logoFile:document.querySelector('.hosted-access-header .pa-universal-logo-link img').getAttribute('src').split('/').pop(),
         forgot:!!document.querySelector('[data-action=auth-forgot]'),
         google:!!document.querySelector('[data-action=google-login]'),
         email:!!document.querySelector('form[data-form=email-login]'),
@@ -327,6 +361,18 @@ try{
     `);
     assert.equal(metrics.design,true,"Maquette E absente "+width);
     assert.equal(metrics.logoFile,referenceLogo,"Logo réel non harmonisé "+width);
+    const loginRow=await evaluate(`return (()=>{
+      const rect=el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,right:r.right,cx:r.x+r.width/2,cy:r.y+r.height/2}};
+      const h=document.querySelector('.hosted-access-header[data-pa-universal-header]');
+      return{logo:rect(h.querySelector('.pictau-brand-img')),fr:rect(h.querySelector('[data-lang=fr]')),
+        en:rect(h.querySelector('[data-lang=en]')),login:rect(h.querySelector('.pa-universal-current'))};
+    })();`);
+    assert.ok(loginRow.logo.right<=loginRow.fr.x&&loginRow.fr.right<=loginRow.en.x+1&&loginRow.en.right<=loginRow.login.x+1,
+      "Connexion : chevauchement de l'en-tête "+width+": "+JSON.stringify(loginRow));
+    for(const key of ["fr","en","login"])
+      assert.ok(Math.abs(loginRow.logo.cy-loginRow[key].cy)<=13,
+        "Connexion : en-tête NON aligné à "+width+": "+JSON.stringify(loginRow));
+
     assert.equal(metrics.tiles.length,3,"Trois pictogrammes officiels requis "+width);
     for(let i=0;i<3;i++){
       assert.equal(metrics.svgs[i],referenceSvgs[i],"Dessin officiel différent : "+i+" sur "+width);
