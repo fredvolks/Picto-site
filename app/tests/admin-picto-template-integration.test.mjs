@@ -24,3 +24,9 @@ test("Sans tables Supabase, aucune fiche client ni sélection admin non confirm�
  assert.match(app,/templateChoicesProbe\+\+/);
  assert.match(app,/resetClientPictoTemplates\(\)/);
 });
+
+test("Le portage L3 n'introduit aucun import de module en double",()=>{
+ const specifiers=[...app.matchAll(/^import [^\n]+ from "([^"]+)";/gm)].map(match=>match[1]);
+ const duplicates=specifiers.filter((value,index)=>specifiers.indexOf(value)!==index);
+ assert.deepEqual(duplicates,[], "Imports répétés : "+duplicates.join(", "));
+});
