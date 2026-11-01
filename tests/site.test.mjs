@@ -222,6 +222,8 @@ test("logo Le Fil archivé et identique sur les en-têtes publics",()=>{
   assert.match(full,/id="pictau-wordmark"/);
   assert.match(compact,/id="pictau-wordmark"/);
   assert.match(compact,/id="pictau-progress-tiles"/);
+  assert.match(compact,/viewBox="0 0 440 75"/);
+  assert.match(compact,/à gauche du nom Pict-au/);
   const tiles=[...compact.matchAll(/<rect[^>]*width="(\d+)" height="(\d+)"[^>]*>/g)];
   assert.equal(tiles.length,3,"Le logo mobile doit afficher les trois carrés");
   for(const [,w,h] of tiles) assert.equal(w,h,"Les tuiles sont carrées");
