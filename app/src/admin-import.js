@@ -145,28 +145,30 @@ export function draftTitleFromFilename(filename){
   return title;
 }
 
-export async function preparePrivateDraftBatch(files,theme="autres"){
+export async function preparePrivateDraftBatch(files,theme="autres",titles=null){
   if(!Array.isArray(files)||files.length<1||files.length>MAX_PRIVATE_DRAFT_BATCH)
     throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
+  if(titles!==null&&(!Array.isArray(titles)||titles.length!==files.length))
+    throw Error("Les noms du lot ne correspondent pas aux fichiers sélectionnés.");
   const entries=[],seen=new Set();
-  for(const file of files){
-    const titleFr=draftTitleFromFilename(file?.name);
-    const key=titleFr.toLocaleLowerCase("fr");
-    if(seen.has(key))throw Error("Deux PNG du lot portent le même nom : "+titleFr);
+  for(const [index,file] of files.entries()){
+    const suggested=draftTitleFromFilename(file?.name);
+    const metadata={titleFr:titles===null?suggested:titles[index],titleEn:"",theme};
+    const normalized=validateDraftMetadata(metadata);
+    const key=normalized.title_fr.toLocaleLowerCase("fr");
+    if(seen.has(key))throw Error("Deux PNG du lot portent le même nom : "+normalized.title_fr);
     seen.add(key);
-    const metadata={titleFr,titleEn:"",theme};
-    validateDraftMetadata(metadata);
     await validateDraftPng(file);
-    entries.push({file,metadata});
+    entries.push({file,metadata:{...metadata,titleFr:normalized.title_fr}});
   }
   return entries;
 }
 
 export async function importPrivateDraftBatch(client,uid,files,theme,{
- onProgress=()=>{},isCurrent=()=>true,importOne=importPrivateDraft
+ onProgress=()=>{},isCurrent=()=>true,importOne=importPrivateDraft,titles=null
 }={}){
-  // Si un PNG est corrompu, même le premier n'est pas téléversé.
-  const entries=await preparePrivateDraftBatch(files,theme);
+  // Si un PNG est corrompu ou un nom invalide, aucun fichier n'est envoyé.
+  const entries=await preparePrivateDraftBatch(files,theme,titles);
   if(typeof onProgress!=="function"||typeof isCurrent!=="function"||
      typeof importOne!=="function")throw Error("Opération de lot invalide.");
   let completed=0;
