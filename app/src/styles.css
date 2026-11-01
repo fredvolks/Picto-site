@@ -1802,3 +1802,15 @@
 .admin-art-rotation-actions .btn{min-height:44px;white-space:normal}
 .admin-art-rotation p{margin:0;text-align:left;font-size:12px;line-height:1.55;color:#516558}
 @media(max-width:480px){.admin-art-rotation{padding:10px}.admin-art-rotation-actions .btn{flex:1 1 100%}}
+
+/* Banque privée : importation de lots réels de PNG sans publication. */
+.admin-batch-import{margin-top:22px;padding:18px;border:1px solid #cbdad2;border-radius:14px;background:#f7faf8;min-width:0}
+.admin-batch-import h3{font-size:17px;color:#294939;margin:0 0 9px}
+.admin-batch-import>p{font-size:13px;color:#506457;line-height:1.5}
+.admin-batch-import .admin-import-form{margin-top:13px}
+.admin-batch-list{margin:10px 0;padding:10px 10px 10px 30px;background:#fff;border:1px solid #d2ddd4;border-radius:10px;max-height:215px;overflow-y:auto;overflow-wrap:anywhere}
+.admin-batch-list li{padding:4px 0;font-size:13px;line-height:1.5}
+.admin-batch-list li span{font-weight:650;color:#294939}
+.admin-batch-import .admin-import-actions .btn{min-height:44px;white-space:normal}
+.admin-batch-note{border-top:1px solid #d2ddd4;padding-top:11px}
+@media(max-width:480px){.admin-batch-import{padding:12px}.admin-batch-import .admin-import-actions .btn{width:100%}}
