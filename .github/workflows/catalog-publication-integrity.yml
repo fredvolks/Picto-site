@@ -1,0 +1,32 @@
+name: Pict-au — intégrité de publication PNG
+
+on:
+  pull_request:
+    paths:
+      - 'app/src/catalog.js'
+      - 'app/src/admin-preview.js'
+      - 'app/tests/catalog-publication.test.mjs'
+      - '.github/workflows/catalog-publication-integrity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/catalog.js'
+      - 'app/src/admin-preview.js'
+      - 'app/tests/catalog-publication.test.mjs'
+      - '.github/workflows/catalog-publication-integrity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  publication-integrity:
+    name: Vérifier publication PNG sans perte ni divulgation
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Tests du vrai module de publication (sans Supabase réel)
+        run: node --experimental-default-type=module --test app/tests/catalog-publication.test.mjs
