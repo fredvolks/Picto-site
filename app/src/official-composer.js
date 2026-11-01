@@ -138,7 +138,7 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
  return '<section class="pa-client-catalog pa-composer" aria-labelledby="pa-composer-title">'
   +'<span class="pa-client-overline">'+e(label("CRÉATION OFFICIELLE","APPROVED CREATION"))+'</span>'
   +'<h1 id="pa-composer-title">'+e(label(routine?"Créer une routine":"Créer un tableau de communication",routine?"Create a routine":"Create a communication board"))+'</h1>'
-  +'<p class="pa-client-context">'+e(label("Seuls les pictogrammes publiés peuvent être utilisés. Le PDF original est sauvegardé dans Mes créations.","Only published pictograms can be used. The original PDF is saved in My creations."))+'</p>'
+  +'<p class="pa-client-context">'+e(label("Seuls les pictogrammes publiés peuvent être utilisés. Après confirmation de l’archivage, le PDF original se retrouve dans Mes fichiers et sa version modifiable dans Mes brouillons.","Only published pictograms can be used. Once archiving is confirmed, the original PDF is in My files and its editable source is in My drafts."))+'</p>'
   +'<div class="pa-composer-toolbar"><strong>'+items.length+' / '+(routine?10:16)+'</strong>'
   +'<button type="button" data-action="nav" data-page="library">'+icon("plus")+e(label("Ajouter des pictogrammes","Add pictograms"))+'</button>'
   +'<button type="button" data-action="nav" data-page="used">'+icon("library")+e(label("Déjà utilisés","Previously used"))+'</button></div>'
@@ -155,6 +155,7 @@ export function renderOfficialComposer({kind,items,language="fr",imageUrls=new M
   +(draftConflict?'<button type="button" class="btn btn-light" data-action="draft-save-copy" data-kind="'+kind+'"'
     +(busy||draftBusy?' disabled':'')+'>'+icon("save","btn-icon")+e(label("Enregistrer une copie","Save as a new copy"))+'</button>':'')
   +'<button type="button" class="btn btn-light" data-action="nav" data-page="create">'+e(label("Retrouver mes brouillons","My saved drafts"))+'</button>'
+  +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+e(label("Voir mes fichiers PDF","View my PDF files"))+'</button>'
   +'<span role="status" aria-live="polite" class="pa-composer-draft-status">'+e(draftStatus||label(
     draftBusy?"Sauvegarde en cours":draftDirty?"Modifications non enregistrées":draftSaved?"Brouillon enregistré dans votre compte":"Pas encore enregistré",
     draftBusy?"Saving":draftDirty?"Unsaved changes":draftSaved?"Draft saved in your account":"Not saved yet"
