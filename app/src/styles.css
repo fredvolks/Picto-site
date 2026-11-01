@@ -1673,3 +1673,15 @@
   .pa-catalog-add .pa-catalog-open-board{width:100%;text-align:center}
   .pa-catalog-bulk-actions .pa-catalog-open-board{width:100%}
 }
+
+/* La banque client sans publication propose un chemin vers les vraies
+   catégories et les demandes, jamais des exemples ou brouillons privés. */
+.pa-catalog-empty-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.pa-catalog-empty-actions .btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;
+  max-width:100%;white-space:normal;text-align:center;justify-content:center}
+.pa-catalog-empty-actions .btn svg{width:17px;height:17px;flex:none}
+.pa-catalog-empty-actions .btn:focus-visible{outline:3px solid #555;outline-offset:3px}
+@media(max-width:599px){
+ .pa-catalog-empty-actions{flex-direction:column;align-items:stretch}
+ .pa-catalog-empty-actions .btn{width:100%}
+}
