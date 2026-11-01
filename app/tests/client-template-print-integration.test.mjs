@@ -40,7 +40,7 @@ test("Le dessin PNG tourne autour du centre sans toucher au cadre",()=>{
  assert.match(print,/ctx\.restore\(\)/);
 });
 test("Le module d\u0027impression reste fermé sans les tables réelles",()=>{
- assert.match(build,/"src\/client-template-print\.js"/);
+ assert.match(app,/import \{loadConfirmedPrintSettings\} from "\.\/client-template-print\.js"/);
  assert.match(app,/let TEMPLATE_CHOICES_RELEASED=false/);
 });
 
