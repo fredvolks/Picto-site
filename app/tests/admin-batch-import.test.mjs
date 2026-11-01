@@ -106,3 +106,64 @@ test("Le vrai Super Admin affiche le lot, le prévalide et conserve l'import sim
  assert.match(app,/privateImport\.loading\|\|batchImport\.busy/);
  assert.match(app,/await importPrivateDraft\(client,userId,file,metadata\)/);
 });
+
+test("Émilie corrige chaque nom français avant l'import sans modifier les PNG",async()=>{
+ const input=files();
+ const titles=[" Se laver  les mains ","École","Pomme verte"];
+ const entries=await preparePrivateDraftBatch(input,"hygiene",titles);
+ assert.deepEqual(entries.map(x=>x.metadata.titleFr),["Se laver les mains","École","Pomme verte"]);
+ assert.deepEqual(entries.map(x=>x.file),input);
+ assert.deepEqual(titles,[" Se laver  les mains ","École","Pomme verte"]);
+ const calls=[];
+ const report=await importPrivateDraftBatch({},"verified-admin",input,"hygiene",{
+  titles,importOne:async(_c,_uid,file,metadata)=>calls.push([file.name,metadata.titleFr])
+ });
+ assert.equal(report.completed,3);
+ assert.equal(report.failedIndex,null);
+ assert.deepEqual(calls.map(x=>x[1]),["Se laver les mains","École","Pomme verte"]);
+});
+
+test("Des noms corrigés incohérents bloquent tout le lot AVANT la première écriture",async()=>{
+ const input=files();
+ for(const titles of [
+  ["Lavage","École"],["Nom","École","Pomme","Extra"],
+  ["Pause"," PAUSE ","Pomme"],["","École","Pomme"],
+  ["   ","École","Pomme"],["a".repeat(101),"École","Pomme"],
+  ["Bon",null,"Pomme"],"noms"
+ ]){
+  let writes=0;
+  await assert.rejects(importPrivateDraftBatch({},"admin",input,"hygiene",{
+   titles,importOne:async()=>{writes++;}
+  }),/noms|nom français|même nom/i);
+  assert.equal(writes,0);
+ }
+ const sameNames=[png("pomme_rouge.png"),png("POMME-ROUGE.png")];
+ const fixed=await preparePrivateDraftBatch(sameNames,"autres",["Pomme rouge","Pomme verte"]);
+ assert.deepEqual(fixed.map(e=>e.metadata.titleFr),["Pomme rouge","Pomme verte"]);
+ let writes=0;
+ await assert.rejects(importPrivateDraftBatch({},"admin",
+  [png("vrai.png"),png("faux.png",new TextEncoder().encode("<svg>bad</svg>"))],"autres",{
+   titles:["Vrai","Autre"],importOne:async()=>{writes++;}
+  }),/signature/i);
+ assert.equal(writes,0);
+});
+
+test("Formulaire de lot : titres éditables bilingues, sauvegardés au clavier et verrouillés pendant l'envoi",()=>{
+ const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+ const style=readFileSync(new URL("../src/styles.css",import.meta.url),"utf8");
+ assert.match(app,/data-input="admin-batch-title"/);
+ assert.match(app,/data-index="'\+index/);
+ assert.match(app,/maxlength="100" required/);
+ assert.match(app,/batchImport\.titles\[index\]=event\.target\.value/);
+ assert.match(app,/batchImport\.titles=titles/);
+ assert.match(app,/titles=\[\.\.\.batchImport\.titles\]/);
+ assert.match(app,/titles,isCurrent:current/);
+ assert.match(app,/batchImport\.files=\[\];batchImport\.titles=\[\]/);
+ assert.match(app,/Corrigez le nom français/);
+ assert.match(app,/Edit each French title/);
+ assert.match(app,/batchImport\.busy\?' disabled'/);
+ assert.match(app,/esc\(batchImport\.titles\[index\]/);
+ assert.match(style,/\.admin-batch-list input\[type="text"\]/);
+ assert.match(style,/min-height:44px/);
+ assert.match(style,/@media\(max-width:480px\)\{\.admin-batch-list li/);
+});
