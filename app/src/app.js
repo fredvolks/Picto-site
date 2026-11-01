@@ -4,7 +4,7 @@ import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
 import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy} from "./admin-template-bank.js";
-import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption} from "./admin-template-bank-ui.js";
+import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption,confirmPublishedNamedTemplateEdit} from "./admin-template-bank-ui.js";
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
@@ -3864,6 +3864,10 @@ root.addEventListener("click",function(event){
     }
     const uid=authStatus.user.id,ticket=adminNamedTemplates.request;
     const current=adminNamedTemplates.items.find(row=>row.id===adminNamedTemplates.selectedId);
+    // Préserver le consentement de l'admin AVANT la première mutation réseau.
+    // Sans accord, aucune opération de sauvegarde ni changement d'état.
+    if(!confirmPublishedNamedTemplateEdit(current,state.language==="fr",
+      message=>window.confirm(message)))return;
     const snapshot={id:current?.id??null,revision:current?.revision??null,
       name:adminNamedTemplates.name,preset:{...state.currentPreset},
       widthCm:Number(adminNamedTemplates.widthCm),rotationDeg:Number(adminNamedTemplates.rotationDeg)};
@@ -3878,9 +3882,13 @@ root.addEventListener("click",function(event){
         else adminNamedTemplates.items[existing]=saved;
         adminNamedTemplates.items.sort((a,b)=>a.name.localeCompare(b.name,state.language));
         adminNamedTemplates.selectedId=saved.id;adminNamedTemplates.name=saved.name;
-        adminNamedTemplates.message=state.language==="fr"?
-          "Gabarit enregistré. Il reste privé jusqu'à publication explicite.":
-          "Template saved. It remains private until explicitly published.";
+        adminNamedTemplates.message=saved.is_published?
+          (state.language==="fr"?
+            "Gabarit publié mis à jour. Les nouveaux PDF utilisent les réglages actuels; les PDF archivés restent inchangés.":
+            "Published template updated. New PDFs use the current settings; archived PDFs remain unchanged."):
+          (state.language==="fr"?
+            "Gabarit enregistré en privé. Une publication explicite reste nécessaire.":
+            "Template saved privately. Explicit publication is still required.");
       }catch(error){
         if(ticket===adminNamedTemplates.request)adminNamedTemplates.error=String(error?.message||error);
       }finally{if(ticket===adminNamedTemplates.request){adminNamedTemplates.busy=false;render();}}

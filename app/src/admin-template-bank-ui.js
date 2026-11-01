@@ -32,6 +32,18 @@ export function namedTemplatePreviewCaption({widthCm=5,rotationDeg=0,enabled=fal
    "Sample illustration · "+fmt(settings.widthCm)+" cm · rotation "+fmt(settings.rotationDeg)+"° · illustrative preview";
 }
 
+// Une mise à jour de gabarit publié est visible dès la sauvegarde dans
+// toutes les fiches clientes qui y sont associées. Pas de confirmation pour
+// les brouillons, mais un accord EXPLICITE avant toute édition publiée.
+export function confirmPublishedNamedTemplateEdit(template,fr=true,confirmAction=null){
+ if(!template?.is_published)return true;
+ if(typeof confirmAction!=="function")throw Error("Confirmation explicite requise.");
+ const message=fr?
+   "Ce gabarit est déjà publié. Enregistrer ses modifications changera immédiatement le modèle proposé aux clients qui l’utilisent. Les PDF déjà archivés restent inchangés. Pour préparer une variante privée, utilisez Dupliquer. Confirmer la mise à jour publiée ?":
+   "This template is already published. Saving changes will immediately update the template offered to customers using it. Previously archived PDFs remain unchanged. To prepare a private variant, use Duplicate. Confirm this live update?";
+ return confirmAction(message)===true;
+}
+
 export function renderAdminNamedTemplateBank({
  templates=[],selectedId=null,name="",widthCm=5,rotationDeg=0,
  busy=false,loading=false,error="",message="",fr=true
@@ -71,9 +83,15 @@ export function renderAdminNamedTemplateBank({
   +'value="'+esc(rotationDeg)+'"'+(busy?" disabled":"")+'></div>'
   +'</div>'
   +'<p class="admin-named-template-help">'+esc(tr[11])+'</p>'
+  +(active?.is_published?
+    '<p class="admin-named-template-live-warning" role="note">'+esc(fr?
+      "Ce gabarit est publié. Modifier ses réglages changera immédiatement les nouveaux rendus clients qui l’utilisent. Pour travailler sans effet sur le modèle actuel, choisissez Dupliquer.":
+      "This template is published. Editing its settings immediately changes new customer output using it. Choose Duplicate to work without affecting the live template.")+'</p>':"")
   +'<div class="admin-named-template-actions">'
   +'<button type="button" data-action="admin-named-template-new"'+(busy?" disabled":"")+'>'+esc(tr[1])+'</button>'
-  +'<button type="button" data-action="admin-named-template-save"'+(busy||loading?" disabled":"")+'>'+esc(active?tr[6]:tr[5])+'</button></div>'
+  +'<button type="button" data-action="admin-named-template-save"'+(busy||loading?" disabled":"")+'>'+esc(active?.is_published?
+    (fr?"Mettre à jour le gabarit publié":"Update published template"):
+    (active?tr[6]:tr[5]))+'</button></div>'
   +(!templates.length?'<p role="status">'+esc(tr[12])+'</p>':
    '<ul class="admin-named-template-list">'+templates.map(t=>
      '<li><button type="button" data-action="admin-named-template-load" data-id="'+esc(t.id)+'" '

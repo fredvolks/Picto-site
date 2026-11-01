@@ -1724,6 +1724,9 @@
 .admin-named-template-fields label{font-size:13px;font-weight:700}
 .admin-named-template-fields input{width:100%;min-height:44px;border:1px solid #c9d5cb;border-radius:9px;padding:9px 12px;background:#fff;color:inherit}
 .admin-named-template-help{font-size:13px;color:#486254}
+.admin-named-template-live-warning{margin:12px 0;padding:12px 14px;border-left:4px solid #9a682c;
+  border-radius:8px;background:#fff8e8;color:#493922;font-size:14px;line-height:1.5}
+
 .admin-named-template-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
 .admin-named-template-actions button,.admin-named-template-list button{min-height:44px;border:1px solid #becbc4;border-radius:10px;padding:9px 12px;background:#fff;color:#243d31;font-weight:650}
 .admin-named-template-actions button:last-child{background:#294939;color:#fff}
