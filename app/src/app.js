@@ -1907,7 +1907,7 @@ function renderClientAccount(){
 }
 function renderNewPassword(){
   const fr=state.language==="fr";
-  return '<section class="hosted-access">'+universalHeader("hosted-access-header",true)+'<div class="hosted-access-main">'<div class="hosted-access-panel">'
+  return '<section class="hosted-access">'+universalHeader("hosted-access-header",true)+'<div class="hosted-access-main"><div class="hosted-access-panel">'
    +'<span class="hosted-access-eyebrow">PICT-AU · '+esc(fr?'SÉCURITÉ':'SECURITY')+'</span>'
    +'<h1>'+esc(fr?'Choisir un nouveau mot de passe':'Choose a new password')+'</h1>'
    +'<p>'+esc(fr?'Votre lien de récupération a été reconnu. Choisissez un nouveau mot de passe.':'Your recovery link was recognized. Choose a new password.')+'</p>'
