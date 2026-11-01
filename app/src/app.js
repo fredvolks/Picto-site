@@ -17,6 +17,7 @@ import {loadPrivateAdminPreview} from "./admin-preview.js";
 import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
+import {validateArtworkRotation,makeRotatedPrivatePng} from "./admin-artwork-rotation.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
@@ -654,7 +655,7 @@ async function fetchAdminNamedTemplates(){
 }
 let bankQueryTimer=null;
 const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
-const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",request:0};
+const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
 const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
@@ -886,7 +887,8 @@ function clearAdminPreview(){
   if(privatePreview.url)URL.revokeObjectURL(privatePreview.url);
   if(privatePreview.inkUrl)URL.revokeObjectURL(privatePreview.inkUrl);
   privatePreview.id=null;privatePreview.asset=null;privatePreview.url=null;
-  privatePreview.inkUrl=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
+  privatePreview.inkUrl=null;privatePreview.inkBlob=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
+  privatePreview.rotationDeg=0;privatePreview.adjustBusy=false;privatePreview.adjustError="";privatePreview.adjustMessage="";
   privatePreview.loading=false;privatePreview.error="";
 }
 async function openAdminPreview(assetId){
@@ -905,7 +907,7 @@ async function openAdminPreview(assetId){
     privatePreview.asset=result.asset;privatePreview.technical=technical;
     privatePreview.url=URL.createObjectURL(result.blob);
     privatePreview.inkInfo=crop;privatePreview.inkError=cropError;
-    if(crop)privatePreview.inkUrl=URL.createObjectURL(crop.blob);
+    if(crop){privatePreview.inkBlob=crop.blob;privatePreview.inkUrl=URL.createObjectURL(crop.blob);}
   }catch(error){
     if(request!==privatePreview.request||authStatus.user?.id!==userId)return;
     privatePreview.error=String(error?.message||error);
@@ -1434,12 +1436,23 @@ function renderAdmin(){
   const privateInkCard=!privatePreview.inkUrl||!privatePreview.asset?"":(()=>{
     const asset=privatePreview.asset;
     const picture={fr:asset.title_fr,en:asset.title_en||asset.title_fr,
-      image:'<img data-pictau-ink src="'+esc(privatePreview.inkUrl)+'" alt="" loading="eager" decoding="async">'};
+      image:'<img data-pictau-ink data-admin-ink-preview src="'+esc(privatePreview.inkUrl)+'" alt="" loading="eager" decoding="async" style="transform:rotate('+privatePreview.rotationDeg+'deg);transform-origin:center">'};
     const p=state.currentPreset;
     const geom=scaleMetrics(p,5);
     return '<div class="admin-png-template"><h4>'+esc(fr?"Essai de centrage du dessin dans le gabarit":"Artwork centering trial in template")+'</h4>'
       +'<div class="admin-png-stage"><div class="color-shell'+(p.colored?"":" no-color")+'" style="--bordercolor:'+p.color+';--colorwidth:2mm">'
       +'<div class="admin-png-cell" style="width:5cm;height:'+fmtRaw(geom.heightCm)+'cm">'+customPicto(picture,p,5,false)+'</div></div></div>'
+      +'<div class="admin-art-rotation">'
+      +'<label for="admin-art-rotation">'+esc(fr?"Faire pivoter le dessin (centre de l\u2019encre)":"Rotate artwork (ink center)")+' : <output id="admin-art-rotation-value" for="admin-art-rotation">'+privatePreview.rotationDeg+'°</output></label>'
+      +'<input id="admin-art-rotation" data-input="admin-art-rotation" type="range" min="-180" max="180" step="1" value="'+privatePreview.rotationDeg+'"'+(privatePreview.adjustBusy?' disabled':'')+' />'
+      +'<div class="admin-art-rotation-actions">'
+      +'<button type="button" data-action="admin-art-rotation-reset" class="btn btn-light btn-small"'+(privatePreview.adjustBusy||privatePreview.rotationDeg===0?' disabled':'')+'>'+esc(fr?"Remettre à 0°":"Reset to 0°")+'</button>'
+      +'<button type="button" data-action="admin-art-rotation-save" class="btn btn-primary btn-small"'+(privatePreview.adjustBusy||privatePreview.rotationDeg===0?' disabled':'')+'>'+esc(privatePreview.adjustBusy?(fr?"Création du brouillon…":"Creating draft…"):(fr?"Créer un brouillon avec cette rotation":"Create draft with this rotation"))+'</button>'
+      +'</div>'
+      +'<p>'+esc(fr?"Un nouveau brouillon privé sera créé à partir du dessin recadré et pivoté. L'original reste intact; vous devrez approuver le nouveau brouillon avant qu'il soit visible par un client.":"A new private draft will be made from the cropped, rotated artwork. The original is unchanged; approval is required before customers can see the new draft.")+'</p>'
+      +(privatePreview.adjustError?'<p role="alert" class="admin-import-alert">'+esc(privatePreview.adjustError)+'</p>':'')
+      +(privatePreview.adjustMessage?'<p role="status" class="admin-import-success">'+esc(privatePreview.adjustMessage)+'</p>':'')
+      +'</div>'
       +'<p>'+esc(fr?"Le rognage ignore les marges claires ou transparentes. Copie temporaire dans ce navigateur : source originale intacte, aucune publication.":"Cropping ignores light or transparent margins. Temporary browser copy only: original unchanged and never published.")+'</p>'
       +'</div>';
   })();
@@ -3691,6 +3704,47 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
+  if(a==="admin-art-rotation-reset"){
+    if(!canOpenAdmin()||!privatePreview.inkBlob||privatePreview.adjustBusy)return;
+    privatePreview.rotationDeg=0;privatePreview.adjustError="";privatePreview.adjustMessage="";
+    render();root.querySelector("#admin-art-rotation")?.focus({preventScroll:true});return;
+  }
+  if(a==="admin-art-rotation-save"){
+    if(!canOpenAdmin()||!authStatus.user||privatePreview.adjustBusy||
+       !privatePreview.inkBlob||!privatePreview.asset||privatePreview.rotationDeg===0)return;
+    const angle=validateArtworkRotation(privatePreview.rotationDeg);
+    const asset={...privatePreview.asset},inkBlob=privatePreview.inkBlob;
+    const uid=authStatus.user.id,ticket=privatePreview.request;
+    if(!window.confirm(state.language==="fr"?
+      "Créer un nouveau brouillon privé avec le dessin pivoté de "+angle+"° ? L'original sera conservé et rien ne sera publié.":
+      "Create a new private draft with artwork rotated "+angle+"°? The original is kept and nothing is published."))return;
+    const current=()=>privatePreview.request===ticket&&privatePreview.id===asset.id&&
+      authStatus.user?.id===uid&&canOpenAdmin();
+    privatePreview.adjustBusy=true;privatePreview.adjustError="";privatePreview.adjustMessage="";render();
+    void(async()=>{
+      try{
+        const file=await makeRotatedPrivatePng(inkBlob,angle,asset.title_fr);
+        if(!current())return;
+        const client=await supabaseClient();
+        await importPrivateDraft(client,uid,file,{
+          titleFr:String(asset.title_fr||"Picto").slice(0,75)+" (rotation "+angle+"°)",
+          titleEn:asset.title_en?String(asset.title_en).slice(0,75)+" (rotated "+angle+"°)":"",
+          theme:asset.theme
+        });
+        if(!current())return;
+        const message=state.language==="fr"?
+          "Nouvelle version pivotée importée comme brouillon privé. Original conservé; aucune publication automatique.":
+          "Rotated version imported as a private draft. Original kept; never auto-published.";
+        privatePreview.adjustMessage=message;state.toast=message;
+        await refreshPrivateBank(client,uid);
+      }catch(error){
+        if(current())privatePreview.adjustError=String(error?.message||error);
+      }finally{
+        if(current()){privatePreview.adjustBusy=false;render();}
+      }
+    })();
+    return;
+  }
   if(a==="download-admin-preview"){
     if(!canOpenAdmin()||!privatePreview.url||!privatePreview.asset)return;
     const file=document.createElement("a");
@@ -3797,6 +3851,22 @@ root.addEventListener("click",function(event){
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
+  if(event.target.dataset.input==="admin-art-rotation"){
+    if(!canOpenAdmin()||!privatePreview.inkBlob||privatePreview.adjustBusy)return;
+    const angle=Number(event.target.value);
+    try{privatePreview.rotationDeg=validateArtworkRotation(angle);}
+    catch{return;}
+    privatePreview.adjustError="";privatePreview.adjustMessage="";
+    const ink=root.querySelector("[data-admin-ink-preview]");
+    if(ink)ink.style.transform="rotate("+angle+"deg)";
+    const value=root.querySelector("#admin-art-rotation-value");
+    if(value)value.textContent=angle+"°";
+    const reset=root.querySelector('[data-action="admin-art-rotation-reset"]');
+    const save=root.querySelector('[data-action="admin-art-rotation-save"]');
+    if(reset)reset.disabled=angle===0;
+    if(save)save.disabled=angle===0;
+    return;
+  }
   if(canOpenAdmin()&&state.adminTab==="templates"&&!adminNamedTemplates.busy){
     const field=event.target.dataset.input;
     if(field==="admin-named-template-name"){adminNamedTemplates.name=event.target.value;return;}
