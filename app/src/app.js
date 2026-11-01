@@ -32,6 +32,7 @@ import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,sa
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
+import {loadConfirmedPrintSettings} from "./client-template-print.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
@@ -659,7 +660,7 @@ const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
   dirty:false,error:"",message:"",request:0};
 const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
-  loading:false,error:"",request:0};
+  loading:false,busy:false,error:"",request:0};
 function resetAdminTemplateChoices(){
   ++adminTemplateChoices.request;
   Object.assign(adminTemplateChoices,{assetId:null,available:[],selected:[],confirmed:[],
@@ -669,7 +670,14 @@ function resetAdminTemplateChoices(){
 function resetClientPictoTemplates(){
   ++clientPictoTemplates.request;
   Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
-    loading:false,error:""});
+    loading:false,busy:false,error:""});
+}
+function closeClientPictoTemplateChoices(){
+  const id=clientPictoTemplates.pictoId;
+  resetClientPictoTemplates();
+  render();
+  if(id&&/^[0-9a-f-]{36}$/i.test(id))
+    root.querySelector('[data-action="approved-template-open"][data-id="'+id+'"]')?.focus({preventScroll:true});
 }
 async function openAdminTemplateChoices(assetId){
   if(!TEMPLATE_CHOICES_RELEASED||!canOpenAdmin()||!authStatus.user||
@@ -721,12 +729,15 @@ function renderClientPictoTemplateModal(){
   return '<div class="pa-template-modal-backdrop"><section class="admin-surface pa-template-dialog" role="dialog" aria-modal="true" aria-label="'+esc(fr?"Gabarits du pictogramme":"Pictogram templates")+'">'
     +'<button type="button" data-action="client-template-close" class="btn btn-light">'+esc(fr?"Fermer":"Close")+'</button>'
     +(f.loading?'<p role="status">'+esc(fr?"Chargement des gabarits confirmés…":"Loading confirmed templates…")+'</p>':"")
-    +(f.error?'<p role="alert">'+esc(f.error)+'</p>':"")
+    +(f.error?'<div role="alert"><p>'+esc(f.error)+'</p>'
+      +'<button type="button" data-action="client-template-refresh" class="btn btn-light">'
+      +esc(fr?"Actualiser les gabarits":"Refresh templates")+'</button></div>':"")
     +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
-       templates:f.items,selectedId:f.selectedId,fr,
+       templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,
        artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
     +'</section></div>';
 }
+
 const bankFilters={query:"",status:"all",theme:"all",sort:"recent"};
 const themeUI={items:[],links:{},error:"",message:"",assetId:null,editCode:"",
  form:{code:"",fr:"",en:""},edit:{fr:"",en:""},
@@ -2153,6 +2164,8 @@ function renderHostedEmpty(){
     +'</section>'+(library?renderCustomerRequestCenter():'');
 }
 function render(){
+  const templateFocusedId=document.activeElement?.closest?.(".pa-template-dialog")&&
+    document.activeElement?.dataset?.input==="client-template-select"?document.activeElement.value:null;
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   const clientTitles={used:["Mes pictogrammes utilisés","My used pictograms"],
@@ -2183,6 +2196,15 @@ function render(){
   updateArtFeedback();
   observeBankThumbnails();
   observePublishedArtwork();
+  // render() remplace tout le DOM. Le dialogue reste focalisé après ouverture,
+  // chargement réseau, sélection d'une radio ou traduction FR/EN.
+  const templateDialog=root.querySelector(".pa-template-dialog");
+  if(templateDialog){
+    const radio=templateFocusedId?[...templateDialog.querySelectorAll('[data-input="client-template-select"]')]
+      .find(el=>el.value===templateFocusedId):null;
+    (radio||templateDialog.querySelector('[data-action="client-template-close"]'))
+      ?.focus({preventScroll:true});
+  }
 }
 // La fermeture ne garantit jamais l'achèvement d'une requête réseau.
 window.addEventListener("beforeunload",event=>{
@@ -2261,6 +2283,28 @@ root.addEventListener("focusout",event=>{
 });
 
 root.addEventListener("keydown",function(event){
+  const templateDialog=TEMPLATE_CHOICES_RELEASED&&clientPictoTemplates.pictoId?
+    root.querySelector(".pa-template-dialog"):null;
+  if(templateDialog){
+    if(event.key==="Escape"){
+      event.preventDefault();closeClientPictoTemplateChoices();return;
+    }
+    if(event.key==="Tab"){
+      const controls=[...templateDialog.querySelectorAll('button:not([disabled]),input:not([disabled])')];
+      if(!controls.length)return;
+      const first=controls[0],last=controls.at(-1);
+      if(!templateDialog.contains(document.activeElement)){
+        event.preventDefault();first.focus();return;
+      }
+      if(event.shiftKey&&document.activeElement===first){
+        event.preventDefault();last.focus();return;
+      }
+      if(!event.shiftKey&&document.activeElement===last){
+        event.preventDefault();first.focus();return;
+      }
+    }
+    return;
+  }
   if(event.key==="Escape"&&state.adminMenuOpen&&SITE_EMBEDDED){
     event.preventDefault();state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
@@ -2303,6 +2347,9 @@ root.addEventListener("focusout",function(event){
     root.querySelector(".pa-client-workspace")?.classList.remove("pa-keyboard-open");
 });
 root.addEventListener("click",function(event){
+  if(TEMPLATE_CHOICES_RELEASED&&event.target?.classList?.contains("pa-template-modal-backdrop")){
+    closeClientPictoTemplateChoices();return;
+  }
   const el=event.target.closest("[data-action]");
   if(!el)return;
   if(el.tagName==="A")event.preventDefault();
@@ -3491,7 +3538,72 @@ root.addEventListener("click",function(event){
     if(TEMPLATE_CHOICES_RELEASED)void openClientPictoTemplateChoices(el.dataset.id);
     return;
   }
-  if(a==="client-template-close"){resetClientPictoTemplates();render();return;}
+  if(a==="client-template-close"){closeClientPictoTemplateChoices();return;}
+  if(a==="client-template-refresh"){
+    if(TEMPLATE_CHOICES_RELEASED&&clientPictoTemplates.pictoId&&!clientPictoTemplates.busy)
+      void openClientPictoTemplateChoices(clientPictoTemplates.pictoId);
+    return;
+  }
+  if(a==="client-template-print"){
+    if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
+       clientPictoTemplates.loading||clientPictoTemplates.busy||officialComposer.busy||
+       pdfExportBusy||pendingGeneratedPdf)return;
+    const id=clientPictoTemplates.pictoId,chosenId=clientPictoTemplates.selectedId,
+      uid=authStatus.user.id,ticket=clientPictoTemplates.request,
+      printLanguage=state.language;
+    if(!id||!chosenId||state.page!=="library"||
+       !clientPictoTemplates.items.some(row=>row.id===chosenId&&row.is_published)||
+       !publishedCatalog.items.some(row=>row.id===id))return;
+    const current=()=>authStatus.user?.id===uid&&
+      ticket===clientPictoTemplates.request&&clientPictoTemplates.pictoId===id&&
+      state.page==="library"&&!canOpenAdmin();
+    clientPictoTemplates.busy=true;clientPictoTemplates.error="";render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        const settings=await loadConfirmedPrintSettings(client,uid,id,chosenId);
+        if(!current())return;
+        const rows=await loadApprovedSelection(client,uid,[id]);
+        if(rows.length!==1||rows[0].id!==id)
+          throw Error("Ce pictogramme n'est plus publié. Actualisez la bibliothèque.");
+        const row=rows[0],pngBlob=await downloadPublishedArtwork(client,uid,row);
+        if(!current())return;
+        // La confirmation peut avoir été révoquée pendant le téléchargement PNG.
+        // Ne pas générer une version sortie du catalogue de gabarits.
+        const latest=await loadConfirmedPrintSettings(client,uid,id,chosenId);
+        if(!current())return;
+        if(JSON.stringify(latest)!==JSON.stringify(settings))
+          throw Error("Le gabarit a changé : actualisez la fiche avant l'impression.");
+        const title=String(printLanguage==="en"?(row.title_en||row.title_fr):row.title_fr).trim().slice(0,120);
+        const {blob,pageCount}=await createPreparedPdf({
+          items:[{fr:row.title_fr,en:row.title_en||row.title_fr,pngBlob}],
+          kind:"board",columns:1,widthCm:settings.widthCm,preset:settings.preset,
+          paper:"letter",language:printLanguage,title
+        });
+        if(!current())return;
+        pdfRecoveryError="";
+        pendingGeneratedPdf={uid,blob,pageCount,title,documentType:"board",documentId:crypto.randomUUID()};
+        await archivePdf(client,uid,blob,{title,documentType:"board",pageCount,
+          documentId:pendingGeneratedPdf.documentId});
+        if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
+        if(!current())return;
+        resetClientPictoTemplates();
+        clientFiles.message=printLanguage==="fr"?
+          "Pictogramme imprimable enregistré dans Mes fichiers.":
+          "Printable pictogram saved in My files.";
+        state.page="files";clientFiles.page=0;clientFiles.query="";clientFiles.type="all";
+        clientFiles.sort="recent";
+        await fetchClientFiles(client,uid);
+      }catch(error){
+        if(current())clientPictoTemplates.error=String(error?.message||error);
+      }finally{
+        if(ticket===clientPictoTemplates.request&&authStatus.user?.id===uid){
+          clientPictoTemplates.busy=false;render();
+        }
+      }
+    })();
+    return;
+  }
   if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
   if(a==="close-admin-preview"){clearAdminPreview();render();return;}
   if(a==="download-admin-proof"){
