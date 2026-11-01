@@ -4,6 +4,45 @@ import {loadPrivateAdminPreview} from "./admin-preview.js";
 
 export const CATALOG_BUCKET="pictau-approved";
 export const CATALOG_PAGE_SIZE=24;
+export const MAX_CATALOG_CHOICES=16;
+// Choix locaux des vraies fiches publiées; chaque ajout est revérifié au
+// serveur avec loadApprovedSelection avant de toucher à la composition.
+export function toggleCatalogChoice(current,id,visibleRows){
+  if(!(current instanceof Map)||current.size>MAX_CATALOG_CHOICES||
+     !Array.isArray(visibleRows)||!UUID.test(id||""))
+    throw Error("Sélection de la bibliothèque invalide.");
+  const row=visibleRows.find(item=>item?.id===id);
+  if(!row||!validRow(row))throw Error("Ce pictogramme n'est plus disponible. Actualisez la bibliothèque.");
+  const next=new Map(current);
+  if(next.has(id))next.delete(id);
+  else{
+    if(next.size>=MAX_CATALOG_CHOICES)throw Error("Maximum de 16 pictogrammes sélectionnés.");
+    next.set(id,{...row});
+  }
+  return next;
+}
+
+// Sélection de la page visible du catalogue authentifié, sans lecture de
+// brouillons ni mutation de composition. Les ID seront revérifiés AVANT ajout.
+// La bibliothèque montre 24 fiches par page, mais un support admet 16 choix.
+export function selectVisibleCatalogPage(current,visibleRows){
+  if(!(current instanceof Map)||current.size>MAX_CATALOG_CHOICES||
+    !Array.isArray(visibleRows)||visibleRows.length>CATALOG_PAGE_SIZE)
+    throw Error("Sélection de la bibliothèque invalide.");
+  // Valider toute la réponse avant de remplir les places disponibles :
+  // un élément incorrect ne doit jamais entraîner une sélection partielle.
+  if(visibleRows.some(row=>!validRow(row)))
+    throw Error("La page contient un pictogramme indisponible. Actualisez la bibliothèque.");
+  const selected=new Map(current);
+  let added=0,capacityReached=false;
+  for(const row of visibleRows){
+    if(selected.has(row.id))continue;
+    if(selected.size>=MAX_CATALOG_CHOICES){capacityReached=true;break;}
+    selected.set(row.id,{...row});added++;
+  }
+  return {selected,added,capacityReached};
+}
+
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PNG_MAGIC=[137,80,78,71,13,10,26,10];
 const MAX_BYTES=6*1024*1024;

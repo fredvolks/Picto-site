@@ -1589,3 +1589,33 @@
   .pa-drafts-filter>.btn{width:100%}
 }
 @media print{.pa-drafts-filter{display:none!important}}
+
+
+/* Sélection multi-pages du vrai catalogue : même repère noir/blanc que Mes pictogrammes utilisés. */
+  .pa-catalog-bulk-choice{display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;min-height:44px;margin-top:12px;padding:8px 12px;background:#fff;
+    color:#111;border:1px solid #888;border-radius:11px;font-weight:750;font-size:13px;cursor:pointer}
+  .pa-catalog-bulk-choice[aria-pressed="true"]{background:#111;color:#fff;border-color:#111}
+  .pa-catalog-bulk-choice svg{width:17px;height:17px;flex:none}
+  .pa-catalog-bulk-choice:focus-visible,.pa-catalog-bulk-actions button:focus-visible{
+    outline:3px solid #555;outline-offset:3px}
+  .pa-catalog-bulk-choice:disabled{opacity:.5;cursor:not-allowed}
+  .pa-catalog-bulk-review{margin-block:12px 18px}
+  .pa-catalog-bulk-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+  .pa-catalog-bulk-actions button{min-height:44px;white-space:normal}
+  @media(max-width:599px){
+    .pa-catalog-bulk-actions{display:grid;grid-template-columns:1fr;gap:8px}
+    .pa-catalog-bulk-actions button{width:100%}
+  }
+
+/* Action de sélection de la page officielle, avant la grille du catalogue. */
+.pa-catalog-page-select{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;
+  margin:16px 0;padding:10px 0;border-top:1px solid #e5e5e5}
+.pa-catalog-page-select .btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;
+  max-width:100%;white-space:normal;text-align:left}
+.pa-catalog-page-select .btn svg{width:17px;height:17px;flex:none}
+.pa-catalog-page-select .btn:focus-visible{outline:3px solid #555;outline-offset:3px}
+.pa-catalog-page-select>span{font-size:12px;line-height:1.4;color:#505050}
+@media(max-width:599px){
+  .pa-catalog-page-select .btn{width:100%;justify-content:center}
+}
