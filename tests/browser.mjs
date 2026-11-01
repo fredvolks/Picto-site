@@ -193,6 +193,38 @@ try{
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
     const homeHeader=await evaluate(headerMetrics);
+
+    const mobileAsset=width<=680;
+    const logoInfo=await evaluate(`return (async()=>{
+      const img=document.querySelector(".brand .pictau-brand-img");
+      await img.decode();
+      const source=img.currentSrc;
+      const text=await (await fetch(source)).text();
+      const doc=new DOMParser().parseFromString(text,"image/svg+xml");
+      const tiles=[...doc.querySelectorAll("rect")];
+      return {source,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight,
+        tiles:tiles.map(r=>({width:r.getAttribute("width"),height:r.getAttribute("height")}))};
+    })();`);
+    assert.ok(logoInfo.naturalWidth>0&&logoInfo.naturalHeight>0,"SVG du logo chargé à "+width);
+    assert.ok(logoInfo.source.endsWith(mobileAsset?"pictau-logo-le-fil-mobile.svg":"pictau-logo-le-fil.svg"),
+      "Source responsive erronée du logo : "+JSON.stringify(logoInfo));
+    assert.equal(logoInfo.tiles.length,3,"Les trois carrés du logo manquent à "+width);
+    if(mobileAsset){
+      const glyphTest=await evaluate(`return (()=>{
+        const img=document.querySelector(".brand .pictau-brand-img");
+        const r=img.getBoundingClientRect(),header=document.querySelector(".topbar").getBoundingClientRect();
+        const nav=document.querySelector(".topbar nav").getBoundingClientRect();
+        return {logoWidth:r.width,logoHeight:r.height,navY:nav.top,logoY:r.top,
+          logoBottom:r.bottom,headerBottom:header.bottom,docWidth:document.documentElement.scrollWidth};
+      })();`);
+      assert.ok(glyphTest.logoWidth>=190,"Logo complet illisible à "+width+": "+JSON.stringify(glyphTest));
+      assert.ok(glyphTest.docWidth<=width+1,"Débordement horizontal à "+width+": "+JSON.stringify(glyphTest));
+      if(width<=520)assert.ok(glyphTest.navY>=glyphTest.logoBottom-1,
+        "Mobile : boutons ne sont pas sous le logo à "+width+": "+JSON.stringify(glyphTest));
+    }
+
+    for(const tile of logoInfo.tiles) assert.equal(tile.width,tile.height,"Tuile logo non carrée à "+width);
+
     await command("Page.navigate",{url:base+"/forfait.html"});
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
