@@ -32,7 +32,7 @@ import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,sa
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf} from "./print-pdf.js";
-import {loadConfirmedPrintSettings} from "./client-template-print.js";
+import {loadConfirmedPrintSettings,applyClientBorderPreference} from "./client-template-print.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
@@ -660,7 +660,7 @@ const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
   dirty:false,error:"",message:"",request:0};
 const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
-  loading:false,busy:false,error:"",request:0};
+  borderEnabled:null,borderColor:null,loading:false,busy:false,error:"",request:0};
 function resetAdminTemplateChoices(){
   ++adminTemplateChoices.request;
   Object.assign(adminTemplateChoices,{assetId:null,available:[],selected:[],confirmed:[],
@@ -670,7 +670,7 @@ function resetAdminTemplateChoices(){
 function resetClientPictoTemplates(){
   ++clientPictoTemplates.request;
   Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
-    loading:false,busy:false,error:""});
+    borderEnabled:null,borderColor:null,loading:false,busy:false,error:""});
 }
 function closeClientPictoTemplateChoices(){
   const id=clientPictoTemplates.pictoId;
@@ -734,6 +734,7 @@ function renderClientPictoTemplateModal(){
       +esc(fr?"Actualiser les gabarits":"Refresh templates")+'</button></div>':"")
     +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
        templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,
+       borderEnabled:f.borderEnabled,borderColor:f.borderColor,
        artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
     +'</section></div>';
 }
@@ -2181,7 +2182,16 @@ function renderHostedEmpty(){
 }
 function render(){
   const templateFocusedId=document.activeElement?.closest?.(".pa-template-dialog")&&
-    document.activeElement?.dataset?.input==="client-template-select"?document.activeElement.value:null;
+    document.activeElement?.dataset?.input==="client-template-select"?
+      document.activeElement.value:null;
+  const templateActive=document.activeElement?.closest?.(".pa-template-dialog")?
+    document.activeElement:null;
+  const templateFocusedInput=["client-template-border-enabled","client-template-border-color"]
+    .includes(templateActive?.dataset?.input)?templateActive.dataset.input:null;
+  const templateFocusedColor=templateActive?.dataset?.action==="client-template-border-swatch"?
+    templateActive.dataset.color:null;
+  if(!canOpenAdmin() && state.page==="admin")state.page="library";
+  document.documentElement.lang=state.language;
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   const clientTitles={used:["Mes pictogrammes utilisés","My used pictograms"],
@@ -2218,7 +2228,10 @@ function render(){
   if(templateDialog){
     const radio=templateFocusedId?[...templateDialog.querySelectorAll('[data-input="client-template-select"]')]
       .find(el=>el.value===templateFocusedId):null;
-    (radio||templateDialog.querySelector('[data-action="client-template-close"]'))
+    const focused=radio||
+      ((typeof templateFocusedInput!=="undefined"&&templateFocusedInput)?templateDialog.querySelector('[data-input="'+templateFocusedInput+'"]'):null)||
+      ((typeof templateFocusedColor!=="undefined"&&templateFocusedColor)?templateDialog.querySelector('[data-action="client-template-border-swatch"][data-color="'+templateFocusedColor+'"]'):null);
+    (focused||templateDialog.querySelector('[data-action="client-template-close"]'))
       ?.focus({preventScroll:true});
   }
 }
@@ -3565,13 +3578,24 @@ root.addEventListener("click",function(event){
       void openClientPictoTemplateChoices(clientPictoTemplates.pictoId);
     return;
   }
+  if(a==="client-template-border-swatch"){
+    if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
+       clientPictoTemplates.busy||clientPictoTemplates.loading||!clientPictoTemplates.selectedId||
+       clientPictoTemplates.borderEnabled!==true)return;
+    const value=el.dataset.color;
+    if(!/^#[0-9a-f]{6}$/i.test(value||""))return;
+    clientPictoTemplates.borderColor=value.toLowerCase();
+    render();return;
+  }
   if(a==="client-template-print"){
     if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
        clientPictoTemplates.loading||clientPictoTemplates.busy||officialComposer.busy||
        pdfExportBusy||pendingGeneratedPdf)return;
     const id=clientPictoTemplates.pictoId,chosenId=clientPictoTemplates.selectedId,
       uid=authStatus.user.id,ticket=clientPictoTemplates.request,
-      printLanguage=state.language;
+      printLanguage=state.language,
+      borderPreference={colored:clientPictoTemplates.borderEnabled,
+        borderColor:clientPictoTemplates.borderColor};
     if(!id||!chosenId||state.page!=="library"||
        !clientPictoTemplates.items.some(row=>row.id===chosenId&&row.is_published)||
        !publishedCatalog.items.some(row=>row.id===id))return;
@@ -3598,7 +3622,8 @@ root.addEventListener("click",function(event){
         const title=String(printLanguage==="en"?(row.title_en||row.title_fr):row.title_fr).trim().slice(0,120);
         const {blob,pageCount}=await createPreparedPdf({
           items:[{fr:row.title_fr,en:row.title_en||row.title_fr,pngBlob}],
-          kind:"board",columns:1,widthCm:settings.widthCm,preset:settings.preset,
+          kind:"board",columns:1,widthCm:settings.widthCm,
+          preset:applyClientBorderPreference(settings,borderPreference).preset,
           paper:"letter",language:printLanguage,title
         });
         if(!current())return;
@@ -4270,8 +4295,24 @@ root.addEventListener("change",function(event){
     return;
   }
   if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-select"){
-    if(!clientPictoTemplates.items.some(row=>row.id===event.target.value))return;
-    clientPictoTemplates.selectedId=event.target.value;
+    if(clientPictoTemplates.busy||clientPictoTemplates.loading)return;
+    const row=clientPictoTemplates.items.find(t=>t.id===event.target.value&&t.is_published);
+    if(!row)return;
+    clientPictoTemplates.selectedId=row.id;
+    // Chaque nouveau modèle repart de ses propres paramètres approuvés.
+    clientPictoTemplates.borderEnabled=row.colored;
+    clientPictoTemplates.borderColor=row.border_color;
+    render();return;
+  }
+  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-border-enabled"){
+    if(clientPictoTemplates.busy||!clientPictoTemplates.selectedId)return;
+    clientPictoTemplates.borderEnabled=event.target.checked===true;
+    render();return;
+  }
+  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-border-color"){
+    if(clientPictoTemplates.busy||!clientPictoTemplates.selectedId)return;
+    if(!/^#[0-9a-f]{6}$/i.test(event.target.value))return;
+    clientPictoTemplates.borderColor=event.target.value.toLowerCase();
     render();return;
   }
   if(recordComposerCaption(event.target))return;

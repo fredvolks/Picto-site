@@ -26,7 +26,7 @@ test("Le PDF d'une case est enregistré dans Mes fichiers sans démo",()=>{
    app.indexOf('if(a==="admin-preview")'));
  assert.match(block,/createPreparedPdf\(\{/);
  assert.match(block,/kind:"board",columns:1/);
- assert.match(block,/preset:settings\.preset/);
+ assert.match(block,/preset:applyClientBorderPreference\(settings,borderPreference\)\.preset/);
  assert.match(block,/archivePdf\(client,uid,blob/);
  assert.match(block,/pendingGeneratedPdf=/);
  assert.match(block,/state\.page="files"/);
@@ -40,7 +40,7 @@ test("Le dessin PNG tourne autour du centre sans toucher au cadre",()=>{
  assert.match(print,/ctx\.restore\(\)/);
 });
 test("Le module d\u0027impression reste fermé sans les tables réelles",()=>{
- assert.match(app,/import \{loadConfirmedPrintSettings\} from "\.\/client-template-print\.js"/);
+ assert.match(app,/import \{loadConfirmedPrintSettings,applyClientBorderPreference\} from "\.\/client-template-print\.js"/);
  assert.match(app,/let TEMPLATE_CHOICES_RELEASED=false/);
 });
 
@@ -54,4 +54,15 @@ test("Un choix supprimé affiche une erreur récupérable sans impression automa
 test("Un contour coloré est facultatif et limité au PDF du pictogramme seul",()=>{
  assert.match(print,/kind==="board"&&columns===1&&preset\.colored/);
  assert.match(print,/if\(plan\.edgeMm>0&&plan\.preset\.colored\)/);
+});
+
+test("La palette n'efface pas la sélection et se réinitialise par modèle",()=>{
+ assert.match(app,/clientPictoTemplates\.borderEnabled=row\.colored/);
+ assert.match(app,/clientPictoTemplates\.borderColor=row\.border_color/);
+ assert.match(app,/if\(a==="client-template-border-swatch"\)/);
+ assert.match(app,/if\(TEMPLATE_CHOICES_RELEASED&&event\.target\.dataset\.input==="client-template-border-enabled"\)/);
+ assert.match(app,/if\(TEMPLATE_CHOICES_RELEASED&&event\.target\.dataset\.input==="client-template-border-color"\)/);
+ assert.match(app,/borderEnabled:null,borderColor:null/);
+ assert.match(ui,/data-input="client-template-border-color"/);
+ assert.match(ui,/data-action="client-template-border-swatch"/);
 });

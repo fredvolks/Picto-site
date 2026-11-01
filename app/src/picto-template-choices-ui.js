@@ -118,29 +118,64 @@ export function confirmationMessage({pictoName,selected=[],fr=true}={}){
   'Confirmer '+selected.length+' gabarit(s) visibles pour « '+name+' » ? Cette action remplacera les choix de la fiche client.':
   'Confirm '+selected.length+' visible template(s) for "'+name+'"? This replaces the choices on the customer detail.';
 }
+// Couleurs suggérées, plus le sélecteur natif pour une teinte personnalisée.
+export const CLIENT_BORDER_PALETTE=Object.freeze([
+ "#000000","#4775A9","#607A6F","#B34747","#D88A36","#8866AA","#E4B44E","#FFFFFF"
+]);
 export function renderClientPictoTemplateOptions({
- pictoName="",templates=[],fr=true,selectedId=null,artworkUrl=null,busy=false
+ pictoName="",templates=[],fr=true,selectedId=null,artworkUrl=null,busy=false,
+ borderEnabled=null,borderColor=null
 }={}){
  ensureList(templates);
  if(templates.some(t=>t.is_published!==true))
    throw Error("Un gabarit non publié ne peut apparaître dans la fiche client.");
+ if((borderEnabled!==null&&typeof borderEnabled!=="boolean")||
+    (borderColor!==null&&!/^#[A-Fa-f0-9]{6}$/.test(borderColor)))
+   throw Error("Contour client invalide.");
+ const selected=templates.find(t=>t.id===selectedId);
+ const colored=selected?(borderEnabled??selected.colored):false;
+ const edge=selected?(borderColor??selected.border_color):"#000000";
  const headingText=fr?"Choisir mon gabarit":"Choose my template";
- return '<section class="pa-client-template-choices" aria-label="'+escapeHtml(headingText)+'">'
-  +'<h3>'+escapeHtml(headingText)+'</h3>'
-  +'<p>'+escapeHtml(pictoName)+'</p>'
-  +(!templates.length?'<p role="status">'+escapeHtml(fr?
+ const swatches=CLIENT_BORDER_PALETTE.map(c=>
+   '<button type="button" class="pa-client-border-swatch" data-action="client-template-border-swatch" data-color="'+c+
+     '" aria-label="'+escapeHtml((fr?"Couleur du contour ":"Border color ")+c)+
+     '" aria-pressed="'+String(edge.toLowerCase()===c.toLowerCase())+'" style="--pa-choice-swatch:'+c+'"'+
+     (busy||!colored?" disabled":"")+'></button>').join("");
+ const borderControls=selected?
+   '<fieldset class="pa-client-border-controls"'+(busy?" disabled":"")+'>'+
+     '<legend>'+escapeHtml(fr?"Personnaliser mon contour":"Customize my border")+'</legend>'+
+     '<label class="pa-client-border-toggle"><input type="checkbox" data-input="client-template-border-enabled"'+
+       (colored?" checked":"")+(busy?" disabled":"")+' />'+escapeHtml(fr?"Ajouter un contour coloré":"Add a colored border")+'</label>'+
+     '<div class="pa-client-border-colors'+(!colored?" is-disabled":"")+'">'+
+       '<span>'+escapeHtml(fr?"Couleur du contour":"Border color")+'</span>'+
+       '<div class="pa-client-border-swatches" role="group" aria-label="'+escapeHtml(fr?"Couleurs suggérées":"Suggested colors")+'">'+swatches+'</div>'+
+       '<label class="pa-client-border-custom">'+escapeHtml(fr?"Autre couleur":"Custom color")+
+         '<input type="color" data-input="client-template-border-color" value="'+escapeHtml(edge)+'"'+
+         (busy||!colored?" disabled":"")+' /></label>'+
+     '</div>'+
+     '<p class="pa-client-border-help">'+escapeHtml(fr?
+       "Ce choix change seulement votre PDF. Le gabarit original reste identique.":
+       "This changes only your PDF. The original template remains unchanged.")+'</p>'+
+   '</fieldset>':"";
+ return '<section class="pa-client-template-choices" aria-label="'+escapeHtml(headingText)+'">'+
+   '<h3>'+escapeHtml(headingText)+'</h3><p>'+escapeHtml(pictoName)+'</p>'+
+   (!templates.length?'<p role="status">'+escapeHtml(fr?
      "Aucun gabarit proposé pour ce pictogramme.":"No template offered for this pictogram.")+'</p>':
-     '<div class="pa-template-choice-grid" role="radiogroup" aria-label="'+escapeHtml(headingText)+'">'
-     +templates.map(t=>'<label class="pa-template-choice"><input type="radio" name="picto-client-template" '
-       +'data-input="client-template-select" value="'+escapeHtml(t.id)+'"'
-       +(selectedId===t.id?" checked":"")+(busy?" disabled":"")+' />'
-       +renderMiniPreview(t,{artworkUrl,pictoName})
-       +'<span>'+heading(t,fr)+'</span>'
-       +'<small>'+escapeHtml(t.colored?(fr?"Avec contour coloré":"Colored border"):
-          (fr?"Sans contour coloré":"No colored border"))+'</small></label>').join("")+'</div>')
-   +(templates.length?'<button type="button" class="btn btn-primary" data-action="client-template-print"'
-      +(!selectedId||busy?" disabled":"")+'>'+escapeHtml(fr?
-        (busy?"Préparation du PDF…":"Créer le PDF de ce pictogramme"):
-        (busy?"Preparing PDF…":"Create this pictogram PDF"))+'</button>':"")
-   +'</section>';
+     '<div class="pa-template-choice-grid" role="radiogroup" aria-label="'+escapeHtml(headingText)+'">'+
+     templates.map(t=>{
+       const preview=selectedId===t.id?{...t,colored,border_color:edge}:t;
+       return '<label class="pa-template-choice"><input type="radio" name="picto-client-template" '+
+         'data-input="client-template-select" value="'+escapeHtml(t.id)+'"'+
+         (selectedId===t.id?" checked":"")+(busy?" disabled":"")+' />'+
+         renderMiniPreview(preview,{artworkUrl,pictoName})+
+         '<span>'+heading(t,fr)+'</span>'+
+         '<small>'+escapeHtml(t.colored?(fr?"Contour prévu par le gabarit":"Template border"):
+           (fr?"Sans contour initial":"No default border"))+'</small></label>';
+     }).join("")+'</div>')+
+   borderControls+
+   (templates.length?'<button type="button" class="btn btn-primary" data-action="client-template-print"'+
+     (!selectedId||busy?" disabled":"")+'>'+escapeHtml(fr?
+       (busy?"Préparation du PDF…":"Créer le PDF de ce pictogramme"):
+       (busy?"Preparing PDF…":"Create this pictogram PDF"))+'</button>':"")+
+   '</section>';
 }
