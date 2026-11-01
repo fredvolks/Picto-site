@@ -3,7 +3,7 @@ import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
-import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication} from "./admin-template-bank.js";
+import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy} from "./admin-template-bank.js";
 import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption} from "./admin-template-bank-ui.js";
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
@@ -3822,6 +3822,31 @@ root.addEventListener("click",function(event){
     adminNamedTemplates.widthCm=item.widthCm;adminNamedTemplates.rotationDeg=item.rotationDeg;
     state.currentPreset={...item.preset};adminNamedTemplates.error="";adminNamedTemplates.message="";
     render();return;
+  }
+  if(a==="admin-named-template-duplicate"){
+    if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||
+       adminNamedTemplates.loading||!adminNamedTemplates.loaded)return;
+    const source=adminNamedTemplates.items.find(row=>row.id===el.dataset.id);
+    if(!source)return;
+    try{
+      const draft=prepareNamedTemplateCopy(source,adminNamedTemplates.items,state.language==="fr");
+      // Duplication LOCAL ONLY : changer la sélection pour forcer INSERT
+      // lors d'un enregistrement explicite. La source n'est jamais mise à jour.
+      adminNamedTemplates.selectedId=null;
+      adminNamedTemplates.name=draft.name;
+      adminNamedTemplates.widthCm=draft.widthCm;
+      adminNamedTemplates.rotationDeg=draft.rotationDeg;
+      state.currentPreset={...draft.preset};
+      adminNamedTemplates.error="";
+      adminNamedTemplates.message=state.language==="fr"?
+        "Copie prête en brouillon. Ajustez-la puis cliquez sur Enregistrer en brouillon.":
+        "Draft copy ready. Adjust it, then choose Save as draft.";
+      render();
+      root.querySelector('[data-input="admin-named-template-name"]')?.focus({preventScroll:true});
+    }catch(error){
+      adminNamedTemplates.error=String(error?.message||error);render();
+    }
+    return;
   }
   if(a==="admin-named-template-save"){
     if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||
