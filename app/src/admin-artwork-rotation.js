@@ -25,7 +25,7 @@ export function rotatedInkCanvasGeometry(width,height,angle){
 function cleanFilename(title,angle){
   const base=String(title||"picto").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .toLowerCase().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60)||"picto";
-  return base+"-rotation-"+String(angle).replace("-","moins-")+".png";
+  return angle===0?base+"-recadre.png":base+"-rotation-"+String(angle).replace("-","moins-")+".png";
 }
 export async function makeRotatedPrivatePng(inkBlob,angle,title="picto"){
   validateArtworkRotation(angle);
@@ -104,4 +104,20 @@ export function renderPrivateInkComparison({
       'cm;height:'+height+'cm">'+customPicto(picture,v.preset,v.widthCm,false)+
       '</div></div></div></figure>';
    }).join("")+'</div>';
+}
+
+
+// Le recadrage sans rotation est une opération métier à part entière.
+// L'étiquette est explicite, et la fiche source ne change jamais.
+export function privateInkDraftMetadata(asset,angle){
+ validateArtworkRotation(angle);
+ if(!asset||typeof asset.title_fr!=="string"||!asset.title_fr.trim())
+   throw Error("Fiche privée à recadrer invalide.");
+ const cropped=angle===0;
+ return {
+  titleFr:asset.title_fr.slice(0,75)+(cropped?" (recadré)":" (rotation "+angle+"°)"),
+  titleEn:typeof asset.title_en==="string"&&asset.title_en.trim()?
+    asset.title_en.slice(0,75)+(cropped?" (cropped)":" (rotated "+angle+"°)"):"",
+  theme:asset.theme
+ };
 }

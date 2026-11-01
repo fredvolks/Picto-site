@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
  validateArtworkRotation,rotatedInkCanvasGeometry,makeRotatedPrivatePng,
- privateInkPreviewVariants,renderPrivateInkComparison
+ privateInkPreviewVariants,renderPrivateInkComparison,privateInkDraftMetadata
 } from "../src/admin-artwork-rotation.js";
 
 const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
@@ -78,7 +78,7 @@ test("L'éditeur agit sur un nouveau brouillon après confirmation explicite, ja
  assert.match(app,/window\.confirm/);
  assert.match(app,/makeRotatedPrivatePng\(inkBlob,angle,asset\.title_fr\)/);
  assert.match(app,/await importPrivateDraft\(client,uid,file/);
- assert.match(app,/titleFr:String\(asset\.title_fr/);
+ assert.match(app,/privateInkDraftMetadata\(asset,angle\)/);
  assert.match(app,/state\.toast=message/);
  const branch=app.slice(app.indexOf('if(a==="admin-art-rotation-save")'),
   app.indexOf('if(a==="download-admin-preview")'));
@@ -160,4 +160,67 @@ test("Le curseur met à jour TOUS les aperçus privés, sans publier ni créer d
  assert.match(block,/data-input="admin-art-rotation"/);
  assert.match(block,/data-action="admin-art-rotation-save"/);
  assert.doesNotMatch(block,/\.upsert\(|\.update\(|setAdminTemplatePublication\(/);
+});
+
+test("Le dessin recadré à 0° crée un vrai nouveau PNG privé, sans rotation forcée",async()=>{
+ assert.deepEqual(privateInkDraftMetadata({
+  title_fr:"Se laver les mains",title_en:"Wash hands",theme:"hygiene"
+ },0),{
+  titleFr:"Se laver les mains (recadré)",titleEn:"Wash hands (cropped)",theme:"hygiene"
+ });
+ assert.deepEqual(privateInkDraftMetadata({
+  title_fr:"Pomme",title_en:"Apple",theme:"alimentation"
+ },-45),{
+  titleFr:"Pomme (rotation -45°)",titleEn:"Apple (rotated -45°)",theme:"alimentation"
+ });
+ assert.throws(()=>privateInkDraftMetadata({title_fr:""},0),/Fiche privée/);
+ assert.throws(()=>privateInkDraftMetadata({title_fr:"Pomme"},0.5),/Rotation/);
+
+ const old={createImageBitmap:globalThis.createImageBitmap,
+  document:globalThis.document,File:globalThis.File};
+ let bitmapClosed=0,angleValue=null,draws=0;
+ try{
+  globalThis.createImageBitmap=async()=>({
+   width:40,height:50,close(){bitmapClosed++;}
+  });
+  globalThis.document={createElement:()=>({
+   width:0,height:0,
+   getContext:()=>({clearRect(){},translate(){},
+    rotate(radians){angleValue=radians;},drawImage(){draws++;}}),
+   toBlob:done=>done(new Blob([PNG],{type:"image/png"}))
+  })};
+  globalThis.File=class MockFile extends Blob{
+   constructor(data,name,{type}={}){super(data,{type});this.name=name;}
+  };
+  const prepared=await makeRotatedPrivatePng(new Blob([PNG],{type:"image/png"}),0,"École");
+  assert.equal(prepared.name,"ecole-recadre.png");
+  assert.equal(prepared.type,"image/png");
+  assert.equal(angleValue,0);
+  assert.equal(draws,1);
+  assert.equal(bitmapClosed,1);
+ }finally{
+  for(const [key,value] of Object.entries(old)){
+   if(value===undefined)delete globalThis[key];else globalThis[key]=value;
+  }
+ }
+});
+test("L'interface propose le recadrage même à 0°, sans changer l'original",()=>{
+ const section=app.slice(app.indexOf('const privateInkCard='),app.indexOf('const adminTemplatePanel='));
+ assert.match(section,/Créer un brouillon recadré/);
+ assert.match(section,/Create cropped private draft/);
+ assert.match(section,/même à 0°/);
+ assert.match(section,/data-action="admin-art-rotation-save" class="btn btn-primary btn-small"'\+\(privatePreview\.adjustBusy\?' disabled'/);
+ const action=app.slice(app.indexOf('if(a==="admin-art-rotation-save")'),
+  app.indexOf('if(a==="download-admin-preview")'));
+ assert.match(action,/angle===0\?"Créer un brouillon privé/);
+ assert.match(action,/angle===0\?"Dessin recadré/);
+ assert.match(action,/await makeRotatedPrivatePng\(inkBlob,angle,asset\.title_fr\)/);
+ assert.match(action,/await importPrivateDraft\(client,uid,file,privateInkDraftMetadata\(asset,angle\)\)/);
+ assert.match(action,/privatePreview\.request===ticket/);
+ assert.doesNotMatch(action,/privatePreview\.rotationDeg===0\)return/);
+ assert.doesNotMatch(action,/\.upsert\(|\.update\(/);
+ const slider=app.slice(app.indexOf('if(event.target.dataset.input==="admin-art-rotation")'),
+  app.indexOf('if(canOpenAdmin()&&state.adminTab==="templates"'));
+ assert.match(slider,/save\.disabled=false/);
+ assert.match(slider,/Créer un brouillon recadré/);
 });
