@@ -237,6 +237,16 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
  .signup-header-right{justify-self:end}
  .brand .pictau-brand-img{width:clamp(210px,62vw,260px)}
 }
+
+/* Petit écran 320×568 : préserver l'en-tête horizontal à deux rangées
+   et conserver inscription + consentement dans la vue sans masquer de champ. */
+@media(max-width:340px) and (max-height:600px){
+ .signup-page{gap:2px}
+ .signup-showcase{gap:2px}
+ .signup-tiles{padding:0 5px}
+ .signup-tiles .p-card{max-width:78px}
+ .signup-form-card{padding:6px 12px}
+}
 </style>
 </head>
 <body data-pictau-signup-design="5">
