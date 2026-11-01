@@ -48,3 +48,40 @@
 /* Les barres de défilement de l'inscription réduisent son conteneur de 15px.
    Aligner le bord droit sur le viewport comme la vraie page d'accueil. */
 @media(min-width:751px){.signup-header[data-pa-universal-header]{width:min(92vw,1386px)}}
+
+
+/* BOSS / Harmonisation : contrat multilingue de dimensions IMMUTABLES.
+   FR, EN et Connexion/Sign in (ou Mon compte) occupent exactement les mêmes
+   emplacements en FR et EN sur toutes les pages, sans décaler le logo.
+   Un seul fichier partagé ; aucun réglage par page ou par langue. */
+[data-pa-universal-header]{
+ --pa-lang-slot:42px;
+ --pa-action-slot:134px;
+}
+[data-pa-universal-header] .pa-universal-controls [data-lang]{
+ box-sizing:border-box;
+ inline-size:var(--pa-lang-slot);
+ min-inline-size:var(--pa-lang-slot);
+ max-inline-size:var(--pa-lang-slot);
+ flex:0 0 var(--pa-lang-slot);
+ white-space:nowrap;
+}
+[data-pa-universal-header] .pa-universal-controls :is(.login-link,.signup-login,.pa-universal-account,.pa-universal-current){
+ box-sizing:border-box;
+ inline-size:var(--pa-action-slot);
+ min-inline-size:var(--pa-action-slot);
+ max-inline-size:var(--pa-action-slot);
+ flex:0 0 var(--pa-action-slot);
+ overflow:hidden;
+ text-overflow:ellipsis;
+ text-align:center;
+}
+@media(max-width:750px){
+ [data-pa-universal-header]{--pa-lang-slot:40px;--pa-action-slot:126px}
+}
+@media(max-width:520px){
+ [data-pa-universal-header]{--pa-lang-slot:34px;--pa-action-slot:clamp(90px,29vw,112px)}
+}
+@media(max-width:350px){
+ [data-pa-universal-header]{--pa-lang-slot:32px}
+}
