@@ -41,16 +41,22 @@ export function buildAccentInsensitivePattern(query){
     return accentClasses[char]||char;
   }).join("");
 }
-export async function readAdminBank(client, verifiedUserId, filters={}) {
-  const f=normalizeAdminBankFilters(filters);
-  if(!verifiedUserId)return {...empty};
+// Une requête Supabase peut rester en vol après déconnexion, changement de
+// compte ou révocation du rôle. Vérifier AVANT et APRÈS la lecture : la RLS
+// protège le serveur, cette relecture évite de rendre un résultat privé périmé.
+async function currentAdminVerified(client,verifiedUserId){
   const session=await client.auth.getUser();
   if(session.error)throw session.error;
-  if(session.data?.user?.id!==verifiedUserId)return {...empty};
+  if(session.data?.user?.id!==verifiedUserId)return false;
   const role=await client.from("pictau_admins")
     .select("user_id").eq("user_id",verifiedUserId).maybeSingle();
   if(role.error)throw role.error;
-  if(role.data?.user_id!==verifiedUserId)return {...empty};
+  return role.data?.user_id===verifiedUserId;
+}
+export async function readAdminBank(client, verifiedUserId, filters={}) {
+  const f=normalizeAdminBankFilters(filters);
+  if(!verifiedUserId)return {...empty};
+  if(!await currentAdminVerified(client,verifiedUserId))return {...empty};
 
   let q=client.from("pictau_assets")
     .select(fields+(f.theme!=="all"?",pictau_asset_themes!inner(theme_code)":""),{count:"exact"});
@@ -69,13 +75,49 @@ export async function readAdminBank(client, verifiedUserId, filters={}) {
   const from=f.page*ADMIN_BANK_PAGE_SIZE;
   const response=await q.range(from,from+ADMIN_BANK_PAGE_SIZE-1);
   if(response.error)throw response.error;
+  // Ne jamais remettre les lignes en mémoire si les droits ont expiré au cours
+  // du transport ; s'applique à chacune des lectures du repli de pagination.
+  if(!await currentAdminVerified(client,verifiedUserId))return {...empty};
   if(!Number.isSafeInteger(response.count)||response.count<0)
     throw new Error("Total de fiches indisponible : la pagination ne peut être vérifiée.");
+  // Un corps PostgREST absent ou partiel n'est PAS une banque vide.
+  if(!Array.isArray(response.data)||response.data.length>ADMIN_BANK_PAGE_SIZE||
+     response.data.length>response.count||
+     (f.page*ADMIN_BANK_PAGE_SIZE>=response.count&&response.data.length>0)||
+     response.data.some(row=>!row||typeof row!=="object"||
+       typeof row.id!=="string"||!row.id))
+    throw new Error("Réponse de la banque incohérente. Actualisez la bibliothèque.");
   return {
     authorized:true,
-    items:Array.isArray(response.data)?response.data:[],
+    items:response.data,
     total:response.count,
     page:f.page,
     pageSize:ADMIN_BANK_PAGE_SIZE
   };
+}
+
+// Les suppressions, fusions et changements de thème peuvent faire disparaître
+// une page entre le clic de pagination et la réponse. Récupérer la dernière
+// page existante sans jamais traiter un échec RLS ou un corps nul comme 0.
+export function lastAdminBankPage(total){
+  if(!Number.isSafeInteger(total)||total<0)
+    throw new Error("Total de fiches indisponible.");
+  return Math.max(0,Math.ceil(total/ADMIN_BANK_PAGE_SIZE)-1);
+}
+export async function readAdminBankAvailablePage(client,verifiedUserId,filters={}){
+  let page=normalizeAdminBankFilters(filters).page;
+  for(let attempt=0;attempt<3;attempt++){
+    const result=await readAdminBank(client,verifiedUserId,{...filters,page});
+    if(!result.authorized)return result;
+    const last=lastAdminBankPage(result.total);
+    if(result.total===0){
+      if(result.items.length)throw Error("Banque incohérente : total nul avec fiches.");
+      return {...result,page:0};
+    }
+    if(page>last){page=last;continue;}
+    if(result.items.length)return result;
+    // Le total est positif, mais cette page censée exister ne contient rien :
+    // après trois lectures, signaler une erreur plutôt que mentir à l'admin.
+  }
+  throw new Error("La bibliothèque a changé. Actualisez la banque.");
 }
