@@ -1,0 +1,35 @@
+name: Pict-au — mobile du site public réel
+on:
+  push:
+    branches: [main]
+    paths:
+      - forfait.html
+      - index.html
+      - tests/mobile-live.mjs
+      - .github/workflows/mobile-live.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vérifier la syntaxe du test
+        run: node --check tests/mobile-live.mjs
+      - name: Vérifier le vrai site hébergé dans Chromium
+        run: node tests/mobile-live.mjs
+      - name: Conserver captures et rapport, même en échec
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pictau-mobile-site-reel
+          path: artifacts/mobile-live/
+          if-no-files-found: warn
+          retention-days: 14
