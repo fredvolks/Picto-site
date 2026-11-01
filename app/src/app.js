@@ -188,12 +188,12 @@ async function fetchCaptionFeature(){
     }
   }
 }
-const editableDrafts={items:[],total:0,page:0,kind:"all",query:"",loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
+const editableDrafts={items:[],total:0,page:0,kind:"all",query:"",sort:"recent",loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
   openEpoch:{routine:0,board:0},current:{routine:null,board:null},dirty:{routine:false,board:false}};
 function resetEditableDrafts(){
   draftAutosave.reset();editableDrafts.sessionEpoch++;
   editableDrafts.openEpoch.routine++;editableDrafts.openEpoch.board++;
-  editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.kind="all";editableDrafts.query="";editableDrafts.loaded=false;
+  editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.kind="all";editableDrafts.query="";editableDrafts.sort="recent";editableDrafts.loaded=false;
   editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.deletingKind=null;editableDrafts.copyKind=null;editableDrafts.error="";editableDrafts.message="";
   editableDrafts.current={routine:null,board:null};editableDrafts.dirty={routine:false,board:false};
 }
@@ -203,7 +203,7 @@ async function fetchEditableDrafts(){
   editableDrafts.loading=true;editableDrafts.error="";render();
   try{
     const client=await supabaseClient();
-    const result=await listEditableDraftsAvailablePage(client,uid,{page:editableDrafts.page,kind:editableDrafts.kind,query:editableDrafts.query});
+    const result=await listEditableDraftsAvailablePage(client,uid,{page:editableDrafts.page,kind:editableDrafts.kind,query:editableDrafts.query,sort:editableDrafts.sort});
     if(token!==editableDrafts.request||authStatus.user?.id!==uid)return;
     editableDrafts.items=result.items;editableDrafts.total=result.total;editableDrafts.page=result.page;editableDrafts.loaded=true;
   }catch(error){
@@ -1758,10 +1758,15 @@ function renderClientCreate(){
    +'<select id="draft-kind" name="kind"'+(editableDrafts.busy?' disabled':'')+'>'
    +[['all',fr?'Tous':'All'],['routine',fr?'Routines':'Routines'],['board',fr?'Tableaux':'Boards']]
      .map(([value,text])=>'<option value="'+value+'"'+(editableDrafts.kind===value?' selected':'')+'>'+esc(text)+'</option>').join("")
+   +'</select></div><div class="control"><label for="draft-sort">'+esc(fr?'Trier les brouillons':'Sort drafts')+'</label>'
+   +'<select id="draft-sort" name="sort"'+(editableDrafts.busy?' disabled':'')+'>'
+   +[['recent',fr?'Modifiés récemment':'Recently edited'],['oldest',fr?'Plus anciens':'Oldest first'],
+     ['title-asc',fr?'Nom A à Z':'Name A to Z'],['title-desc',fr?'Nom Z à A':'Name Z to A']]
+     .map(([value,text])=>'<option value="'+value+'"'+(editableDrafts.sort===value?' selected':'')+'>'+esc(text)+'</option>').join("")
    +'</select></div><button class="btn btn-primary" type="submit"'+(editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'
    +esc(fr?'Rechercher':'Search')+'</button>'
    +'<button class="btn btn-light" type="button" data-action="draft-filter-reset"'
-   +(!editableDrafts.query&&editableDrafts.kind==='all'||editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'
+   +(!editableDrafts.query&&editableDrafts.kind==='all'&&editableDrafts.sort==='recent'||editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'
    +esc(fr?'Tout afficher':'Show all')+'</button></form>'
    +(editableDrafts.loading?'<p role="status">'+esc(fr?'Chargement des brouillons…':'Loading drafts…')+'</p>':
      editableDrafts.error?'<p role="alert">'+esc(editableDrafts.error)+'</p>':
@@ -2033,7 +2038,7 @@ root.addEventListener("click",function(event){
     void fetchEditableDrafts();return;
   }
   if(a==="draft-filter-reset"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.loading&&!editableDrafts.busy){
-    editableDrafts.kind="all";editableDrafts.query="";editableDrafts.page=0;
+    editableDrafts.kind="all";editableDrafts.query="";editableDrafts.sort="recent";editableDrafts.page=0;
     void fetchEditableDrafts();return;
   }
   if(a==="draft-save"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy&&!officialComposer.busy){
@@ -3023,6 +3028,7 @@ root.addEventListener("submit",function(event){
     const data=new FormData(event.target);
     editableDrafts.query=String(data.get("query")||"").trim();
     editableDrafts.kind=String(data.get("kind")||"all");
+    editableDrafts.sort=String(data.get("sort")||"recent");
     editableDrafts.page=0;editableDrafts.message="";
     void fetchEditableDrafts();return;
   }
