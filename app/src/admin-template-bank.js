@@ -35,6 +35,33 @@ export function prepareNamedTemplate(name,preset,{widthCm=5,rotationDeg=0}={}){
     font_color:preset.fontColor,colored:preset.colored,rotation_deg:rotationDeg
   };
 }
+// Prépare un NOUVEAU brouillon à partir d'une fiche Super Admin déjà lue.
+// Aucun INSERT/UPDATE ni changement de publication ici : seule l'action
+// Enregistrer en brouillon crée ensuite une fiche sous contrôle Auth/RLS.
+export function prepareNamedTemplateCopy(source,existing,fr=true){
+  if(!source||!UUID.test(source.id||"")||!Array.isArray(existing)||
+     existing.length>=MAX_NAMED_TEMPLATES||!existing.some(t=>t?.id===source.id)||
+     existing.some(t=>!UUID.test(t?.id||"")||
+       typeof t.name!=="string"||normalizeTemplateName(t.name)!==t.name)||
+     !validSettings(source.preset)||!finiteIn(source.widthCm,2,10)||
+     !finiteIn(source.rotationDeg,-180,180))
+    throw Error("Impossible de dupliquer ce gabarit. Actualisez la liste.");
+  const name=normalizeTemplateName(source.name),used=new Set(existing.map(
+    t=>t.name.toLowerCase()
+  ));
+  for(let number=1;number<=MAX_NAMED_TEMPLATES+1;number++){
+    const suffix=fr?
+      (number===1?" (copie)":` (copie ${number})`):
+      (number===1?" (copy)":` (copy ${number})`);
+    const base=[...name].slice(0,80-[...suffix].length).join("").trimEnd();
+    const candidate=normalizeTemplateName(base+suffix);
+    if(!used.has(candidate.toLowerCase()))
+      return {id:null,name:candidate,preset:{...source.preset},
+        widthCm:source.widthCm,rotationDeg:source.rotationDeg};
+  }
+  throw Error("Aucun nom de copie disponible. Renommez un gabarit.");
+}
+
 function normalizedRow(row){
   if(!row||typeof row!=="object"||!UUID.test(row.id||"")||
      typeof row.name!=="string"||
