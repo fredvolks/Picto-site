@@ -209,7 +209,7 @@ test("L'interface propose le recadrage même à 0°, sans changer l'original",()
  assert.match(section,/Créer un brouillon recadré/);
  assert.match(section,/Create cropped private draft/);
  assert.match(section,/même à 0°/);
- assert.doesNotMatch(section,/privatePreview\.adjustBusy\|\|privatePreview\.rotationDeg===0\?' disabled'/);
+ assert.match(section,/data-action="admin-art-rotation-save" class="btn btn-primary btn-small"'\+\(privatePreview\.adjustBusy\?' disabled'/);
  const action=app.slice(app.indexOf('if(a==="admin-art-rotation-save")'),
   app.indexOf('if(a==="download-admin-preview")'));
  assert.match(action,/angle===0\?"Créer un brouillon privé/);
