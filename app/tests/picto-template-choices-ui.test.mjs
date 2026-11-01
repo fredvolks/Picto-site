@@ -12,7 +12,11 @@ const templates=[
   border_color:"#4775a9",colored:true,is_published:true},
  {id:B,name:"Vertical noir et blanc",shape:"portrait",width_cm:4,
   border_color:"#111111",colored:false,is_published:true}
-];
+].map(t=>({
+  art_percent:70,square_center_mode:"upper_illustration_area",band_mm:12,
+  stroke_mm:1.2,font_pt:14,separator_mm:1.2,font_color:"#111111",
+  rotation_deg:0,...t
+}));
 test("Admin peut cocher plusieurs choix sur la fiche officielle",()=>{
  const html=renderAdminPictoTemplatePicker({
    catalogId:P,templates,selected:[A,B],confirmed:[A],
