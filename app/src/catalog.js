@@ -102,25 +102,49 @@ export function normalizeCatalogFilters({query="",theme="all",sort="recent",page
   if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
   return {query:search,theme,sort,page,language};
 }
+function missingPublishedThemeRelation(error){
+  return error?.code==="PGRST200"&&
+    String(error?.message||"").includes("pictau_published_theme_links");
+}
+
 export async function listPublishedCatalog(client,uid,filters={}){
   const f=normalizeCatalogFilters(filters);
   await verified(client,uid);
-  let q=client.from("pictau_catalog_items").select(FIELDS,{count:"exact"});
-  if(f.theme!=="all")q=q.eq("theme",f.theme);
-  if(f.query)q=q.or("title_fr.ilike.%"+f.query+"%,title_en.ilike.%"+f.query+"%");
-  // Le serveur trie AVANT la pagination; traductions anglaises manquantes en dernier.
+  const byTheme=f.theme!=="all";
   const sortField=f.sort==="recent"?"published_at":f.language==="en"?"title_en":"title_fr";
   const sortOptions=f.sort!=="recent"&&f.language==="en"
     ?{ascending:f.sort==="name",nullsFirst:false}:{ascending:f.sort==="name"};
-  const r=await q.order(sortField,sortOptions).order("id",{ascending:true})
-    .range(f.page*CATALOG_PAGE_SIZE,(f.page+1)*CATALOG_PAGE_SIZE-1);
+  const fetchPage=primaryOnly=>{
+    // Seule la table des PNG PUBLIÉS est interrogée. Un retour au thème
+    // principal n'ouvre aucun accès à pictau_assets ni aux brouillons.
+    const selection=byTheme&&!primaryOnly?
+      FIELDS+",published_filter:pictau_published_theme_links!inner()":FIELDS;
+    let q=client.from("pictau_catalog_items").select(selection,{count:"exact"});
+    if(byTheme)q=q.eq(primaryOnly?"theme":"published_filter.theme_code",f.theme);
+    if(f.query)q=q.or("title_fr.ilike.%"+f.query+"%,title_en.ilike.%"+f.query+"%");
+    return q.order(sortField,sortOptions).order("id",{ascending:true})
+      .range(f.page*CATALOG_PAGE_SIZE,(f.page+1)*CATALOG_PAGE_SIZE-1);
+  };
+  let r=await fetchPage(false),categoryCoverage="all";
+  if(r.error&&byTheme&&missingPublishedThemeRelation(r.error)){
+    // La première réponse peut être survenue après déconnexion ou révocation.
+    // Valider la session AVANT la seconde requête sur la projection publique.
+    await verified(client,uid);
+    r=await fetchPage(true);
+    categoryCoverage="primary";
+  }
   if(r.error)throw r.error;
   if(!Number.isSafeInteger(r.count)||r.count<0)throw Error("Catalogue indisponible.");
-  const items=r.data||[];
-  if(!Array.isArray(items)||items.some(item=>!validRow(item)))
+  if(!Array.isArray(r.data))throw Error("Réponse du catalogue invalide. Actualisez les pictogrammes.");
+  const items=byTheme&&categoryCoverage==="all"?
+    r.data.map(({published_filter:_links,...item})=>item):r.data;
+  if(items.length>CATALOG_PAGE_SIZE||items.length>r.count||
+     (f.page*CATALOG_PAGE_SIZE>=r.count&&items.length>0))
+    throw Error("Pagination du catalogue incohérente. Actualisez les pictogrammes.");
+  if(items.some(item=>!validRow(item)))
     throw Error("Une fiche publiée ne correspond pas au stockage approuvé.");
   await verified(client,uid);
-  return {items,total:r.count,page:f.page};
+  return {items,total:r.count,page:f.page,categoryCoverage};
 }
 // Si des pictogrammes sont dépubliés entre deux visites, le dernier feuillet
 // visible peut ne plus exister. Le catalogue canonique reste la seule source

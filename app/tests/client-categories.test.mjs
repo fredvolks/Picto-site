@@ -50,23 +50,44 @@ test("L'application n'interroge pas la table des thèmes privés pour afficher l
  assert.match(app,/if\(a==="catalog-clear-filters"/);
  assert.match(app,/state\.clientCategory="";state\.search="";publishedCatalog\.page=0/);
 });
-test("Le client voit uniquement les fiches de la table approuvée pour chaque catégorie",async()=>{
+test("Le client ne filtre que les fiches approuvées, même si le lien multicatégorie manque",async()=>{
  const uid="11111111-1111-4111-8111-111111111111";
  for(const code of ["etapes","objets","autres","actions"]){
-  let queried="";
-  const q={
-   eq(col,theme){assert.equal(col,"theme");assert.equal(theme,code);return this;},
-   order(){return this;},
-   async range(){return {data:[],count:0,error:null};}
-  };
-  const client={
-   auth:{async getUser(){return {data:{user:{id:uid}},error:null};}},
-   from(table){queried=table;return {select(){return q;}};}
-  };
-  const result=await listPublishedCatalog(client,uid,{theme:code});
-  assert.equal(queried,"pictau_catalog_items");
-  assert.deepEqual(result.items,[]);
-  assert.equal(result.total,0);
+   const tables=[],filters=[];
+   const client={
+     auth:{async getUser(){return {data:{user:{id:uid}},error:null};}},
+     from(table){
+       tables.push(table);
+       const attempt=tables.length;
+       return {select(columns){
+         if(attempt===1)assert.match(columns,/pictau_published_theme_links!inner/);
+         else assert.doesNotMatch(columns,/pictau_published_theme_links/);
+         return {
+           eq(col,theme){
+             filters.push([col,theme]);
+             assert.equal(col,attempt===1?"published_filter.theme_code":"theme");
+             assert.equal(theme,code);
+             return this;
+           },
+           order(){return this;},
+           async range(){
+             if(attempt===1)return {data:null,count:null,error:{
+               code:"PGRST200",message:"pictau_published_theme_links relation missing"
+             }};
+             return {data:[],count:0,error:null};
+           }
+         };
+       }};
+     }
+   };
+   const result=await listPublishedCatalog(client,uid,{theme:code});
+   assert.deepEqual(tables,["pictau_catalog_items","pictau_catalog_items"]);
+   assert.deepEqual(filters,[
+     ["published_filter.theme_code",code],["theme",code]
+   ]);
+   assert.deepEqual(result.items,[]);
+   assert.equal(result.total,0);
+   assert.equal(result.categoryCoverage,"primary");
  }
 });
 test("Si le client perd la session, aucune requête catégorie privée n'est exécutée",async()=>{
