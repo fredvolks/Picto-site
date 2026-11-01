@@ -7,6 +7,7 @@ on:
       - index.html
       - tests/mobile-live.mjs
       - .github/workflows/mobile-live.yml
+  pull_request:
   workflow_dispatch:
 
 permissions:
