@@ -400,14 +400,14 @@ async function fetchUsedPictos(){
     }
   }
 }
-const publishedCatalog={items:[],total:0,page:0,sort:"recent",loading:false,loaded:false,error:"",request:0,
+const publishedCatalog={items:[],total:0,page:0,sort:"recent",categoryCoverage:"all",loading:false,loaded:false,error:"",request:0,
   imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:"",
   bulkSelected:new Map(),bulkBusy:false,bulkRequest:0,bulkFeedback:"",bulkError:""};
 function clearPublishedCatalog(){
   publishedCatalog.request++;
   for(const url of publishedCatalog.imageUrls.values())URL.revokeObjectURL(url);
   publishedCatalog.imageUrls.clear();publishedCatalog.loadingImages.clear();
-  publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.page=0;publishedCatalog.sort="recent";
+  publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.page=0;publishedCatalog.sort="recent";publishedCatalog.categoryCoverage="all";
   publishedCatalog.loading=false;publishedCatalog.loaded=false;publishedCatalog.error="";
   publishedCatalog.approvedByAdmin.clear();publishedCatalog.publishing=false;
   publishedCatalog.publishError="";publishedCatalog.publishMessage="";
@@ -431,11 +431,11 @@ async function fetchPublishedCatalog(){
       URL.revokeObjectURL(url);publishedCatalog.imageUrls.delete(id);
     }
     publishedCatalog.items=result.items;publishedCatalog.total=result.total;
-    publishedCatalog.page=result.page;publishedCatalog.loaded=true;
+    publishedCatalog.page=result.page;publishedCatalog.categoryCoverage=result.categoryCoverage||"all";publishedCatalog.loaded=true;
   }catch(error){
     if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
     publishedCatalog.error=String(error?.message||error);
-    publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.loaded=false;
+    publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.categoryCoverage="all";publishedCatalog.loaded=false;
   }finally{
     if(ticket===publishedCatalog.request){publishedCatalog.loading=false;render();}
   }
@@ -2047,7 +2047,12 @@ function renderClientLibrary(){
     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="" aria-pressed="'+(!state.clientCategory)+'">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'" aria-pressed="'+(state.clientCategory===key)+'">'
-      +esc(fr?frName:enName)+'</button>').join("")+'</div>'+pageSelection+feedback+'</section>'
+      +esc(fr?frName:enName)+'</button>').join("")+'</div>'
+    +(state.clientCategory&&f.loaded&&f.categoryCoverage==="primary"?
+      '<p class="pa-catalog-notice" role="status">'+esc(fr?
+        "Filtre temporaire : seuls les pictogrammes dont c’est la catégorie principale apparaissent. Les catégories secondaires seront disponibles après validation de leur activation.":
+        "Temporary filter: only pictograms with this as their primary category are shown. Secondary categories will be available once enabled and validated.")+'</p>':"")
+    +pageSelection+feedback+'</section>'
     +(customerRequests.view!=="closed"?renderCustomerRequestCenter():"")
     +renderClientPictoTemplateModal();
 }
