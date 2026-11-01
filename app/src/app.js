@@ -7,13 +7,6 @@ import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublicati
 import {renderAdminNamedTemplateBank} from "./admin-template-bank-ui.js";
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
-import {assessDraftQuality} from "./admin-quality.js";
-import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
-import {loadPrivateAdminPreview} from "./admin-preview.js";
-import {inspectPngBlob} from "./admin-review.js";
-import {createLocalInkCrop} from "./png-ink.js";
-import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
-import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
 import {importPrivateDraft,validateDraftMetadata} from "./admin-import.js";
