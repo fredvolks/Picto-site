@@ -272,3 +272,10 @@
  .hosted-access-v5 .hosted-e-layout{gap:3px}
  .hosted-access-v5 .hosted-e-intro h2{font-size:19px}
 }
+
+
+/* Harmonisation BOSS : identique à l'accueil et à l'inscription.
+   Pas de support blanc externe : le contour noir interne reste carré. */
+.hosted-access-v5 .hosted-e-tile{
+  padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;
+}
