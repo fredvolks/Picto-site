@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
- renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage
+ renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage,CLIENT_BORDER_PALETTE
 } from "../src/picto-template-choices-ui.js";
 
 const P="00000000-0000-4000-8000-000000000333";
@@ -103,3 +103,34 @@ test("Le retrait des modèles dépubliés reste possible en anglais, mais pas pe
  assert.doesNotMatch(idle,/data-action="picto-template-remove-unpublished" disabled/);
 });
 
+
+test("Fiche client : palette de couleur, contour facultatif et aperçu sans changement du gabarit",()=>{
+ const model=templates[0],copy={...model};
+ const html=renderClientPictoTemplateOptions({pictoName:"Pomme",templates:[model],
+   selectedId:A,borderEnabled:false,borderColor:"#B34747",fr:true});
+ assert.match(html,/data-input="client-template-border-enabled"/);
+ assert.doesNotMatch(html,/data-input="client-template-border-enabled" checked/);
+ assert.match(html,/data-input="client-template-border-color" value="#B34747" disabled/);
+ assert.match(html,/data-action="client-template-border-swatch"/);
+ assert.match(html,/Ce choix change seulement votre PDF/);
+ assert.match(html,/class="pa-template-mini[^"]*" style="--template-edge:#B34747/);
+ assert.deepEqual(model,copy,"Les choix personnels ne modifient pas la source");
+ const enabled=renderClientPictoTemplateOptions({templates:[model],
+   selectedId:A,borderEnabled:true,borderColor:"#607A6F",fr:false});
+ assert.match(enabled,/data-input="client-template-border-enabled" checked/);
+ assert.match(enabled,/value="#607A6F"/);
+ assert.match(enabled,/Customize my border/);
+ assert.equal((enabled.match(/data-action="client-template-border-swatch"/g)||[]).length,CLIENT_BORDER_PALETTE.length);
+ assert.match(enabled,/aria-pressed="true" style="--pa-choice-swatch:#607A6F"/);
+});
+test("Fiche client : aucun contrôle de contour hors sélection ni pendant l'impression",()=>{
+ const none=renderClientPictoTemplateOptions({templates});
+ assert.doesNotMatch(none,/data-input="client-template-border-enabled"/);
+ const busy=renderClientPictoTemplateOptions({templates,selectedId:A,busy:true});
+ assert.match(busy,/fieldset class="pa-client-border-controls" disabled/);
+ assert.match(busy,/data-input="client-template-border-enabled" checked disabled/);
+ assert.match(busy,/data-action="client-template-print" disabled/);
+ for(const bad of [{borderEnabled:"true"},{borderColor:"#FAF"},{borderColor:"not a color"}]){
+   assert.throws(()=>renderClientPictoTemplateOptions({templates,...bad}),/invalide/);
+ }
+});
