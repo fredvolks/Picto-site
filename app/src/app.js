@@ -17,7 +17,7 @@ import {loadPrivateAdminPreview} from "./admin-preview.js";
 import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
-import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison} from "./admin-artwork-rotation.js";
+import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
@@ -1447,9 +1447,9 @@ function renderAdmin(){
       +'<input id="admin-art-rotation" data-input="admin-art-rotation" type="range" min="-180" max="180" step="1" value="'+privatePreview.rotationDeg+'"'+(privatePreview.adjustBusy?' disabled':'')+' />'
       +'<div class="admin-art-rotation-actions">'
       +'<button type="button" data-action="admin-art-rotation-reset" class="btn btn-light btn-small"'+(privatePreview.adjustBusy||privatePreview.rotationDeg===0?' disabled':'')+'>'+esc(fr?"Remettre à 0°":"Reset to 0°")+'</button>'
-      +'<button type="button" data-action="admin-art-rotation-save" class="btn btn-primary btn-small"'+(privatePreview.adjustBusy||privatePreview.rotationDeg===0?' disabled':'')+'>'+esc(privatePreview.adjustBusy?(fr?"Création du brouillon…":"Creating draft…"):(fr?"Créer un brouillon avec cette rotation":"Create draft with this rotation"))+'</button>'
+      +'<button type="button" data-action="admin-art-rotation-save" class="btn btn-primary btn-small"'+(privatePreview.adjustBusy?' disabled':'')+'>'+esc(privatePreview.adjustBusy?(fr?"Création du brouillon…":"Creating draft…"):(privatePreview.rotationDeg===0?(fr?"Créer un brouillon recadré":"Create cropped private draft"):(fr?"Créer un brouillon avec cette rotation":"Create draft with this rotation")))+'</button>'
       +'</div>'
-      +'<p>'+esc(fr?"Un nouveau brouillon privé sera créé à partir du dessin recadré et pivoté. L'original reste intact; vous devrez approuver le nouveau brouillon avant qu'il soit visible par un client.":"A new private draft will be made from the cropped, rotated artwork. The original is unchanged; approval is required before customers can see the new draft.")+'</p>'
+      +'<p>'+esc(fr?"Vous pouvez enregistrer le dessin recadré même à 0°, ou le pivoter avant l’enregistrement. Une nouvelle fiche privée sera créée; l’original reste intact et l’approbation demeure obligatoire.":"Save the cropped artwork at 0° or rotate it before saving. A new private record is created; the original remains unchanged and approval is still required.")+'</p>'
       +(privatePreview.adjustError?'<p role="alert" class="admin-import-alert">'+esc(privatePreview.adjustError)+'</p>':'')
       +(privatePreview.adjustMessage?'<p role="status" class="admin-import-success">'+esc(privatePreview.adjustMessage)+'</p>':'')
       +'</div>'
@@ -3738,13 +3738,17 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-art-rotation-save"){
     if(!canOpenAdmin()||!authStatus.user||privatePreview.adjustBusy||
-       !privatePreview.inkBlob||!privatePreview.asset||privatePreview.rotationDeg===0)return;
+       !privatePreview.inkBlob||!privatePreview.asset)return;
     const angle=validateArtworkRotation(privatePreview.rotationDeg);
     const asset={...privatePreview.asset},inkBlob=privatePreview.inkBlob;
     const uid=authStatus.user.id,ticket=privatePreview.request;
     if(!window.confirm(state.language==="fr"?
-      "Créer un nouveau brouillon privé avec le dessin pivoté de "+angle+"° ? L'original sera conservé et rien ne sera publié.":
-      "Create a new private draft with artwork rotated "+angle+"°? The original is kept and nothing is published."))return;
+      (angle===0?"Créer un brouillon privé avec le dessin recadré sans rotation ?":
+        "Créer un nouveau brouillon privé avec le dessin pivoté de "+angle+"° ?")+
+        " L'original sera conservé et rien ne sera publié.":
+      (angle===0?"Create a private draft with the cropped artwork and no rotation?":
+        "Create a new private draft with artwork rotated "+angle+"°?")+
+        " The original is kept and nothing is published."))return;
     const current=()=>privatePreview.request===ticket&&privatePreview.id===asset.id&&
       authStatus.user?.id===uid&&canOpenAdmin();
     privatePreview.adjustBusy=true;privatePreview.adjustError="";privatePreview.adjustMessage="";render();
@@ -3753,15 +3757,13 @@ root.addEventListener("click",function(event){
         const file=await makeRotatedPrivatePng(inkBlob,angle,asset.title_fr);
         if(!current())return;
         const client=await supabaseClient();
-        await importPrivateDraft(client,uid,file,{
-          titleFr:String(asset.title_fr||"Picto").slice(0,75)+" (rotation "+angle+"°)",
-          titleEn:asset.title_en?String(asset.title_en).slice(0,75)+" (rotated "+angle+"°)":"",
-          theme:asset.theme
-        });
+        await importPrivateDraft(client,uid,file,privateInkDraftMetadata(asset,angle));
         if(!current())return;
         const message=state.language==="fr"?
-          "Nouvelle version pivotée importée comme brouillon privé. Original conservé; aucune publication automatique.":
-          "Rotated version imported as a private draft. Original kept; never auto-published.";
+          (angle===0?"Dessin recadré enregistré comme nouveau brouillon privé.":"Version pivotée enregistrée comme nouveau brouillon privé.")+
+            " Original conservé; aucune publication automatique.":
+          (angle===0?"Cropped artwork saved as a new private draft.":"Rotated artwork saved as a new private draft.")+
+            " Original kept; never auto-published.";
         privatePreview.adjustMessage=message;state.toast=message;
         await refreshPrivateBank(client,uid);
       }catch(error){
@@ -3891,7 +3893,12 @@ root.addEventListener("input",function(event){
     const reset=root.querySelector('[data-action="admin-art-rotation-reset"]');
     const save=root.querySelector('[data-action="admin-art-rotation-save"]');
     if(reset)reset.disabled=angle===0;
-    if(save)save.disabled=angle===0;
+    if(save){
+      save.disabled=false;
+      save.textContent=angle===0?
+        (state.language==="fr"?"Créer un brouillon recadré":"Create cropped private draft"):
+        (state.language==="fr"?"Créer un brouillon avec cette rotation":"Create draft with this rotation");
+    }
     return;
   }
   if(canOpenAdmin()&&state.adminTab==="templates"&&!adminNamedTemplates.busy){
