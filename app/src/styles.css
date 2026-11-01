@@ -1638,3 +1638,13 @@
   .admin-review-shortcut .btn{width:100%;justify-content:center}
   .admin-surface-head [data-action="admin-review-next"]{width:100%}
 }
+
+/* Publication d'un vrai PNG : accusé affiché même après fermeture du panneau
+   privé; le lien mène à la banque publique, pas à une URL Storage exposée. */
+.admin-publish-confirmation{padding:14px 16px;margin:12px 0 16px;border:1px solid #9bb4a5;
+  background:#f1f6f1;color:#213a2e;border-radius:12px;display:flex;flex-wrap:wrap;
+  gap:12px;align-items:center;justify-content:space-between}
+.admin-publish-confirmation p{margin:0;line-height:1.45;font-weight:650}
+.admin-publish-confirmation button{min-height:44px;display:inline-flex;align-items:center;gap:7px}
+.admin-publish-confirmation button:focus-visible{outline:3px solid #395f4b;outline-offset:3px}
+@media(max-width:620px){.admin-publish-confirmation button{width:100%;justify-content:center}}
