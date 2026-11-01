@@ -197,6 +197,7 @@ try{
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-brand')");
     await evaluate("return document.fonts.ready.then(()=>true);");
     const signupHeader=await evaluate(headerMetrics);
+    if(width===768)console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader}));
     for(const key of ["logo","fr","en","login"]){
       const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
       for(const dim of ["x","y","w","h"])
