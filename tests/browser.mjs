@@ -255,13 +255,13 @@ try{
       return {logo:rect(logo),fr:rect(fr),en:rect(en),login:rect(login),
         scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth};
     })();`);
-    const item=signupHeaderRow;
-    assert.ok(item.scrollWidth<=item.viewport+1,"En-tête déborde : "+JSON.stringify(item));
-    assert.ok(item.logo.right+2<=item.fr.x&&item.fr.right<=item.en.x+1&&item.en.right<=item.login.x+1,
-      "Logo + FR + EN + Connexion chevauchés : "+JSON.stringify(item));
+    const signupItem=signupHeaderRow;
+    assert.ok(signupItem.scrollWidth<=signupItem.viewport+1,"En-tête déborde : "+JSON.stringify(signupItem));
+    assert.ok(signupItem.logo.right+2<=signupItem.fr.x&&signupItem.fr.right<=signupItem.en.x+1&&signupItem.en.right<=signupItem.login.x+1,
+      "Logo + FR + EN + Connexion chevauchés : "+JSON.stringify(signupItem));
     for(const x of ["fr","en","login"])
-      assert.ok(Math.abs(item.logo.cy-item[x].cy)<=13,
-        "Logo, FR, EN et Connexion ne sont PAS sur une seule ligne : "+JSON.stringify(item));
+      assert.ok(Math.abs(signupItem.logo.cy-item[x].cy)<=13,
+        "Logo, FR, EN et Connexion ne sont PAS sur une seule ligne : "+JSON.stringify(signupItem));
 
     if(width===768){const layout=await evaluate('const el=document.querySelector(".signup-page"),h=document.querySelector(".signup-header"),s=getComputedStyle(el),r=el.getBoundingClientRect(),rh=h.getBoundingClientRect();return {marginLeft:s.marginLeft,marginRight:s.marginRight,width:s.width,pageX:r.x,pageRight:r.right,headerX:rh.x,headerWidth:rh.width,viewport:innerWidth,clientWidth:document.documentElement.clientWidth}');console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader,layout}));}
     for(const key of ["logo","fr","en","login"]){
