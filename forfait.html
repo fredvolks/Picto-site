@@ -222,13 +222,19 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
  .signup-login{font-size:11px;min-height:38px;padding:8px 12px;border-radius:11px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Identité Pict-au, source SVG unique. Même géométrie entre accueil et inscription. */
+.brand,.signup-brand{display:inline-flex;align-items:center;flex:none;font-size:16px;font-weight:400;line-height:1;letter-spacing:0}
+.brand picture{display:block;line-height:0}
+.brand .pictau-brand-img{display:block;width:clamp(170px,20vw,240px);height:auto;max-width:none}
+@media(max-width:680px){.brand .pictau-brand-img{width:clamp(99px,30vw,135px)}}
 </style>
 </head>
 <body data-pictau-signup-design="5">
 <a href="#page-main" class="signup-skip" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
 <main id="page-main" class="signup-page">
  <header class="signup-header">
-  <a class="brand home-logo signup-brand" href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home">Pict-<span class="hand">a</span>u<span class="dot">.</span></a>
+  <a class="brand home-logo signup-brand" href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home"><picture><source media="(max-width: 680px)" srcset="./branding/pictau-logo-le-fil-wordmark.svg"><img class="pictau-brand-img" src="./branding/pictau-logo-le-fil.svg" alt="" width="760" height="116" decoding="async"></picture></a>
   <nav class="signup-header-right" aria-label="Navigation principale" data-fr-aria="Navigation principale" data-en-aria="Main navigation">
     <button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button>
    <a class="signup-login" href="./app/" data-fr="Connexion" data-en="Sign in" data-fr-aria="Se connecter à mon espace Pict-au" data-en-aria="Sign in to my Pict-au space">Connexion</a>
