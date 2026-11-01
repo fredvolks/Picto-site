@@ -1811,6 +1811,12 @@
 .admin-batch-list{margin:10px 0;padding:10px 10px 10px 30px;background:#fff;border:1px solid #d2ddd4;border-radius:10px;max-height:215px;overflow-y:auto;overflow-wrap:anywhere}
 .admin-batch-list li{padding:4px 0;font-size:13px;line-height:1.5}
 .admin-batch-list li span{font-weight:650;color:#294939}
+.admin-batch-import .admin-batch-list{grid-column:1/-1}
+.admin-batch-list li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;align-items:center}
+.admin-batch-list label{display:grid;gap:4px;min-width:0;font-weight:650;color:#294939}
+.admin-batch-list input[type="text"]{width:100%;min-width:0;min-height:44px;padding:9px 11px;border:1px solid #bdcfc4;border-radius:9px;background:#fff;color:#1f3528;font:inherit}
+.admin-batch-list input[type="text"]:focus-visible{outline:2px solid #1f3528;outline-offset:2px}
+@media(max-width:480px){.admin-batch-list li{grid-template-columns:minmax(0,1fr);gap:5px}}
 .admin-batch-import .admin-import-actions .btn{min-height:44px;white-space:normal}
 .admin-batch-note{border-top:1px solid #d2ddd4;padding-top:11px}
 @media(max-width:480px){.admin-batch-import{padding:12px}.admin-batch-import .admin-import-actions .btn{width:100%}}
