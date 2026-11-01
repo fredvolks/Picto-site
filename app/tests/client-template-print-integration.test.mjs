@@ -7,7 +7,8 @@ const ui=readFileSync(new URL("../src/picto-template-choices-ui.js",import.meta.
 
 test("L'action existe dans la fiche client uniquement après sélection d'un modèle",()=>{
  assert.match(ui,/data-action="client-template-print"/);
- assert.match(ui,/!selectedId\|\|busy\?" disabled"/);
+ assert.match(ui,/!selectedId\|\|busy\|\|!layout\?" disabled"/);
+ assert.match(ui,/layout=previewPhysicalCopySheet\(/,"le calcul valide conditionne le bouton");
  assert.match(app,/if\(a==="client-template-print"\)/);
  assert.match(app,/clientPictoTemplates\.busy=true/);
  assert.match(app,/TEMPLATE_CHOICES_RELEASED/);
