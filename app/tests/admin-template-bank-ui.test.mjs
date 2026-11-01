@@ -118,3 +118,18 @@ test("Avertissement visible uniquement pour le gabarit actif déjà publié",()=
  assert.doesNotMatch(draft,/Ce gabarit est publié/);
  assert.match(draft,/Enregistrer les modifications/);
 });
+
+test("Portage public : la confirmation du gabarit publié précède toute écriture réseau",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+ const block=app.split('if(a==="admin-named-template-save")')[1]
+   .split('if(a==="admin-named-template-publish")')[0];
+ assert.ok(block.includes('confirmPublishedNamedTemplateEdit(current,state.language==="fr"'));
+ assert.ok(block.indexOf('confirmPublishedNamedTemplateEdit')<
+   block.indexOf('adminNamedTemplates.busy=true'));
+ assert.ok(block.indexOf('confirmPublishedNamedTemplateEdit')<
+   block.indexOf('await supabaseClient()'));
+ assert.match(block,/saved\.is_published\?/);
+ assert.match(block,/Gabarit publié mis à jour/);
+ assert.match(block,/PDF archivés restent inchangés/);
+});
