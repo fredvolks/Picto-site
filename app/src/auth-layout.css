@@ -19,7 +19,7 @@
    max-width:var(--pa-auth-card-width);
    justify-self:end;
    justify-content:center;
-   gap:clamp(18px,2.25vw,30px);
+   gap:clamp(16px,1.65vw,24px);
  }
  .signup-intro h1{
    font-size:clamp(35px,3.45vw,52px);
