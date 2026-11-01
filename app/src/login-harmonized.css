@@ -178,3 +178,6 @@
 @media(prefers-reduced-motion:reduce){
  .hosted-access-v5 *{transition:none!important;animation:none!important}
 }
+
+/* Affichage cohérent pendant connexion, réinitialisation et vérification de rôle. */
+.hosted-access-v5 .hosted-access-header[data-pa-universal-header]{background:transparent}

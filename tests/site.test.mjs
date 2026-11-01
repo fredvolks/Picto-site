@@ -238,3 +238,25 @@ test("logo Le Fil archivé et identique sur les en-têtes publics",()=>{
     assert.match(source,/<picture><source media="\(max-width: 680px\)"/,name+" logo responsive");
   }
 });
+
+test("Contrat universel de marque : en-tête unique sur pages client et publiques",()=>{
+ const app=read("app/src/app.js"),universal=read("branding/pictau-universal-header.css");
+ const appIndex=read("app/index.html");
+ for(const file of ["index.html","forfait.html","connexion.html","contact.html","conditions.html","confidentialite.html"]){
+   const source=read(file);
+   assert.match(source,/data-pa-universal-header/,file+" n'utilise pas l'en-tête commun");
+   assert.match(source,/pa-universal-controls/,file+" absence des contrôles communs");
+   assert.match(source,/pictau-universal-header\.css/,file+" style commun manquant");
+ }
+ assert.match(appIndex,/pictau-universal-header\.css/);
+ for(const route of ["renderClientWorkspace","renderHostedAccess","renderRoleChecking","renderNewPassword"])
+   assert.match(app,new RegExp("function "+route+"\\("),route+" manquante");
+ assert.match(app,/function universalHeader\(/);
+ assert.match(app,/universalHeader\("pa-client-header",true\)/);
+ assert.match(app,/universalHeader\("hosted-access-header",false\)/);
+ assert.match(app,/universalHeader\("hosted-access-header",true\)/);
+ assert.match(app,/pictau-logo-le-fil-mobile\.svg/);
+ assert.match(universal,/flex-wrap:nowrap/);
+ assert.match(universal,/\.pa-universal-controls/);
+ assert.doesNotMatch(universal,/grid-template-rows:auto auto/);
+});

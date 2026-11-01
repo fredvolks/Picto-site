@@ -1,0 +1,50 @@
+/* Contrat de marque Pict-au : trois carrés + lettrage + FR/EN + Connexion
+   sur UNE seule rangée. Ne jamais réserver une deuxième rangée au logo. */
+:is(.topbar,.signup-header,.info-header,.hosted-access-header,.pa-client-header)[data-pa-universal-header]{
+ display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:space-between;
+ box-sizing:border-box;gap:8px;width:100%;height:72px;min-height:72px;
+ max-width:1510px;margin-left:auto;margin-right:auto;padding:0 clamp(20px,4vw,62px);
+}
+[data-pa-universal-header] :is(.pa-universal-logo-link,[data-pa-universal-logo]){display:inline-flex;flex:none;align-items:center;min-width:0;margin:0;padding:0;line-height:1;text-decoration:none}
+[data-pa-universal-header] :is(.pa-universal-logo-link,[data-pa-universal-logo]) picture{display:block;line-height:0}
+[data-pa-universal-header] :is(.pa-universal-logo-link,[data-pa-universal-logo]) .pictau-brand-img{display:block;width:clamp(170px,20vw,240px);height:auto;max-width:none}
+[data-pa-universal-header] .pa-universal-controls{display:flex;flex:none;align-items:center;justify-content:flex-end;flex-wrap:nowrap;white-space:nowrap;gap:10px;min-width:0}
+[data-pa-universal-header] .pa-universal-controls :is(.lang-switch,.home-lang,.signup-languages){display:flex;flex:none;align-items:center;gap:3px;background:transparent;border:0;padding:0}
+[data-pa-universal-header] .pa-universal-controls [data-lang]{display:inline-flex;flex:none;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:5px 3px;font:750 12px system-ui,sans-serif;border:0;border-radius:9px;background:transparent;color:#62766d}
+[data-pa-universal-header] .pa-universal-controls [data-lang][aria-pressed=true]{background:#e3ebe5;color:#26352f;box-shadow:none}
+[data-pa-universal-header] .pa-universal-controls :is(.login-link,.signup-login,.pa-universal-account,.pa-universal-current){display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;min-height:44px;padding:8px 19px;border:1px solid #d8e0d9;border-radius:12px;background:#fff;color:#26352f;font:750 13px system-ui,sans-serif;text-decoration:none;white-space:nowrap}
+[data-pa-universal-header] .pa-universal-controls .pa-universal-account{cursor:pointer}
+[data-pa-universal-header] .pa-universal-controls .pa-universal-current{background:#e3ebe5}
+@media(max-width:750px){
+ :is(.topbar,.signup-header,.info-header,.hosted-access-header,.pa-client-header)[data-pa-universal-header]{height:60px;min-height:60px;padding:0 22px}
+ [data-pa-universal-header] :is(.pa-universal-logo-link,[data-pa-universal-logo]) .pictau-brand-img{width:170px}
+ [data-pa-universal-header] .pa-universal-controls{gap:7px}
+}
+@media(max-width:520px){
+ :is(.topbar,.signup-header,.info-header,.hosted-access-header,.pa-client-header)[data-pa-universal-header]{height:56px;min-height:56px;padding:0 15px;gap:6px}
+ [data-pa-universal-header] :is(.pa-universal-logo-link,[data-pa-universal-logo]) .pictau-brand-img{width:clamp(118px,37vw,154px)}
+ [data-pa-universal-header] .pa-universal-controls{gap:2px}
+ [data-pa-universal-header] .pa-universal-controls :is(.lang-switch,.home-lang,.signup-languages){gap:2px}
+ [data-pa-universal-header] .pa-universal-controls [data-lang]{min-width:34px;min-height:44px;padding:3px 0;font-size:11px}
+ [data-pa-universal-header] .pa-universal-controls :is(.login-link,.signup-login,.pa-universal-account,.pa-universal-current){min-height:44px;padding:7px 8px;font-size:11px;border-radius:10px}
+}
+@media(max-width:350px){
+ [data-pa-universal-header] :is(.pa-universal-logo-link,[data-pa-universal-logo]) .pictau-brand-img{width:118px}
+ [data-pa-universal-header] .pa-universal-controls [data-lang]{min-width:32px}
+ [data-pa-universal-header] .pa-universal-controls :is(.login-link,.signup-login,.pa-universal-account,.pa-universal-current){padding:6px 7px;font-size:10px}
+}
+
+/* L'accueil passe à une seule rangée : ne jamais conserver l'ancien en-tête 102px. */
+@media(max-width:520px){body[data-pictau-home-design="5"]{grid-template-rows:56px minmax(0,1fr) 36px}}
+
+/* L'inscription a déjà les mêmes marges externes que l'accueil : ne pas
+   ajouter une seconde fois le padding à l'intérieur de son en-tête. */
+.signup-header[data-pa-universal-header]{padding-left:0;padding-right:0}
+
+/* La grille d'inscription a son propre padding-top historique (6/14 px).
+   L'en-tête partagé doit commencer à la même coordonnée y que l'accueil. */
+.signup-page{padding-top:0}
+
+/* Les barres de défilement de l'inscription réduisent son conteneur de 15px.
+   Aligner le bord droit sur le viewport comme la vraie page d'accueil. */
+@media(min-width:751px){.signup-header[data-pa-universal-header]{width:min(92vw,1386px)}}

@@ -1685,3 +1685,9 @@
  .pa-catalog-empty-actions{flex-direction:column;align-items:stretch}
  .pa-catalog-empty-actions .btn{width:100%}
 }
+
+/* En-tête client permanent ; la navigation métier est secondaire, pas dans la rangée de marque. */
+.pa-client-workspace .pa-client-header[data-pa-universal-header]{position:sticky;z-index:30;top:0;background:#fff;border-bottom:1px solid #e9edec}
+.pa-client-workspace .pa-client-secondary-nav{display:flex;justify-content:center;flex-wrap:wrap;width:100%;gap:0;padding:4px 15px;background:#fff;border-bottom:1px solid #ecefec}
+@media(max-width:980px){.pa-client-workspace .pa-client-secondary-nav{display:none}}
+@media print{.pa-client-workspace .pa-client-secondary-nav{display:none!important}}

@@ -9,3 +9,10 @@ Logo retenu pour le site au 1er novembre 2026 : trois carrés reliés + nom **Pi
 Les trois SVG contiennent les contours des caractères (aucune police externe à télécharger ni inclure). Ne pas réintroduire le « a » cursif/Comic Sans ni une couleur différente sur cette lettre. Ne pas introduire de sous-titre. Sur les pages du site, garder l'accessibilité via un lien d'accueil étiqueté.
 
 Les fichiers sont les actifs maîtres de cette intégration; toute nouvelle variante de typographie doit faire l'objet d'un choix explicite avant remplacement. Le logo a été créé pour Pict-au ; aucune recherche de marques déposées n'est documentée ici.
+
+
+## Contrat universel d'en-tête (1er novembre 2026)
+
+`pictau-universal-header.css` impose l'identité **sur une ligne**: trois carrés colorés à gauche du nom Pict-au, FR, EN, et Connexion (ou Mon compte après authentification), pour l'accueil, inscription, information, connexion et chaque vue client. Le logo mobile horizontal se trouve dans `pictau-logo-le-fil-mobile.svg`. Le code applicatif affiche le même actif via la fonction `universalHeader` et garde la navigation métier sur une barre distincte.
+
+Le test Chromium doit mesurer les positions réelles des quatre contrôles et la largeur disponible; ne jamais considérer un en-tête à deux rangées comme valide, même si aucun débordement n'est constaté. La zone Super Admin possède une navigation de sécurité distincte.

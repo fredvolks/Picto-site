@@ -25,6 +25,7 @@ jobs:
         id: syntax
         run: |
           node --check src/site.js
+          node --check app/src/app.js
           node --check tests/site.test.mjs
           node --check tests/browser.mjs
       - name: Vérifier les exigences du prompt maître

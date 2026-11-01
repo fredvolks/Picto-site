@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --check src/site.js
+      - run: node --check src/site.js && node --check app/src/app.js
       - run: node --test tests/site.test.mjs
       - name: Captures et contrôle géométrique des pages (FR et EN)
         run: node tests/browser.mjs
