@@ -1,0 +1,19 @@
+name: Pict-au — gel des trois pages validées
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frozen-pages:
+    name: Vérifier les 3 pages verrouillées
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Interdire les modifications des pages gelées
+        run: node scripts/check-frozen-pages.mjs
