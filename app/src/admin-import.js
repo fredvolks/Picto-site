@@ -44,6 +44,27 @@ async function requireAdmin(client,verifiedUserId,inProgress=false) {
     throw new Error("Ce compte ne possède pas l'autorisation Super Admin.");
 }
 
+// Un INSERT peut être persisté alors que son accusé réseau est perdu.
+// Ne jamais traiter le seul résultat de insert() comme preuve d'absence ou
+// comme reçu; relire sous la session Super Admin et comparer l'actif réel.
+async function readVerifiedImportedDraft(client,uid,imagePath,expected){
+  await requireAdmin(client,uid,true);
+  const found=await client.from("pictau_assets")
+    .select("id,created_by,title_fr,title_en,theme,image_path,status,published_at,crop_data")
+    .eq("image_path",imagePath).maybeSingle();
+  if(found.error)throw found.error;
+  const row=found.data;
+  if(!row)return null;
+  if(!uuid.test(row.id||"")||row.created_by!==uid||
+     row.image_path!==imagePath||row.title_fr!==expected.title_fr||
+     row.title_en!==expected.title_en||row.theme!==expected.theme||
+     row.status!=="draft"||row.published_at!==null||
+     row.crop_data?.source!=="manual-super-admin-upload")
+    throw new Error("La fiche privée importée diffère de celle demandée.");
+  await requireAdmin(client,uid,true);
+  return {status:"draft",imagePath};
+}
+
 export async function importPrivateDraft(client,verifiedUserId,file,metadata,makeId=()=>globalThis.crypto.randomUUID()) {
   if(!uuid.test(verifiedUserId||""))throw new Error("Connexion administrateur requise.");
   await requireAdmin(client,verifiedUserId);
@@ -59,9 +80,9 @@ export async function importPrivateDraft(client,verifiedUserId,file,metadata,mak
   const upload=await bucket.upload(imagePath,file,{contentType:"image/png",cacheControl:"3600",upsert:false});
   if(upload.error)throw upload.error;
 
+  let insertStarted=false,insertRejected=false;
   try{
-    // Le transfert peut durer : refuser la création d'une fiche si la session
-    // ou le rôle Super Admin a été révoqué, puis nettoyer uniquement cet upload.
+    // Avant l'INSERT, une révocation autorise le nettoyage de ce nouvel upload.
     await requireAdmin(client,verifiedUserId,true);
     const record={
       ...normalized,
@@ -75,12 +96,29 @@ export async function importPrivateDraft(client,verifiedUserId,file,metadata,mak
         file_bytes:file.size
       }
     };
+    insertStarted=true;
     const inserted=await client.from("pictau_assets").insert(record);
-    if(inserted.error)throw inserted.error;
-    return {status:"draft",imagePath};
+    // Une réponse explicite de rejet SQL est différente d'une réponse perdue.
+    if(inserted.error){insertRejected=true;throw inserted.error;}
+    const confirmed=await readVerifiedImportedDraft(client,verifiedUserId,imagePath,normalized);
+    if(!confirmed)throw new Error("Fiche privée non confirmée après INSERT.");
+    return confirmed;
   }catch(error){
-    // Evite les fichiers orphelins si l'écriture de la fiche échoue.
-    // La suppression est volontairement limitée au chemin créé ici.
+    if(insertStarted){
+      let recovered;
+      try{
+        recovered=await readVerifiedImportedDraft(client,verifiedUserId,imagePath,normalized);
+      }catch{
+        // Si la lecture RLS, la session ou les métadonnées sont incertaines,
+        // supprimer le PNG risquerait de laisser une fiche SQL sans fichier.
+        throw new Error("Importation incertaine : PNG privé conservé pour vérification manuelle.",{cause:error});
+      }
+      if(recovered)return recovered;
+      if(!insertRejected)
+        throw new Error("Importation incertaine : PNG privé conservé pour vérification manuelle.",{cause:error});
+    }
+    // Ne nettoyer que si l'INSERT n'a jamais commencé ou si le serveur
+    // l'a explicitement rejeté ET que la relecture ne trouve aucune fiche.
     try{
       const cleanup=await bucket.remove([imagePath]);
       if(cleanup.error)throw cleanup.error;
@@ -89,4 +127,64 @@ export async function importPrivateDraft(client,verifiedUserId,file,metadata,mak
     }
     throw error;
   }
+}
+
+
+// Importation multiple de vrais PNG privés : prévalidation TOTALE avant la
+// première écriture puis import séquentiel, sans publication automatique.
+// Une réponse de serveur incertaine arrête le lot, JAMAIS de reprise aveugle.
+export const MAX_PRIVATE_DRAFT_BATCH=20;
+
+export function draftTitleFromFilename(filename){
+  if(typeof filename!=="string"||filename.length>255||
+     !/\.png$/i.test(filename)||/[\p{C}/\\]/u.test(filename))
+    throw Error("Nom de fichier PNG invalide.");
+  const title=filename.slice(0,-4).normalize("NFC").replace(/[_-]+/g," ")
+    .trim().replace(/\s+/g," ");
+  if(!title||title.length>100||!/[\p{L}\p{N}]/u.test(title))throw Error("Nom français issu du PNG invalide (maximum 100 caractères).");
+  return title;
+}
+
+export async function preparePrivateDraftBatch(files,theme="autres"){
+  if(!Array.isArray(files)||files.length<1||files.length>MAX_PRIVATE_DRAFT_BATCH)
+    throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
+  const entries=[],seen=new Set();
+  for(const file of files){
+    const titleFr=draftTitleFromFilename(file?.name);
+    const key=titleFr.toLocaleLowerCase("fr");
+    if(seen.has(key))throw Error("Deux PNG du lot portent le même nom : "+titleFr);
+    seen.add(key);
+    const metadata={titleFr,titleEn:"",theme};
+    validateDraftMetadata(metadata);
+    await validateDraftPng(file);
+    entries.push({file,metadata});
+  }
+  return entries;
+}
+
+export async function importPrivateDraftBatch(client,uid,files,theme,{
+ onProgress=()=>{},isCurrent=()=>true,importOne=importPrivateDraft
+}={}){
+  // Si un PNG est corrompu, même le premier n'est pas téléversé.
+  const entries=await preparePrivateDraftBatch(files,theme);
+  if(typeof onProgress!=="function"||typeof isCurrent!=="function"||
+     typeof importOne!=="function")throw Error("Opération de lot invalide.");
+  let completed=0;
+  for(let i=0;i<entries.length;i++){
+    if(!isCurrent())return {
+      completed,total:entries.length,failedIndex:i,error:"Session ou lot modifié : importation arrêtée."
+    };
+    try{
+      await importOne(client,uid,entries[i].file,entries[i].metadata);
+      completed++;
+      try{onProgress({completed,total:entries.length,name:entries[i].metadata.titleFr});}
+      catch{/* Un message d'interface ne doit pas créer un faux échec d'INSERT. */}
+    }catch(error){
+      return {
+        completed,total:entries.length,failedIndex:i,
+        name:entries[i].metadata.titleFr,error:String(error?.message||error)
+      };
+    }
+  }
+  return {completed,total:entries.length,failedIndex:null,error:""};
 }
