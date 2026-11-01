@@ -4,6 +4,34 @@ const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({
  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
 }[c]));
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Aperçu local uniquement : refuser les valeurs qui seraient arrondies par SQL
+// (NUMERIC à deux décimales) plutôt que d'afficher une taille trompeuse.
+export function namedTemplatePreviewState({widthCm=5,rotationDeg=0,enabled=false}={}){
+ if(!enabled)return {valid:true,widthCm:5,rotationDeg:0};
+ const parse=(v,min,max)=>{
+   if(typeof v!=="number"&&typeof v!=="string")return null;
+   if(typeof v==="string"&&!v.trim())return null;
+   const n=Number(v);
+   return Number.isFinite(n)&&n>=min&&n<=max&&
+     Math.abs(n*100-Math.round(n*100))<1e-8?n:null;
+ };
+ const width=parse(widthCm,2,10),angle=parse(rotationDeg,-180,180);
+ return {valid:width!==null&&angle!==null,widthCm:width,rotationDeg:angle};
+}
+export function namedTemplatePreviewCaption({widthCm=5,rotationDeg=0,enabled=false,fr=true}={}){
+ if(!enabled)return fr?
+   "Illustration d’exemple · 5 cm · réglages locaux":
+   "Sample illustration · 5 cm · local settings";
+ const settings=namedTemplatePreviewState({widthCm,rotationDeg,enabled});
+ if(!settings.valid)return fr?
+   "Aperçu indisponible : largeur ou rotation invalide (maximum deux décimales).":
+   "Preview unavailable: invalid width or rotation (maximum two decimals).";
+ const fmt=n=>n.toLocaleString(fr?"fr-CA":"en-CA",{maximumFractionDigits:2});
+ return fr?
+   "Illustration d’exemple · "+fmt(settings.widthCm)+" cm · rotation "+fmt(settings.rotationDeg)+"° · aperçu indicatif":
+   "Sample illustration · "+fmt(settings.widthCm)+" cm · rotation "+fmt(settings.rotationDeg)+"° · illustrative preview";
+}
+
 export function renderAdminNamedTemplateBank({
  templates=[],selectedId=null,name="",widthCm=5,rotationDeg=0,
  busy=false,loading=false,error="",message="",fr=true
@@ -36,10 +64,10 @@ export function renderAdminNamedTemplateBank({
   +'<input id="pa-named-template-name" type="text" maxlength="80" data-input="admin-named-template-name" '
   +'value="'+esc(name)+'" autocomplete="off"'+(busy?" disabled":"")+'></div>'
   +'<div><label for="pa-named-template-width">'+esc(tr[3])+'</label>'
-  +'<input id="pa-named-template-width" type="number" min="2" max="10" step=".25" data-input="admin-named-template-width" '
+  +'<input id="pa-named-template-width" type="number" min="2" max="10" step=".01" data-input="admin-named-template-width" '
   +'value="'+esc(widthCm)+'"'+(busy?" disabled":"")+'></div>'
   +'<div><label for="pa-named-template-rotation">'+esc(tr[4])+'</label>'
-  +'<input id="pa-named-template-rotation" type="number" min="-180" max="180" step="1" data-input="admin-named-template-rotation" '
+  +'<input id="pa-named-template-rotation" type="number" min="-180" max="180" step=".01" data-input="admin-named-template-rotation" '
   +'value="'+esc(rotationDeg)+'"'+(busy?" disabled":"")+'></div>'
   +'</div>'
   +'<p class="admin-named-template-help">'+esc(tr[11])+'</p>'
