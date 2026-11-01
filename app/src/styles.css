@@ -1733,3 +1733,30 @@
 .admin-named-template-list li span{font-size:13px}
 .admin-named-templates :is(button,input):focus-visible{outline:3px solid #294939;outline-offset:2px}
 @media(max-width:700px){.admin-named-template-fields{grid-template-columns:minmax(0,1fr)}.admin-named-templates{padding:15px}.admin-named-template-actions button{flex:1 1 140px}}
+
+/* L3: sélection de gabarits confirmés dans la fiche d'un pictogramme, scoped. */
+.pa-admin-template-choices,.pa-client-template-choices{margin:18px 0;padding:18px;border:1px solid #d9e3dc;border-radius:15px;background:#fff;min-width:0}
+.pa-admin-template-choices h3,.pa-client-template-choices h3{font-size:1.2rem;margin:0 0 10px}
+.pa-template-choice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,175px),1fr));gap:12px}
+.pa-template-choice{display:flex;flex-direction:column;gap:7px;min-width:0;padding:12px;border:1px solid #d3dfd7;border-radius:12px;background:#fafcfb;cursor:pointer}
+.pa-template-choice:has(input:checked){border-color:#294939;box-shadow:0 0 0 2px #29493929}
+.pa-template-choice>span:not(.pa-template-mini){overflow-wrap:anywhere;font-size:13px;font-weight:700}
+.pa-template-choice>small{font-size:12px;color:#516558}
+.pa-template-choice input{width:19px;height:19px;accent-color:#294939}
+.pa-template-mini{width:94px;min-height:94px;max-width:100%;align-self:center;display:flex;flex-direction:column;padding:4px;border:2px solid var(--template-edge,#000);background:#fff}
+.pa-template-mini.tall{min-height:123px}
+.pa-template-mini-inner{display:flex;flex:1;flex-direction:column;min-height:0}
+.pa-template-mini-art{display:flex;flex:1;min-height:55px;align-items:center;justify-content:center;overflow:hidden}
+.pa-template-mini-art img{width:100%;height:100%;object-fit:contain}
+.pa-template-mini-label{display:block;border-top:1px solid #333;text-align:center;font-size:11px;overflow-wrap:anywhere;padding-top:4px}
+.pa-template-choice-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.pa-template-choice-actions button,.pa-template-choice-recovery button{min-height:44px;padding:9px 14px;border-radius:10px;border:1px solid #294939;background:#fff;color:#294939;font-weight:700}
+.pa-template-choice-actions button:last-child{background:#294939;color:#fff}
+.pa-template-choice-recovery{padding:12px;background:#f8f3e7;border-radius:10px}
+.pa-template-choice-status,.pa-template-choice-help{font-size:13px;color:#375446}
+.pa-template-modal-backdrop{position:fixed;inset:0;z-index:1100;background:#102117a8;display:grid;place-items:center;padding:14px}
+.pa-template-dialog{max-width:750px;width:100%;max-height:calc(100dvh - 28px);overflow:auto;padding:20px;border-radius:16px;background:#fff}
+.pa-template-dialog>button{margin-left:auto;display:block;min-height:44px}
+.pa-admin-template-choices :is(input,button):focus-visible,.pa-template-dialog :is(input,button):focus-visible{outline:3px solid #294939;outline-offset:2px}
+@media(max-width:600px){.pa-admin-template-choices,.pa-client-template-choices{padding:12px}.pa-template-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pa-template-modal-backdrop{padding:7px}.pa-template-dialog{padding:12px;max-height:calc(100dvh - 14px)}}
+@media(max-width:380px){.pa-template-choice-grid{grid-template-columns:minmax(0,1fr)}}

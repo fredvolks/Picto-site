@@ -31,6 +31,7 @@ let profile=mkdtempSync(join(tmpdir(),"pictau-chrome-"));
 const profiles=[profile];
 const screenshots=resolve("artifacts/vitrine");
 let chromeErrors="";
+const browserJsExceptions=[];
 function chromeBinary(){
   if(process.env.CHROME_BIN)return process.env.CHROME_BIN;
   for(const cmd of ["google-chrome","chromium","chromium-browser"]){
@@ -98,6 +99,7 @@ try{
   });
   socket.addEventListener("message",event=>{
     const msg=JSON.parse(event.data);
+    if(msg.method==="Runtime.exceptionThrown")browserJsExceptions.push(msg.params?.exceptionDetails?.text+": "+(msg.params?.exceptionDetails?.exception?.description||""));
     const p=pending.get(msg.id);
     if(p){pending.delete(msg.id);if(msg.error)p.reject(new Error(JSON.stringify(msg.error)));else p.resolve(msg.result||{});}
   });
@@ -346,7 +348,14 @@ try{
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
     for(const page of ["index.html","forfait.html","connexion.html","contact.html","conditions.html","confidentialite.html","app/index.html"]){
       await command("Page.navigate",{url:base+"/"+page});
+      try{
       await waitFor("return document.readyState==='complete' && !!document.querySelector('[data-pa-universal-header] [data-lang=fr]') && !!document.querySelector('[data-pa-universal-header] .pictau-brand-img')",16000);
+      }catch(error){
+        console.error("Browser page failing: "+page+" "+width+"x"+height);
+        console.error("Runtime exceptions: "+JSON.stringify(browserJsExceptions.slice(-8)));
+        console.error("Module status: "+JSON.stringify(await evaluate("return {url:location.href,scripts:[...document.querySelectorAll('script')].map(s=>s.src),root:document.querySelector('#app')?.innerHTML.slice(0,200),title:document.title};")));
+        throw error;
+      }
       await evaluate("document.querySelector('[data-pa-universal-header] [data-lang=fr]').click();return true;");
       await waitFor("return document.documentElement.lang==='fr'");
       const frGeometry=await evaluate(languageGeometry);
