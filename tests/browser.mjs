@@ -172,6 +172,42 @@ try{
       }
     }
   }
+
+  // Test anti-faux-positif : même logo et mêmes contrôles à leur position et
+  // leur taille réelles. Ne plus se contenter d'un SVG/texte identique.
+  const headerMetrics=`
+    const box=selector=>{
+      const el=document.querySelector(selector);
+      if(!el)throw Error('Contrôle absent : '+selector);
+      const r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+      return {x:r.x,y:r.y,w:r.width,h:r.height,font:cs.fontSize,weight:cs.fontWeight,
+        color:cs.color,background:cs.backgroundColor,radius:cs.borderRadius,
+        label:el.textContent.trim()};
+    };
+    return {logo:box('.brand'),fr:box('[data-lang=fr]'),en:box('[data-lang=en]'),
+      login:box('a[href="./app/"]')};
+  `;
+  for(const [width,height] of [[320,568],[360,640],[390,844],[430,932],[700,900],[768,1024],[820,1180],[1024,768],[1440,900],[1920,1080]]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=700,deviceScaleFactor:1});
+    await command("Page.navigate",{url:base+"/index.html"});
+    await waitFor("return document.readyState==='complete' && !!document.querySelector('.brand')");
+    await evaluate("return document.fonts.ready.then(()=>true);");
+    const homeHeader=await evaluate(headerMetrics);
+    await command("Page.navigate",{url:base+"/forfait.html"});
+    await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-brand')");
+    await evaluate("return document.fonts.ready.then(()=>true);");
+    const signupHeader=await evaluate(headerMetrics);
+    if(width===768){const layout=await evaluate('const el=document.querySelector(".signup-page"),h=document.querySelector(".signup-header"),s=getComputedStyle(el),r=el.getBoundingClientRect(),rh=h.getBoundingClientRect();return {marginLeft:s.marginLeft,marginRight:s.marginRight,width:s.width,pageX:r.x,pageRight:r.right,headerX:rh.x,headerWidth:rh.width,viewport:innerWidth,clientWidth:document.documentElement.clientWidth}');console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader,layout}));}
+    for(const key of ["logo","fr","en","login"]){
+      const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
+      for(const dim of ["x","y","w","h"])
+        assert.ok(Math.abs(expected[dim]-actual[dim])<=2,id+" "+dim+
+          " : accueil="+expected[dim]+" inscription="+actual[dim]);
+      for(const prop of ["font","weight","color","background","radius","label"])
+        assert.equal(actual[prop],expected[prop],id+" "+prop+" : en-têtes différents");
+    }
+    console.log("PASS HEADER PARITY "+width+"x"+height+" : logo, FR, EN, connexion identiques");
+  }
   // Le CTA de l'accueil doit réellement ouvrir le forfait; pas de faux paiement.
   for(const width of [320,375,390,430,768,1440]){
     await command("Emulation.setDeviceMetricsOverride",{width,height:width===320?568:width===375?667:width===390?740:width===430?932:width===768?1024:900,mobile:width<=430,deviceScaleFactor:1});
