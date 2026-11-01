@@ -200,9 +200,10 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
 /* La barre de défilement de l'inscription ne doit pas déplacer le logo/nav.
    vw garde les mesures de l'accueil (qui tient sans scrollbar). */
 @media(min-width:751px){
- .signup-page{margin-left:max(4vw,calc(50vw - 693px));margin-right:0}
+ .signup-page{margin:0 0 0 4vw}
  .signup-header{width:min(92vw,1386px)}
 }
+@media(min-width:1507px){.signup-page{margin-left:calc(50vw - 693px)}}
 .signup-header{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;gap:12px}
 .signup-brand{display:inline;font-size:clamp(23px,2.2vw,29px);font-weight:800;letter-spacing:-1.6px}
 .signup-header-right,.signup-languages{gap:12px}
