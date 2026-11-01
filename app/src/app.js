@@ -19,6 +19,7 @@ import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPic
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
+import {CLIENT_CATEGORIES,clientCategoryLabel} from "./client-categories.js";
 import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE,toggleCatalogChoice,selectVisibleCatalogPage} from "./catalog.js";
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
@@ -1551,14 +1552,6 @@ function renderAdminWorkspace(){
     +'</div>';
 }
 // BOUTIQUE CLIENT : structure premium noire et blanche, contenus uniquement du vrai compte.
-const CLIENT_CATEGORIES=[
-  ["alimentation","Alimentation","Food"],["hygiene","Hygiène","Hygiene"],
-  ["autonomie","Autonomie","Independence"],["ecole","École","School"],
-  ["loisirs","Loisirs","Leisure"],["socialisation","Socialisation","Socialization"],
-  ["actions","Actions","Actions"],["consignes","Consignes","Instructions"],
-  ["emotions","Émotions","Emotions"],["sensoriel","Sensoriel","Sensory"],
-  ["lieux","Lieux","Places"],["transport","Transport","Transport"]
-];
 function clientNavItems(){
   const fr=state.language==="fr";
   return [
@@ -1655,7 +1648,7 @@ function renderClientLibrary(){
       +(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async"></div>'
       +'<div class="pa-catalog-art-caption">'+esc(name)+'</div></div>'
       +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
-        CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
+        clientCategoryLabel(item.theme,state.language)
       )+'</span>'
       +'<button type="button" class="pa-catalog-bulk-choice" data-action="catalog-bulk-toggle" data-id="'+esc(item.id)+'" aria-pressed="'+selected+'"'
       +(f.bulkBusy||f.loading?' disabled':'')+' aria-label="'+esc(selected?
@@ -1675,7 +1668,13 @@ function renderClientLibrary(){
     !f.items.length?'<div class="pa-client-empty pa-client-catalog-empty">'+icon("library")+'<div><h2>'
       +esc(fr?'Aucun pictogramme approuvé pour ces critères':'No approved pictograms for this selection')+'</h2>'
       +'<p>'+esc(fr?'Seules les images réellement validées par le Super Admin apparaissent ici. Aucun brouillon ni dessin d’essai.':'Only artwork reviewed by the Super Admin appears here. No drafts or sample illustrations.')+'</p>'
-      +(c?'<p>'+esc(fr?'Catégorie : ':'Category: ')+esc(fr?c[1]:c[2])+'</p>':'')+'</div></div>':
+      +(c?'<p>'+esc(fr?'Catégorie : ':'Category: ')+esc(fr?c[1]:c[2])+'</p>':'')
+      +'<div class="pa-catalog-empty-actions">'
+      +(state.clientCategory||state.search?
+        '<button type="button" class="btn btn-light" data-action="catalog-clear-filters">'+esc(fr?'Voir toutes les catégories':'Show all categories')+'</button>':"")
+      +'<button type="button" class="btn btn-primary" data-action="request-open">'+icon("plus","btn-icon")
+      +esc(fr?'Demander un pictogramme':'Request a pictogram')+'</button>'
+      +'</div></div></div>':
     '<div class="pa-catalog-grid">'+cards+'</div>'
       +(pages>1?'<nav class="pa-catalog-pages" aria-label="'+esc(fr?'Pages des pictogrammes':'Pictogram pages')+'">'
         +'<button type="button" class="btn btn-light" data-action="catalog-page" data-direction="-1"'+(f.page===0?' disabled':'')+'>'+esc(fr?'Précédent':'Previous')+'</button>'
@@ -2374,6 +2373,14 @@ root.addEventListener("click",function(event){
   }
   if(a==="client-search"){
     if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
+    return;
+  }
+  if(a==="catalog-clear-filters"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      state.page==="library"){
+    state.clientCategory="";state.search="";publishedCatalog.page=0;
+    publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
+    render();void fetchPublishedCatalog();
+    requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());
     return;
   }
   if(a==="client-category"){
