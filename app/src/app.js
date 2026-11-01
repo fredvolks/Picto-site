@@ -18,7 +18,7 @@ import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPic
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
-import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
+import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE,toggleCatalogChoice,selectVisibleCatalogPage} from "./catalog.js";
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer,updateComposerPrintFit} from "./official-composer.js";
@@ -362,7 +362,8 @@ async function fetchUsedPictos(){
   }
 }
 const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
-  imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:""};
+  imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:"",
+  bulkSelected:new Map(),bulkBusy:false,bulkRequest:0,bulkFeedback:"",bulkError:""};
 function clearPublishedCatalog(){
   publishedCatalog.request++;
   for(const url of publishedCatalog.imageUrls.values())URL.revokeObjectURL(url);
@@ -371,6 +372,8 @@ function clearPublishedCatalog(){
   publishedCatalog.loading=false;publishedCatalog.loaded=false;publishedCatalog.error="";
   publishedCatalog.approvedByAdmin.clear();publishedCatalog.publishing=false;
   publishedCatalog.publishError="";publishedCatalog.publishMessage="";
+  publishedCatalog.bulkSelected=new Map();publishedCatalog.bulkBusy=false;
+  publishedCatalog.bulkRequest++;publishedCatalog.bulkFeedback="";publishedCatalog.bulkError="";
 }
 async function fetchPublishedCatalog(){
   if(!SITE_EMBEDDED||!authStatus.user||!authStatus.roleReady||canOpenAdmin())return;
@@ -1596,6 +1599,7 @@ function renderClientLibrary(){
   const pages=Math.max(1,Math.ceil(f.total/CATALOG_PAGE_SIZE));
   const cards=f.items.map(item=>{
     const name=fr?item.title_fr:(item.title_en||item.title_fr);
+    const selected=f.bulkSelected.has(item.id);
     const url=f.imageUrls.get(item.id);
     return '<article class="pa-catalog-card"><div class="pa-catalog-art">'
       +'<div class="pa-catalog-art-body"><img data-catalog-id="'+esc(item.id)+'"'
@@ -1603,7 +1607,13 @@ function renderClientLibrary(){
       +'<div class="pa-catalog-art-caption">'+esc(name)+'</div></div>'
       +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
         CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
-      )+'</span><div class="pa-catalog-add">'
+      )+'</span>'
+      +'<button type="button" class="pa-catalog-bulk-choice" data-action="catalog-bulk-toggle" data-id="'+esc(item.id)+'" aria-pressed="'+selected+'"'
+      +(f.bulkBusy||f.loading?' disabled':'')+' aria-label="'+esc(selected?
+        (fr?'Retirer '+name+' de ma sélection':'Remove '+name+' from selection'):
+        (fr?'Sélectionner '+name:'Select '+name))+'">'
+      +icon(selected?'check':'plus')+esc(selected?(fr?'Sélectionné':'Selected'):(fr?'Sélectionner':'Select'))+'</button>'
+      +'<div class="pa-catalog-add">'
       +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?'Routine':'Routine')+'</button>'
       +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button></div></article>';
   }).join("");
@@ -1619,6 +1629,35 @@ function renderClientLibrary(){
         +'<button type="button" class="btn btn-light" data-action="catalog-page" data-direction="-1"'+(f.page===0?' disabled':'')+'>'+esc(fr?'Précédent':'Previous')+'</button>'
         +'<span>'+first+'–'+last+' / '+f.total+'</span>'
         +'<button type="button" class="btn btn-light" data-action="catalog-page" data-direction="1"'+(f.page>=pages-1?' disabled':'')+'>'+esc(fr?'Suivant':'Next')+'</button></nav>':'');
+  const pageSelectable=f.items.some(item=>!f.bulkSelected.has(item.id));
+  const pageSelection=f.items.length&&!f.loading&&!f.error?
+    '<div class="pa-catalog-page-select">'
+      +'<button type="button" data-action="catalog-select-page" class="btn btn-light"'
+      +(f.bulkBusy||!pageSelectable||f.bulkSelected.size>=16?' disabled':'')+'>'
+      +icon("check")+esc(fr?'Sélectionner sur cette page (16 max.)':
+        'Select from this page (max. 16)')+'</button>'
+      +'<span>'+esc(fr?'Choix conservés entre les pages.':'Selection stays across pages.')+'</span></div>':"";
+  const chosen=[...f.bulkSelected.values()];
+  const bulkReview=chosen.length?
+    '<section class="pa-used-selection-review pa-catalog-bulk-review" aria-labelledby="pa-catalog-bulk-title">'
+    +'<div class="pa-used-selection-heading"><h2 id="pa-catalog-bulk-title">'+esc(fr?'Ma sélection':'My selection')+'</h2>'
+    +'<span aria-live="polite">'+chosen.length+' / 16</span></div>'
+    +'<p class="pa-client-context">'+esc(fr?
+      "Choisissez sur plusieurs pages. Les pictogrammes seront revérifiés avant d’être ajoutés à votre support.":
+      "Select across several pages. Pictograms are rechecked before being added to your support.")+'</p>'
+    +'<ul class="pa-used-selection-list">'+chosen.map(item=>{
+      const title=fr?item.title_fr:(item.title_en||item.title_fr);
+      return '<li><button type="button" data-action="catalog-bulk-remove" data-id="'+esc(item.id)+'"'
+        +(f.bulkBusy?' disabled':'')+' aria-label="'+esc(fr?'Retirer '+title+' de la sélection':'Remove '+title+' from selection')+'">'
+        +'<span>'+esc(title)+'</span>'+icon("close")+'</button></li>';
+    }).join("")+'</ul>'
+    +'<div class="pa-catalog-bulk-actions">'
+    +'<button type="button" class="btn btn-primary" data-action="catalog-bulk-add" data-kind="routine"'
+    +(f.bulkBusy||officialComposer.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+esc(fr?'Ajouter à la routine':'Add to routine')+'</button>'
+    +'<button type="button" class="btn btn-primary" data-action="catalog-bulk-add" data-kind="board"'
+    +(f.bulkBusy||officialComposer.busy||officialComposer.board.length>=16?' disabled':'')+'>'+esc(fr?'Ajouter au tableau':'Add to board')+'</button>'
+    +'<button type="button" class="btn btn-light" data-action="catalog-bulk-clear"'
+    +(f.bulkBusy?' disabled':'')+'>'+esc(fr?'Effacer la sélection':'Clear selection')+'</button></div></section>':"";
   return '<section class="pa-client-catalog" aria-labelledby="pa-catalog-title">'
     +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'BIBLIOTHÈQUE':'LIBRARY')+'</span>'
     +'<h1 id="pa-catalog-title">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</h1></div>'
@@ -1636,10 +1675,13 @@ function renderClientLibrary(){
        +'<button data-action="nav" data-page="routines" type="button">'+esc(fr?'Routine':'Routine')+' · '+officialComposer.routine.length+'</button>'
        +'<button data-action="nav" data-page="boards" type="button">'+esc(fr?'Tableau':'Board')+' · '+officialComposer.board.length+'</button></div>':'')
      +renderSingleApprovedAddFeedback("library")
+     +(f.bulkError?'<p class="pa-catalog-notice" role="alert">'+esc(f.bulkError)+'</p>':
+       f.bulkFeedback?'<p class="pa-catalog-notice" role="status">'+esc(f.bulkFeedback)+'</p>':"")
+     +bulkReview
     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="" aria-pressed="'+(!state.clientCategory)+'">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'" aria-pressed="'+(state.clientCategory===key)+'">'
-      +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>'
+      +esc(fr?frName:enName)+'</button>').join("")+'</div>'+pageSelection+feedback+'</section>'
     +(customerRequests.view!=="closed"?renderCustomerRequestCenter():"");
 }
 function renderClientUsed(){
@@ -2287,6 +2329,106 @@ root.addEventListener("click",function(event){
       state.page="library";publishedCatalog.page=0;render();void fetchPublishedCatalog();window.scrollTo({top:0,behavior:"instant"});
     }
     return;
+  }
+  if(a==="catalog-select-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      state.page==="library"&&publishedCatalog.loaded&&!publishedCatalog.loading&&
+      !publishedCatalog.error&&!publishedCatalog.bulkBusy&&!officialComposer.busy){
+    try{
+      const result=selectVisibleCatalogPage(publishedCatalog.bulkSelected,publishedCatalog.items);
+      publishedCatalog.bulkSelected=result.selected;
+      publishedCatalog.bulkError="";
+      const fr=state.language==="fr";
+      publishedCatalog.bulkFeedback=(result.added?
+        (fr?result.added+" pictogramme(s) sélectionné(s) sur cette page.":
+          result.added+" pictogram(s) selected on this page."):
+        (fr?"Tous les pictogrammes possibles sont déjà sélectionnés.":
+          "All available pictograms are already selected."))+
+        (result.capacityReached?(fr?" Limite de 16 atteinte; les autres images restent disponibles.":
+          "16-item limit reached; remaining images stay available."):"");
+    }catch(error){
+      publishedCatalog.bulkError=String(error?.message||error);
+      publishedCatalog.bulkFeedback="";
+    }
+    render();
+    requestAnimationFrame(()=>root.querySelector('[data-action="catalog-select-page"]')?.focus());
+    return;
+  }
+  if(a==="catalog-bulk-toggle"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      state.page==="library"&&!publishedCatalog.loading&&!publishedCatalog.error&&
+      !publishedCatalog.bulkBusy&&!officialComposer.busy){
+    try{
+      publishedCatalog.bulkSelected=toggleCatalogChoice(publishedCatalog.bulkSelected,
+        el.dataset.id,publishedCatalog.items);
+      publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
+    }catch(error){publishedCatalog.bulkError=String(error?.message||error);}
+    render();return;
+  }
+  if(a==="catalog-bulk-remove"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      state.page==="library"&&!publishedCatalog.bulkBusy){
+    try{
+      publishedCatalog.bulkSelected=removeUsedChoice(publishedCatalog.bulkSelected,el.dataset.id);
+      publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
+    }catch(error){publishedCatalog.bulkError=String(error?.message||error);}
+    render();
+    requestAnimationFrame(()=>(root.querySelector('[data-action="catalog-bulk-remove"]')||
+      root.querySelector("#pa-client-search"))?.focus());
+    return;
+  }
+  if(a==="catalog-bulk-clear"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      state.page==="library"&&!publishedCatalog.bulkBusy){
+    publishedCatalog.bulkSelected=new Map();
+    publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
+    render();return;
+  }
+  if(a==="catalog-bulk-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      state.page==="library"&&!publishedCatalog.bulkBusy&&!officialComposer.busy&&
+      !editableDrafts.deletingKind&&!editableDrafts.copyKind){
+    const kind=el.dataset.kind;
+    if(!["routine","board"].includes(kind)||!publishedCatalog.bulkSelected.size)return;
+    const uid=authStatus.user.id,session=editableDrafts.sessionEpoch,
+      selection=publishedCatalog.bulkSelected,before=officialComposer[kind],
+      catalogTicket=publishedCatalog.request,token=++publishedCatalog.bulkRequest;
+    const current=()=>authStatus.user?.id===uid&&editableDrafts.sessionEpoch===session&&
+      publishedCatalog.bulkRequest===token&&publishedCatalog.request===catalogTicket&&
+      publishedCatalog.bulkSelected===selection&&state.page==="library"&&
+      officialComposer[kind]===before&&!officialComposer.busy&&!canOpenAdmin();
+    publishedCatalog.bulkBusy=true;publishedCatalog.bulkError="";
+    publishedCatalog.bulkFeedback=state.language==="fr"?
+      "Vérification des pictogrammes publiés…":"Checking published pictograms…";
+    render();
+    void(async()=>{
+      try{
+        // Les vignettes ne prouvent pas la publication. Relire les vrais IDs
+        // sous Auth/RLS avant UN changement de composition.
+        const plan=planUsedBatchApproval(selection,[],before,kind);
+        const rows=plan.ids.length?await loadApprovedSelection(await supabaseClient(),uid,plan.ids):[];
+        if(!current())return;
+        const result=addApprovedPage(before,rows,kind);
+        if(result.added){
+          officialComposer[kind]=result.items;
+          markDraftChanged(kind);officialComposer.error="";
+          const added=new Set(plan.ids);
+          publishedCatalog.bulkSelected=new Map([...selection].filter(([id])=>!added.has(id)));
+        }
+        const fr=state.language==="fr";
+        publishedCatalog.bulkFeedback=result.added?
+          (fr?result.added+" pictogramme(s) ajouté(s) au support.":
+            result.added+" pictogram(s) added to your support.")+
+          (plan.capacityReached?(fr?" Limite du support atteinte; les autres choix restent sélectionnés.":
+            "Support capacity reached; remaining choices stay selected."):""):
+          (fr?"Aucune nouvelle image ajoutée : déjà choisie ou support complet.":
+            "No new pictograms added: already selected or support full.");
+      }catch(error){
+        if(current()){
+          publishedCatalog.bulkError=String(error?.message||error);
+          publishedCatalog.bulkFeedback="";
+        }
+      }finally{
+        if(authStatus.user?.id===uid&&publishedCatalog.bulkRequest===token){
+          publishedCatalog.bulkBusy=false;render();
+        }
+      }
+    })();return;
   }
   if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       !singleApprovedAdd.busy&&!usedPictos.adding&&!officialComposer.busy&&
