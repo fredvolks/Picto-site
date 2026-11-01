@@ -17,7 +17,7 @@ import {loadPrivateAdminPreview} from "./admin-preview.js";
 import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
-import {validateArtworkRotation,makeRotatedPrivatePng} from "./admin-artwork-rotation.js";
+import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison} from "./admin-artwork-rotation.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
@@ -1437,13 +1437,11 @@ function renderAdmin(){
       "Preliminary guidance only. Publishing requires a compliant composition and human approval.")+'</p></div>';
   const privateInkCard=!privatePreview.inkUrl||!privatePreview.asset?"":(()=>{
     const asset=privatePreview.asset;
-    const picture={fr:asset.title_fr,en:asset.title_en||asset.title_fr,
-      image:'<img data-pictau-ink data-admin-ink-preview src="'+esc(privatePreview.inkUrl)+'" alt="" loading="eager" decoding="async" style="transform:rotate('+privatePreview.rotationDeg+'deg);transform-origin:center">'};
-    const p=state.currentPreset;
-    const geom=scaleMetrics(p,5);
-    return '<div class="admin-png-template"><h4>'+esc(fr?"Essai de centrage du dessin dans le gabarit":"Artwork centering trial in template")+'</h4>'
-      +'<div class="admin-png-stage"><div class="color-shell'+(p.colored?"":" no-color")+'" style="--bordercolor:'+p.color+';--colorwidth:2mm">'
-      +'<div class="admin-png-cell" style="width:5cm;height:'+fmtRaw(geom.heightCm)+'cm">'+customPicto(picture,p,5,false)+'</div></div></div>'
+    return '<div class="admin-png-template"><h4>'+esc(fr?"Comparer le vrai dessin dans trois formats":"Compare the actual artwork in three formats")+'</h4>'
+      +renderPrivateInkComparison({
+        asset,inkUrl:privatePreview.inkUrl,rotationDeg:privatePreview.rotationDeg,
+        preset:state.currentPreset,fr,customPicto,scaleMetrics,fmtRaw
+      })
       +'<div class="admin-art-rotation">'
       +'<label for="admin-art-rotation">'+esc(fr?"Faire pivoter le dessin (centre de l\u2019encre)":"Rotate artwork (ink center)")+' : <output id="admin-art-rotation-value" for="admin-art-rotation">'+privatePreview.rotationDeg+'°</output></label>'
       +'<input id="admin-art-rotation" data-input="admin-art-rotation" type="range" min="-180" max="180" step="1" value="'+privatePreview.rotationDeg+'"'+(privatePreview.adjustBusy?' disabled':'')+' />'
@@ -3886,8 +3884,8 @@ root.addEventListener("input",function(event){
     try{privatePreview.rotationDeg=validateArtworkRotation(angle);}
     catch{return;}
     privatePreview.adjustError="";privatePreview.adjustMessage="";
-    const ink=root.querySelector("[data-admin-ink-preview]");
-    if(ink)ink.style.transform="rotate("+angle+"deg)";
+    for(const ink of root.querySelectorAll("[data-admin-ink-preview]"))
+      ink.style.transform="rotate("+angle+"deg)";
     const value=root.querySelector("#admin-art-rotation-value");
     if(value)value.textContent=angle+"°";
     const reset=root.querySelector('[data-action="admin-art-rotation-reset"]');
