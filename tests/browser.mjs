@@ -156,6 +156,9 @@ try{
     await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-button')");
     await evaluate("document.querySelector('.signup-button').click();return true;");
     await waitFor("return location.pathname.endsWith('/forfait.html') && document.readyState==='complete' && !!document.querySelector('.signup-page') && !!document.querySelector('.signup-footer a')");
+    // L'accueil mémorise légitimement EN; choisir FR avant la vérification
+    // FR, puis vérifier une seconde fois que le formulaire passe en anglais.
+    await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
     const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked};");
     assert.equal(p.plan,1,"One distinct signup plan page");
     assert.match(p.price,/9,99/);
@@ -165,6 +168,9 @@ try{
     assert.ok(p.docWidth<=width+1,"Signup has no horizontal scroll");
     assert.equal(await evaluate("return document.body.dataset.pictauSignupDesign"),"5","Approved signup Design 5");
     assert.deepEqual(await evaluate('return [...document.querySelectorAll(".signup-tile-label")].map(el=>el.textContent.trim())'),["Trouver","Personnaliser","Imprimer"]);
+    await evaluate("document.querySelector('[data-lang=en]').click();return true;");
+    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".signup-tile-label")].map(el=>el.textContent.trim())'),["Find","Personalize","Print"]);
+    await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
     const reachable=await evaluate('window.scrollTo(0,document.documentElement.scrollHeight);const f=document.querySelector(".signup-footer").getBoundingClientRect();return {bottom:f.bottom,top:f.top,height:innerHeight,overflow:getComputedStyle(document.documentElement).overflowY};');
     assert.notEqual(reachable.overflow,"hidden","Scrolling remains possible with keyboard/zoom");
     assert.ok(reachable.top>=-1&&reachable.bottom<=reachable.height+2,
