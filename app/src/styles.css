@@ -1658,3 +1658,18 @@
 .admin-private-proof .btn:focus-visible{outline:3px solid #355942;outline-offset:3px}
 @media(max-width:599px){.admin-private-proof{align-items:stretch}
   .admin-private-proof .btn{width:100%;justify-content:center}}
+
+/* Un geste : choisir un pictogramme officiel et ouvrir le vrai tableau. */
+.pa-catalog-add .pa-catalog-open-board{
+  grid-column:1 / -1;background:#161b19;color:#fff;border-color:#161b19;
+  font-size:12px;min-height:44px;line-height:1.35;white-space:normal}
+.pa-catalog-add .pa-catalog-open-board:hover{background:#34463c;border-color:#34463c}
+.pa-catalog-add .pa-catalog-open-board:disabled{opacity:.46}
+.pa-catalog-add .pa-catalog-open-board:focus-visible,
+.pa-catalog-bulk-actions .pa-catalog-open-board:focus-visible{
+  outline:3px solid #536d5e;outline-offset:3px}
+.pa-catalog-bulk-actions .pa-catalog-open-board{min-height:44px}
+@media(max-width:599px){
+  .pa-catalog-add .pa-catalog-open-board{width:100%;text-align:center}
+  .pa-catalog-bulk-actions .pa-catalog-open-board{width:100%}
+}
