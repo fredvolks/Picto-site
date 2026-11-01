@@ -15,7 +15,7 @@ test("La page d'accueil a un seul bouton d'inscription, vers la page du forfait"
  assert.doesNotMatch(html,/checkout|Stripe|paiement sécurisé|<form\b/i);
  assert.equal((html.match(/>Créer mon compte</g)||[]).length,1);
 });
-test("Page de création Design 3, tarif mensuel et parcours non transactionnel",()=>{
+test("Page de création Design 5, tarif mensuel et parcours non transactionnel",()=>{
  assert.match(plan,/class="signup-page"/);
  assert.match(plan,/9,99/);
  assert.match(plan,/data-fr=/);assert.match(plan,/data-en=/);
@@ -30,7 +30,7 @@ test("Page de création Design 3, tarif mensuel et parcours non transactionnel",
  assert.doesNotMatch(plan,/auth\.signUp\(|checkout\.sessions|stripe\.redirectToCheckout|fetch\(/i);
  assert.doesNotMatch(plan,/type="checkbox" checked/);
 });
-test("Le bouton Créer un compte de la connexion mène à la vraie page Design 3",()=>{
+test("Le bouton Créer un compte de la connexion mène à la vraie page Design 5",()=>{
  const app=read("app/src/app.js");
  assert.match(app,/class="hosted-signup"/);
  assert.match(app,/href="\.\.\/forfait\.html"/);
@@ -176,4 +176,28 @@ test("Mes brouillons publics : une page vide ou partielle ne masque pas les docu
  assert.equal(contradictory.ranges.length,3);
  const none=createMock([0]);
  assert.equal((await listEditableDraftsAvailablePage(none.client,uid,{page:2})).total,0);
+});
+
+test("Design 5 inscription : même charte et trio que la vitrine L’Affiche",()=>{
+ assert.match(plan,/data-pictau-signup-design="5"/);
+ for(const c of ["#f5f5f0","#26352f","#607a6f","#62766d","#d7e0d8"])
+  assert.ok(plan.includes(c)&&html.includes(c),"Palette commune : "+c);
+ assert.match(plan,/Créez et personnalisez vos repères visuels/);
+ assert.equal((plan.match(/class="signup-tile"/g)||[]).length,3);
+ assert.equal((plan.match(/class="signup-tile-art"/g)||[]).length,3);
+ for(const label of ["Trouver","Personnaliser","Imprimer","Find","Personalize","Print"])
+  assert.ok(plan.includes(label),"Libellé : "+label);
+ assert.match(plan,/class="signup-login" href="\.\/app\/"/);
+ assert.doesNotMatch(plan,/#e9f4f8|#28617c|#357b96|#255b74/i);
+ assert.doesNotMatch(plan,/signup-plan-ray|rayon-decor|decorative-ray/i);
+});
+test("Design 5 inscription : formulaire accessible sur PC, tablette et mobile",()=>{
+ assert.match(plan,/class="signup-skip"/);
+ assert.match(plan,/@media\(max-width:899px\)/);
+ assert.match(plan,/@media\(max-width:520px\)/);
+ assert.match(plan,/grid-template-columns:minmax\(0,1\.08fr\) minmax\(0,\.92fr\)/);
+ assert.match(plan,/\.signup-page\{width:min\(100% - 40px,760px\);display:flex;flex-direction:column/);
+ assert.match(plan,/prefers-reduced-motion:reduce/);
+ assert.doesNotMatch(plan,/overflow\s*:\s*hidden/);
+ assert.match(plan,/for\(const element of document\.querySelectorAll\("\[data-fr-aria\]\[data-en-aria\]"\)\)/);
 });
