@@ -1715,3 +1715,21 @@
   .pa-client-workspace .pa-catalog-sort-bar :is(button,select):focus-visible{outline:3px solid #294939;outline-offset:2px}
 }
 @media screen and (max-width:599px){.pa-client-workspace .pa-catalog-sort-bar>div,.pa-client-workspace .pa-catalog-clear{flex-basis:100%;width:100%}}
+
+/* L3 : gabarits nommés vrais Super Admin, pas de styles sur les trois pages gelées. */
+.admin-named-templates{margin:20px 0;padding:22px;border:1px solid #dfe6e2;border-radius:18px;background:#fff;max-width:100%;min-width:0}
+.admin-named-templates h2{font-size:1.35rem;margin:0 0 12px}
+.admin-named-template-fields{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr));gap:13px}
+.admin-named-template-fields>div{min-width:0;display:flex;flex-direction:column;gap:6px}
+.admin-named-template-fields label{font-size:13px;font-weight:700}
+.admin-named-template-fields input{width:100%;min-height:44px;border:1px solid #c9d5cb;border-radius:9px;padding:9px 12px;background:#fff;color:inherit}
+.admin-named-template-help{font-size:13px;color:#486254}
+.admin-named-template-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.admin-named-template-actions button,.admin-named-template-list button{min-height:44px;border:1px solid #becbc4;border-radius:10px;padding:9px 12px;background:#fff;color:#243d31;font-weight:650}
+.admin-named-template-actions button:last-child{background:#294939;color:#fff}
+.admin-named-template-list{list-style:none;padding:0;margin:0;display:grid;gap:9px}
+.admin-named-template-list li{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px;border:1px solid #e4eae6;border-radius:10px}
+.admin-named-template-list li button:first-child{flex:1;text-align:left;min-width:150px}
+.admin-named-template-list li span{font-size:13px}
+.admin-named-templates :is(button,input):focus-visible{outline:3px solid #294939;outline-offset:2px}
+@media(max-width:700px){.admin-named-template-fields{grid-template-columns:minmax(0,1fr)}.admin-named-templates{padding:15px}.admin-named-template-actions button{flex:1 1 140px}}
