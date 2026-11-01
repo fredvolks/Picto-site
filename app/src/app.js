@@ -32,8 +32,8 @@ import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCapt
 import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
-import {createPreparedPdf} from "./print-pdf.js";
-import {loadConfirmedPrintSettings,applyClientBorderPreference} from "./client-template-print.js";
+import {createPreparedPdf,fitPhysicalCopyColumns} from "./print-pdf.js";
+import {loadConfirmedPrintSettings,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
@@ -662,7 +662,7 @@ const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
   dirty:false,error:"",message:"",request:0};
 const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
-  borderEnabled:null,borderColor:null,paper:"letter",loading:false,busy:false,error:"",request:0};
+  borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:"",request:0};
 function resetAdminTemplateChoices(){
   ++adminTemplateChoices.request;
   Object.assign(adminTemplateChoices,{assetId:null,available:[],selected:[],confirmed:[],
@@ -672,7 +672,7 @@ function resetAdminTemplateChoices(){
 function resetClientPictoTemplates(){
   ++clientPictoTemplates.request;
   Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
-    borderEnabled:null,borderColor:null,paper:"letter",loading:false,busy:false,error:""});
+    borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:""});
 }
 function closeClientPictoTemplateChoices(){
   const id=clientPictoTemplates.pictoId;
@@ -736,7 +736,7 @@ function renderClientPictoTemplateModal(){
       +esc(fr?"Actualiser les gabarits":"Refresh templates")+'</button></div>':"")
     +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
        templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,
-       borderEnabled:f.borderEnabled,borderColor:f.borderColor,paper:f.paper,
+       borderEnabled:f.borderEnabled,borderColor:f.borderColor,paper:f.paper,copies:f.copies,
        artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
     +'</section></div>';
 }
@@ -3635,9 +3635,11 @@ root.addEventListener("click",function(event){
     const id=clientPictoTemplates.pictoId,chosenId=clientPictoTemplates.selectedId,
       uid=authStatus.user.id,ticket=clientPictoTemplates.request,
       printLanguage=state.language,printPaper=clientPictoTemplates.paper,
+      printCopies=clientPictoTemplates.copies,
       borderPreference={colored:clientPictoTemplates.borderEnabled,
         borderColor:clientPictoTemplates.borderColor};
-    if(!id||!chosenId||!["letter","a4"].includes(printPaper)||state.page!=="library"||
+    if(!id||!chosenId||!["letter","a4"].includes(printPaper)||
+       !Number.isInteger(printCopies)||printCopies<1||printCopies>12||state.page!=="library"||
        !clientPictoTemplates.items.some(row=>row.id===chosenId&&row.is_published)||
        !publishedCatalog.items.some(row=>row.id===id))return;
     const current=()=>authStatus.user?.id===uid&&
@@ -3661,11 +3663,16 @@ root.addEventListener("click",function(event){
         if(JSON.stringify(latest)!==JSON.stringify(settings))
           throw Error("Le gabarit a changé : actualisez la fiche avant l'impression.");
         const title=String(printLanguage==="en"?(row.title_en||row.title_fr):row.title_fr).trim().slice(0,120);
+        // Une seule personnalisation validée, utilisée par le calcul
+        // géométrique et le PDF officiel sans réduire le pictogramme.
+        const printPreset=applyClientBorderPreference(settings,borderPreference).preset;
+        const columns=fitPhysicalCopyColumns({
+          widthCm:settings.widthCm,preset:printPreset,paper:printPaper,copies:printCopies
+        });
         const {blob,pageCount}=await createPreparedPdf({
-          items:[{fr:row.title_fr,en:row.title_en||row.title_fr,pngBlob}],
-          kind:"board",columns:1,widthCm:settings.widthCm,
-          preset:applyClientBorderPreference(settings,borderPreference).preset,
-          paper:printPaper,language:printLanguage,title
+          items:repeatApprovedPictoForPrint(row,pngBlob,validateClientPictoCopies(printCopies)),
+          kind:"board",columns,individualBorders:true,widthCm:settings.widthCm,
+          preset:printPreset,paper:printPaper,language:printLanguage,title
         });
         if(!current())return;
         pdfRecoveryError="";
@@ -4442,6 +4449,13 @@ root.addEventListener("change",function(event){
     adminTemplateChoices.dirty=true;
     adminTemplateChoices.message="";
     render();
+    return;
+  }
+  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-copies"){
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!clientPictoTemplates.pictoId||
+       clientPictoTemplates.busy||clientPictoTemplates.loading)return;
+    try{clientPictoTemplates.copies=validateClientPictoCopies(Number(event.target.value));}
+    catch{return;}
     return;
   }
   if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-paper"){

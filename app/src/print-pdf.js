@@ -42,7 +42,22 @@ function dimensions(paper){
   if(!v)throw Error("Format de papier invalide.");
   return v;
 }
-export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",columns=3,separatorMode="simple",language="fr",title}){
+// Chaque exemplaire conserve sa largeur physique. Les marges et contours
+// sont comptés AVANT de choisir un nombre de colonnes.
+export function fitPhysicalCopyColumns({widthCm,preset,paper="letter",copies=1}={}){
+  safeWidth(widthCm);
+  if(!validatePreset(preset)||typeof preset.colored!=="boolean"||
+     !Number.isInteger(copies)||copies<1||copies>12)
+    throw Error("Planche de copies invalide.");
+  const [pageW]=dimensions(paper);
+  const edge=preset.colored?scaleMetrics(preset,widthCm).separatorMm:0;
+  const cellWidth=widthCm*10+edge*2,available=pageW-20;
+  if(cellWidth>available+1e-6)
+    throw Error("Une case dépasse la largeur imprimable.");
+  const count=Math.floor((available+GAP_BOARD_MM)/(cellWidth+GAP_BOARD_MM));
+  return Math.max(1,Math.min(4,copies,count));
+}
+export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",columns=3,separatorMode="simple",language="fr",title,individualBorders=false}){
   validTitle(title);
   if(!Array.isArray(items)||!items.length||items.length>16)throw Error("Sélection PDF invalide.");
   if(!validatePreset(preset)||
@@ -51,9 +66,11 @@ export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",column
          Math.abs(preset.rotationDeg)>180)))
     throw Error("Gabarit PDF invalide.");
   if(!["routine","board"].includes(kind))throw Error("Type PDF non pris en charge.");
+  if(typeof individualBorders!=="boolean"||(individualBorders&&kind!=="board"))
+    throw Error("Bordures individuelles invalides.");
   if(kind==="routine"&&(items.length<2||items.length>10))throw Error("Une routine contient 2 à 10 pictogrammes.");
-  // Une impression issue d'une fiche pictogramme comporte une seule case.
-  // L'éditeur de tableaux conserve ses propres choix 2, 3 et 4 colonnes.
+  // Les exemplaires identiques peuvent désormais occuper plusieurs colonnes.
+  // L'éditeur de tableaux conserve ses propres choix de disposition.
   if(kind==="board"&&![1,2,3,4].includes(columns))throw Error("Nombre de colonnes invalide.");
   if(!["simple","double"].includes(separatorMode))throw Error("Séparation invalide.");
   safeWidth(widthCm);
@@ -64,9 +81,10 @@ export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",column
   const w=widthCm*10,h=heightCm*10;
   const cols=kind==="routine"?items.length:columns;
   const gap=kind==="routine"?separatorMm*(separatorMode==="double"?2:1):GAP_BOARD_MM;
-  const edge=kind==="routine"||kind==="board"&&columns===1&&preset.colored?
-    separatorMm:0;
-  const totalW=cols*w+(cols-1)*gap+edge*2;
+  const edge=individualBorders?(preset.colored?separatorMm:0):
+    (kind==="routine"||kind==="board"&&columns===1&&preset.colored?separatorMm:0);
+  const totalW=cols*(w+(individualBorders?edge*2:0))+(cols-1)*gap+
+    (individualBorders?0:edge*2);
   if(totalW>pageW-20+1e-6)throw Error("La composition dépasse la largeur imprimable : aucune réduction automatique.");
   const rowHeight=h+edge*2;
   const usableH=pageH-42; // titre et marges physiques, en mm
@@ -86,7 +104,7 @@ export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",column
   if(current.length)pages.push(current);
   return {kind,title:title.trim(),language,paper,pageW,pageH,pages,
     widthMm:w,heightMm:h,bandMm,strokeMm,fontPt,gapMm:gap,edgeMm:edge,totalWidthMm:totalW,
-    separatorMode,preset:{...preset}};
+    separatorMode,individualBorders,columns:cols,preset:{...preset}};
 }
 function toBytes(s){return new TextEncoder().encode(s);}
 function concatenate(chunks){
@@ -244,6 +262,15 @@ function renderCell(ctx,item,img,x,y,plan){
     ctx.restore();
   }
 }
+// Garder un cadre coloré individuel même lorsque la planche comporte
+// plusieurs colonnes; ne pas changer le dessin des routines classiques.
+export function paintIndividualCellBorder(ctx,plan,x,y){
+  if(!plan.individualBorders||plan.edgeMm<=0||!plan.preset.colored)return false;
+  ctx.fillStyle=plan.preset.color;
+  ctx.fillRect(x-plan.edgeMm,y-plan.edgeMm,
+    plan.widthMm+plan.edgeMm*2,plan.heightMm+plan.edgeMm*2);
+  return true;
+}
 async function canvasPage(plan,rows,pageIndex,artwork,dpi){
   const canvas=document.createElement("canvas");
   canvas.width=Math.round(plan.pageW*dpi/MM_PER_INCH);
@@ -258,13 +285,14 @@ async function canvasPage(plan,rows,pageIndex,artwork,dpi){
   let y=28;
   for(const row of rows){
     let x=(plan.pageW-plan.totalWidthMm)/2+plan.edgeMm;
-    if(plan.edgeMm>0&&plan.preset.colored){
+    if(plan.edgeMm>0&&plan.preset.colored&&!plan.individualBorders){
       ctx.fillStyle=plan.preset.color;
       ctx.fillRect(x-plan.edgeMm,y-plan.edgeMm,plan.totalWidthMm,plan.heightMm+plan.edgeMm*2);
     }
     for(const item of row){
+      paintIndividualCellBorder(ctx,plan,x,y);
       renderCell(ctx,item,artwork.get(safeImage(item)),x,y,plan);
-      x+=plan.widthMm+plan.gapMm;
+      x+=plan.widthMm+plan.gapMm+(plan.individualBorders?plan.edgeMm*2:0);
     }
     y+=plan.heightMm+plan.edgeMm*2+GAP_BOARD_MM;
   }
