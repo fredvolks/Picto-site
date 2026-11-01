@@ -124,9 +124,11 @@ export const CLIENT_BORDER_PALETTE=Object.freeze([
 ]);
 export function renderClientPictoTemplateOptions({
  pictoName="",templates=[],fr=true,selectedId=null,artworkUrl=null,busy=false,
- borderEnabled=null,borderColor=null,paper="letter"
+ borderEnabled=null,borderColor=null,paper="letter",copies=1
 }={}){
  if(!["letter","a4"].includes(paper))throw Error("Format de papier invalide.");
+ if(typeof copies!=="number"||!Number.isInteger(copies)||copies<1||copies>12)
+   throw Error("Nombre d'exemplaires invalide (1 à 12).");
  ensureList(templates);
  if(templates.some(t=>t.is_published!==true))
    throw Error("Un gabarit non publié ne peut apparaître dans la fiche client.");
@@ -175,6 +177,13 @@ export function renderClientPictoTemplateOptions({
      }).join("")+'</div>')+
    borderControls+
    (templates.length?'<div class="pa-template-print-controls">'+
+     '<label for="pa-client-template-copies">'+escapeHtml(fr?"Nombre d’exemplaires":"Number of copies")+'</label>'+
+     '<select id="pa-client-template-copies" data-input="client-template-copies"'+(busy?' disabled':'')+' aria-describedby="pa-client-copies-help">'+
+       Array.from({length:12},(_,index)=>index+1).map(n=>'<option value="'+n+'"'+(copies===n?' selected':'')+'>'+n+'</option>').join("")+
+     '</select>'+
+     '<p id="pa-client-copies-help" class="pa-template-print-note">'+escapeHtml(fr?
+       "Les exemplaires sont répartis automatiquement sur le papier sans réduire leur taille ni perdre leur contour. Plusieurs pages peuvent être nécessaires.":
+       "Copies are arranged automatically on the sheet without shrinking them or losing their borders. Several pages may be needed.")+'</p>'+
      '<label for="pa-client-template-paper">'+escapeHtml(fr?"Format du papier":"Paper size")+'</label>'+
      '<select id="pa-client-template-paper" data-input="client-template-paper"'+
        (busy?" disabled":"")+'>'+
