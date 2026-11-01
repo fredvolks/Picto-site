@@ -421,6 +421,37 @@ try{
       assert.ok(Math.abs(metrics.tiles[i].w-metrics.tiles[i].h)<=1,"Picto non carré "+width+": "+JSON.stringify(metrics.tiles[i]));
     }
     assert.ok(metrics.docW<=metrics.w+1,"Débordement horizontal Login E "+width+": "+JSON.stringify(metrics));
+
+    if(width<=680){
+      const view=await evaluate(`
+        const box=selector=>{const el=document.querySelector(selector);if(!el)throw Error('Action de connexion absente: '+selector);const r=el.getBoundingClientRect(),st=getComputedStyle(el);return {top:r.top,bottom:r.bottom,height:r.height,display:st.display,visibility:st.visibility};};
+        return {height:innerHeight,viewportWidth:innerWidth,
+          htmlScroll:document.documentElement.scrollHeight,bodyScroll:document.body.scrollHeight,
+          pageScroll:document.querySelector('#app').scrollHeight,client:document.documentElement.clientHeight,
+          rootOverflow:getComputedStyle(document.documentElement).overflowY,
+          authSubmit:box('form[data-form=email-login] button[type=submit]'),
+          email:box('#auth-email'),password:box('#auth-password'),
+          forgot:box('[data-action=auth-forgot]'),
+          google:box('[data-action=google-login]'),
+          signup:box('.hosted-signup a'),
+          intro:box('.hosted-e-intro'),pics:box('.hosted-e-tiles')};
+      `);
+      const where=width+"x"+height;
+      for(const control of ["email","password","forgot","authSubmit","google","signup"]){
+        const r=view[control];
+        assert.ok(r.display!=="none"&&r.visibility!=="hidden"&&r.height>0,
+          "Action essentielle cachée "+control+" "+where+": "+JSON.stringify(view));
+        assert.ok(r.top>=-1&&r.bottom<=view.height+1,
+          "Connexion NON sur un écran : "+control+" "+where+": "+JSON.stringify(view));
+      }
+      assert.ok(view.htmlScroll<=view.height+2&&view.bodyScroll<=view.height+2&&view.pageScroll<=view.height+2,
+        "Défilement mobile au repos "+where+": "+JSON.stringify(view));
+      assert.ok(view.rootOverflow!=="hidden"&&view.rootOverflow!=="clip",
+        "Scroll interdit même avec clavier ou zoom "+where+": "+JSON.stringify(view));
+      assert.ok(Math.abs(view.pics.height-view.pics.bottom+view.pics.top)<2,"Mesures pictos incohérentes");
+      console.log("PASS LOGIN MOBILE UNE VUE",where);
+    }
+
     assert.ok(metrics.email&&metrics.google&&metrics.forgot&&metrics.signup==="../forfait.html","Auth ou lien perdu "+width);
     if(width<=768)assert.ok(metrics.panel.y>=metrics.intro.bottom-2,"Login mobile : éléments se chevauchent "+width);
     else assert.ok(metrics.panel.x>=metrics.intro.right-2,"Login desktop : colonnes se chevauchent "+width);
