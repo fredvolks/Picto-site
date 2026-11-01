@@ -114,3 +114,66 @@ test("Responsive de 320px au PC : accessibilité et défilement au zoom",()=>{
  assert.match(html,/localStorage\.setItem\('pictau-language',lang\)/);
  assert.match(html,/localStorage\.getItem\('pictau-language'\)/);
 });
+
+test("Parcours public Pict-au : Mes fichiers PDF et Mes brouillons FR/EN",async()=>{
+ const {renderOfficialComposer}=await import("../app/src/official-composer.js");
+ for(const kind of ["routine","board"])for(const language of ["fr","en"]){
+  const html=renderOfficialComposer({kind,language,items:[],escape:x=>String(x),icon:()=>""});
+  const files='data-action="nav" data-page="files"';
+  const drafts='data-action="nav" data-page="create"';
+  assert.equal(html.split(files).length-1,1);
+  assert.equal(html.split(drafts).length-1,1);
+  assert.ok(html.indexOf(drafts)<html.indexOf(files));
+  assert.match(html,language==="fr"?/Voir mes fichiers PDF/:/View my PDF files/);
+  assert.match(html,language==="fr"?/Mes brouillons/:/My drafts/);
+  assert.doesNotMatch(html,/Mes créations|My creations/);
+  assert.match(html,/data-print-fit/,"L'aide d'impression publique demeure visible");
+ }
+ const router=read("app/src/app.js");
+ assert.match(router,/if\(a==="nav"\)/);
+ assert.match(router,/if\(state\.page==="files"&&authStatus\.user\)refreshFilesForCurrentUser\(\)/);
+});
+
+test("Mes brouillons publics : une page vide ou partielle ne masque pas les documents",async()=>{
+ const {listEditableDraftsAvailablePage}=await import("../app/src/client-drafts.js");
+ const uid="11111111-1111-4111-8111-111111111111";
+ const row={id:"33333333-3333-4333-8333-333333333333",owner_id:uid,revision:1,
+  kind:"routine",title:"Ma routine",content:{items:[],settings:{
+   title:"Ma routine",widthCm:"3",paper:"letter",columns:"3"
+  }}};
+ function createMock(counts,mode=[]){
+  let index=0;const ranges=[];
+  const q={
+   eq(name,val){assert.equal(name,"owner_id");assert.equal(val,uid);return q;},
+   order(){return q;},
+   async range(start,end){
+    ranges.push([start,end]);
+    const current=index++,count=counts[Math.min(current,counts.length-1)];
+    const size=Math.max(0,Math.min(count-start,end-start+1));
+    const data=Array.from({length:size},()=>({...row}));
+    return {count,data:mode[current]==="empty"?[]:mode[current]==="partial"?data.slice(0,Math.max(0,size-2)):data,error:null};
+   }
+  };
+  return {ranges,client:{auth:{async getUser(){return {data:{user:{id:uid}},error:null};}},
+   from(name){assert.equal(name,"pictau_editable_drafts");return {
+    select(fields,opts){assert.equal(opts.count,"exact");return q;}
+   };}
+  }};
+ }
+ const empty=createMock([31,31],["empty","full"]);
+ const recovered=await listEditableDraftsAvailablePage(empty.client,uid,{page:0});
+ assert.equal(recovered.items.length,30);assert.equal(recovered.total,31);
+ assert.deepEqual(empty.ranges,[[0,29],[0,29]]);
+ const partial=createMock([61,61],["partial","full"]);
+ assert.equal((await listEditableDraftsAvailablePage(partial.client,uid,{page:0})).items.length,30);
+ assert.equal(partial.ranges.length,2);
+ const stale=createMock([61,31,31]);
+ const remaining=await listEditableDraftsAvailablePage(stale.client,uid,{page:4});
+ assert.equal(remaining.page,1);assert.equal(remaining.items.length,1);
+ assert.deepEqual(stale.ranges,[[120,149],[60,89],[30,59]]);
+ const contradictory=createMock([31,31,31],["empty","empty","empty"]);
+ await assert.rejects(listEditableDraftsAvailablePage(contradictory.client,uid,{page:0}),/Actualisez Mes brouillons/);
+ assert.equal(contradictory.ranges.length,3);
+ const none=createMock([0]);
+ assert.equal((await listEditableDraftsAvailablePage(none.client,uid,{page:2})).total,0);
+});

@@ -78,6 +78,10 @@ export async function listEditableDraftsPage(client,uid,{page=0}={}){
   if(q.error)throw q.error;
   if(!Number.isSafeInteger(q.count)||q.count<0||!Array.isArray(q.data))
     throw Error("Liste de brouillons indisponible.");
+  // Une réponse partielle ou contradictoire n'est pas un historique vide.
+  if(q.data.length>MAX_EDITABLE_DRAFTS||q.data.length>q.count||
+     (page*MAX_EDITABLE_DRAFTS>=q.count&&q.data.length>0))
+    throw Error("Pagination des brouillons incohérente. Actualisez Mes brouillons.");
   const items=q.data.map(row=>validateRow(row,uid));
   await authorized(client,uid);
   return {items,total:q.count,page};
@@ -89,9 +93,11 @@ export async function listEditableDraftsAvailablePage(client,uid,filters={}){
   for(let attempt=0;attempt<3;attempt++){
     const result=await listEditableDraftsPage(client,uid,{page});
     const last=Math.max(0,Math.ceil(result.total/MAX_EDITABLE_DRAFTS)-1);
-    if(page<=last)return result;
     if(result.total===0)return {...result,page:0};
-    page=last;
+    if(page>last){page=last;continue;}
+    // Total positif : exiger la page complète; réessayer au plus trois fois.
+    const expected=Math.min(MAX_EDITABLE_DRAFTS,result.total-page*MAX_EDITABLE_DRAFTS);
+    if(result.items.length===expected)return result;
   }
   throw Error("La liste de brouillons a changé. Actualisez Mes brouillons.");
 }
