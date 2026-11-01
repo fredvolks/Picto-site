@@ -25,8 +25,8 @@ test("Le PDF d'une case est enregistré dans Mes fichiers sans démo",()=>{
  const block=app.slice(app.indexOf('if(a==="client-template-print")'),
    app.indexOf('if(a==="admin-preview")'));
  assert.match(block,/createPreparedPdf\(\{/);
- assert.match(block,/kind:"board",columns:1/);
- assert.match(block,/preset:applyClientBorderPreference\(settings,borderPreference\)\.preset/);
+ assert.match(block,/kind:"board",columns,individualBorders:true/);
+ assert.match(block,/const printPreset=applyClientBorderPreference/);
  assert.match(block,/archivePdf\(client,uid,blob/);
  assert.match(block,/pendingGeneratedPdf=/);
  assert.match(block,/state\.page="files"/);
@@ -40,7 +40,7 @@ test("Le dessin PNG tourne autour du centre sans toucher au cadre",()=>{
  assert.match(print,/ctx\.restore\(\)/);
 });
 test("Le module d\u0027impression reste fermé sans les tables réelles",()=>{
- assert.match(app,/import \{loadConfirmedPrintSettings,applyClientBorderPreference\} from "\.\/client-template-print\.js"/);
+ assert.match(app,/import .*loadConfirmedPrintSettings,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint/);
  assert.match(app,/let TEMPLATE_CHOICES_RELEASED=false/);
 });
 
@@ -53,7 +53,7 @@ test("Un choix supprimé affiche une erreur récupérable sans impression automa
 });
 test("Un contour coloré est facultatif et limité au PDF du pictogramme seul",()=>{
  assert.match(print,/kind==="board"&&columns===1&&preset\.colored/);
- assert.match(print,/if\(plan\.edgeMm>0&&plan\.preset\.colored\)/);
+ assert.match(print,/paintIndividualCellBorder/);
 });
 
 test("La palette n'efface pas la sélection et se réinitialise par modèle",()=>{
