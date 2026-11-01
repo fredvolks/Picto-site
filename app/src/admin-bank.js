@@ -99,6 +99,26 @@ export async function readAdminBank(client, verifiedUserId, filters={}) {
 // Les suppressions, fusions et changements de thème peuvent faire disparaître
 // une page entre le clic de pagination et la réponse. Récupérer la dernière
 // page existante sans jamais traiter un échec RLS ou un corps nul comme 0.
+// File éditoriale L2 : navigation purement locale sur les résultats privés
+// filtrés par Supabase (status=draft, ancien d'abord). N'approuve et ne publie
+// jamais un PNG; chaque fiche passe par son aperçu et sa confirmation humaine.
+export function planNextPrivateDraftReview({items,seen,total,page}={}){
+  if(!Array.isArray(items)||!(seen instanceof Set)||
+     !Number.isSafeInteger(total)||total<0||
+     !Number.isSafeInteger(page)||page<0||
+     items.length>ADMIN_BANK_PAGE_SIZE||
+     (items.length>total)||
+     items.some(row=>!row||typeof row.id!=="string"||!row.id||
+       row.status!=="draft")||
+     new Set(items.map(row=>row.id)).size!==items.length)
+    throw Error("File de révision privée incohérente. Actualisez la banque.");
+  for(const row of items){
+    if(!seen.has(row.id))return {kind:"open",id:row.id};
+  }
+  if((page+1)*ADMIN_BANK_PAGE_SIZE<total)return {kind:"page",page:page+1};
+  return {kind:"done"};
+}
+
 export function lastAdminBankPage(total){
   if(!Number.isSafeInteger(total)||total<0)
     throw new Error("Total de fiches indisponible.");

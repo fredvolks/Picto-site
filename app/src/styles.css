@@ -124,6 +124,15 @@
 .admin-bank-controls .control{min-width:0}
 .admin-bank-controls input[type="search"],.admin-bank-controls select{width:100%;min-width:0;min-height:42px;border:1px solid #dce7ec;border-radius:9px;background:#fff;color:#2b404b;padding:0 11px;font-size:12px}
 .admin-bank-controls label{font-size:11px;font-weight:700;color:#586b76}
+.admin-draft-review-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  margin:12px 0;padding:12px 14px;border:1px solid #d8e3d9;border-radius:12px;background:#f6faf6}
+.admin-draft-review-tools p{flex:1 1 240px;font-size:13px;margin:0;color:#294939}
+.admin-draft-review-tools button{min-height:44px}
+.admin-draft-review-next{padding:12px 14px;margin:14px 0;border-left:4px solid #294939;
+  background:#f6faf6;border-radius:8px}
+.admin-draft-review-next p{margin:0 0 8px;line-height:1.5;font-size:14px}
+.admin-draft-review-next button{min-height:44px}
+@media(max-width:520px){.admin-draft-review-tools button{flex:1 1 100%}}
 .admin-bank-summary{font-size:12px;line-height:1.5;color:#647d8b;margin:0 0 15px;overflow-wrap:anywhere}
 .admin-preview-technical{font-size:13px;font-weight:750;color:#294b5f;text-align:center;margin:13px 0 5px}
 .admin-preview-advisory{font-size:11px;color:#6b7d84;line-height:1.55;text-align:center;margin:0}

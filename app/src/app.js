@@ -2,7 +2,7 @@ import {samples} from "./data.js";
 import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
-import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
+import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters,planNextPrivateDraftReview} from "./admin-bank.js";
 import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy} from "./admin-template-bank.js";
 import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption,confirmPublishedNamedTemplateEdit} from "./admin-template-bank-ui.js";
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
@@ -620,6 +620,35 @@ function requestStatusLabel(status){return REQUEST_LABELS[status]?.[state.langua
 function requestDate(value){const ms=Date.parse(value||"");return Number.isFinite(ms)?new Date(ms).toLocaleDateString(state.language==="fr"?"fr-CA":"en-CA",{year:"numeric",month:"short",day:"numeric"}):"—";}
 
 const privateBank={allowed:false,loading:false,items:[],error:"",request:0,total:0,page:0};
+// Les brouillons sont revus un par un; jamais d'approbation implicite.
+const draftReviewQueue={active:false,pending:false,seen:new Set(),message:""};
+function stopDraftReviewQueue(){
+  draftReviewQueue.active=false;draftReviewQueue.pending=false;
+  draftReviewQueue.seen.clear();draftReviewQueue.message="";
+}
+function advanceDraftReviewQueue(){
+  if(!draftReviewQueue.active||privateBank.loading||privateBank.error||
+     !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank")return;
+  const plan=planNextPrivateDraftReview({
+    items:privateBank.items,seen:draftReviewQueue.seen,
+    total:privateBank.total,page:privateBank.page
+  });
+  if(plan.kind==="open"){
+    draftReviewQueue.seen.add(plan.id);
+    draftReviewQueue.message="";
+    void openAdminPreview(plan.id);
+  }else if(plan.kind==="page"){
+    privateBank.page=plan.page;
+    draftReviewQueue.pending=true;
+    queueAdminBankRefresh();
+  }else{
+    draftReviewQueue.message=state.language==="fr"?
+      "Fin des brouillons à réviser dans cette file. Aucun pictogramme n’a été publié automatiquement.":
+      "End of drafts to review in this queue. No pictogram was published automatically.";
+    render();
+  }
+}
+
 const adminNamedTemplates={items:[],loaded:false,loading:false,busy:false,error:"",message:"",
   name:"",selectedId:null,widthCm:5,rotationDeg:0,request:0};
 function resetAdminNamedTemplates(){
@@ -896,7 +925,9 @@ async function openAdminPreview(assetId){
   if(!canOpenAdmin()||privatePreview.loading||!privateBank.items.some(item=>item.id===assetId))return;
   clearAdminPreview();
   const userId=authStatus.user.id,request=++privatePreview.request;
-  privatePreview.id=assetId;privatePreview.loading=true;render();
+  privatePreview.id=assetId;privatePreview.loading=true;
+  if(draftReviewQueue.active)draftReviewQueue.seen.add(assetId);
+  render();
   try{
     const client=await supabaseClient();
     const result=await loadPrivateAdminPreview(client,userId,assetId);
@@ -920,6 +951,7 @@ function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privat
 function resetPrivateBank(){
   resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();resetClientPictoTemplates();
   templateChoicesProbe++;TEMPLATE_CHOICES_RELEASED=false;
+  stopDraftReviewQueue();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
@@ -988,7 +1020,15 @@ function queueAdminBankRefresh(delay=0){
   const load=()=>{
     bankQueryTimer=null;
     if(!canOpenAdmin()||authStatus.user?.id!==uid)return;
-    void supabaseClient().then(c=>refreshPrivateBank(c,uid)).catch(error=>{
+    void supabaseClient().then(async c=>{
+      await refreshPrivateBank(c,uid);
+      if(draftReviewQueue.active&&draftReviewQueue.pending&&
+         authStatus.user?.id===uid&&canOpenAdmin()&&
+         !privateBank.loading&&!privateBank.error){
+        draftReviewQueue.pending=false;
+        advanceDraftReviewQueue();
+      }
+    }).catch(error=>{
       if(authStatus.user?.id!==uid||privateBank.request!==epoch)return;
       privateBank.loading=false;privateBank.error=String(error?.message||error);
       render();
@@ -1386,6 +1426,16 @@ function renderAdmin(){
     +[["list",fr?"Liste":"List"],["small",fr?"Petites miniatures":"Small thumbnails"],["medium",fr?"Images moyennes":"Medium images"]]
       .map(([value,label])=>'<button type="button" data-action="admin-bank-view" data-view="'+value+'" class="btn btn-light btn-small'+(bankView===value?' is-active':'')+'" aria-pressed="'+(bankView===value)+'">'+esc(label)+'</button>').join("")
     +'</div>';
+  const reviewQueueTools='<div class="admin-draft-review-tools">'
+    +'<button type="button" class="btn btn-primary" data-action="admin-draft-review-start"'
+    +(privateBank.loading||draftReviewQueue.active?' disabled':'')+'>'
+    +esc(fr?"Réviser les brouillons un par un":"Review drafts one by one")+'</button>'
+    +(draftReviewQueue.active?'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop">'
+      +esc(fr?"Terminer la révision":"End review")+'</button>':"")
+    +(draftReviewQueue.active?'<p role="status">'+esc(draftReviewQueue.message||
+      (fr?"File de révision privée : publication seulement après votre approbation.":
+          "Private review queue: publication only after your approval."))+'</p>':"")
+    +'</div>';
   const bankSummary='<p class="admin-bank-summary" role="status">'
     +esc(fr?privateBank.total+" résultat(s) dans la banque pour ces critères (recherche serveur, "+ADMIN_BANK_PAGE_SIZE+" fiches par page)."
       :privateBank.total+" result(s) in the bank for these filters (server-side search, "+ADMIN_BANK_PAGE_SIZE+" records per page).")
@@ -1497,6 +1547,12 @@ function renderAdmin(){
     "Informations techniques seulement : qualité graphique et publication à valider manuellement.":
     "Technical information only: artwork quality and publishing still require human review.")+'</p>':"")
     +(privatePreview.inkError?'<p class="admin-import-alert" role="status">'+esc(fr?"Aperçu d'encre indisponible : ":"Ink preview unavailable: ")+esc(privatePreview.inkError)+'</p>':"")
+    +(draftReviewQueue.active?'<div class="admin-draft-review-next">'
+      +'<p>'+esc(fr?"Révision en cours : passez au brouillon suivant après avoir examiné celui-ci.":
+        "Review in progress: continue to the next draft once you have examined this one.")+'</p>'
+      +'<button type="button" class="btn btn-light" data-action="admin-draft-review-next"'
+      +(privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'
+      +esc(fr?"Brouillon suivant sans publier":"Next draft without publishing")+'</button></div>':"")
     +privateInkCard+reviewHtml+privateProofControls+adminTemplatePanel
     +(publishedCatalog.publishError?'<p role="alert" class="admin-import-alert">'+esc(publishedCatalog.publishError)+'</p>':'')
     +(publishedCatalog.publishMessage?'<p role="status" class="admin-import-success">'+esc(publishedCatalog.publishMessage)+'</p>':'')
@@ -1667,7 +1723,7 @@ function renderAdmin(){
         +icon("check","btn-icon")+esc(fr?'Voir les pictogrammes publiés':'View published pictograms')
         +'</button></div>':"")
       +(privateBank.error?'<p role="alert">'+esc(fr?"Impossible de lire la banque privée.":"Unable to load private bank.")+'</p>':"")
-      +filters+bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
+      +filters+reviewQueueTools+bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
       +(!privateBank.loading&&!privateBank.error?pagination:"")+renameForm+themeAssetPanel+privatePreviewBody+draftEditBody+'</section>'+themeManagement+info;
   }else if(state.adminTab==="requests"){
@@ -3796,16 +3852,37 @@ root.addEventListener("click",function(event){
   if(a==="admin-edit-draft"){openDraftEditor(el.dataset.id);return;}
   if(a==="close-admin-edit"){clearDraftEditor();render();return;}
   if(a==="export-admin-proposal"){exportDraftProposal();return;}
+  if(a==="admin-draft-review-start"){
+    if(!canOpenAdmin()||!authStatus.user||privateBank.loading||
+       state.page!=="admin"||state.adminTab!=="bank")return;
+    stopDraftReviewQueue();
+    draftReviewQueue.active=true;draftReviewQueue.pending=true;
+    bankFilters.query="";bankFilters.status="draft";
+    bankFilters.theme="all";bankFilters.sort="oldest";
+    privateBank.page=0;
+    clearAdminPreview();clearDraftEditor();clearBankRename();
+    queueAdminBankRefresh();return;
+  }
+  if(a==="admin-draft-review-next"){
+    if(!draftReviewQueue.active||privatePreview.loading||
+       publishedCatalog.publishing||privateBank.loading||!canOpenAdmin())return;
+    clearAdminPreview();
+    advanceDraftReviewQueue();return;
+  }
+  if(a==="admin-draft-review-stop"){
+    if(!canOpenAdmin())return;
+    stopDraftReviewQueue();clearAdminPreview();render();return;
+  }
   if(a==="refresh-admin-bank"){
     if(!canOpenAdmin() || !authStatus.user)return;
-    clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
+    stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(a==="admin-bank-page"){
     if(!canOpenAdmin()||privateBank.loading)return;
     const lastPage=Math.max(0,Math.ceil(privateBank.total/ADMIN_BANK_PAGE_SIZE)-1);
     const next=privateBank.page+(el.dataset.direction==="next"?1:el.dataset.direction==="previous"?-1:0);
     if(next===privateBank.page||next<0||next>lastPage)return;
-    privateBank.page=next;clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
+    privateBank.page=next;stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(a==="admin-named-template-new"){
     if(!canOpenAdmin()||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
@@ -3991,6 +4068,7 @@ root.addEventListener("input",function(event){
     return;
   }
   if(field==="admin-bank-search" && canOpenAdmin()){
+    stopDraftReviewQueue();
     bankFilters.query=event.target.value;privateBank.page=0;
     clearAdminPreview();clearDraftEditor();clearBankRename();
     try{normalizeAdminBankFilters({...bankFilters,page:0});queueAdminBankRefresh(300);}
@@ -4063,6 +4141,8 @@ root.addEventListener("submit",function(event){
         publishedCatalog.publishMessage=state.language==="fr"?"Publication confirmée par le serveur.":"Publication confirmed by the server.";
         clearAdminPreview();
         await refreshPrivateBank(client,uid);
+        if(draftReviewQueue.active&&authStatus.user?.id===uid&&canOpenAdmin())
+          advanceDraftReviewQueue();
       }catch(error){if(authStatus.user?.id===uid)publishedCatalog.publishError=String(error?.message||error);}
       finally{publishedCatalog.publishing=false;render();}
     })();return;
@@ -4581,7 +4661,7 @@ root.addEventListener("change",function(event){
     if(!canOpenAdmin())return;
     const mapping={"admin-bank-status":"status","admin-bank-theme":"theme","admin-bank-sort":"sort"};
     bankFilters[mapping[field]]=event.target.value;privateBank.page=0;
-    clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
+    stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(!field)return;
   const value=event.target.value;
