@@ -346,7 +346,7 @@ try{
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
     for(const page of ["index.html","forfait.html","connexion.html","contact.html","conditions.html","confidentialite.html","app/index.html"]){
       await command("Page.navigate",{url:base+"/"+page});
-      await waitFor("return !!document.querySelector('[data-pa-universal-header] [data-lang=fr]') && !!document.querySelector('[data-pa-universal-header] .pictau-brand-img')",16000);
+      await waitFor("return document.readyState==='complete' && !!document.querySelector('[data-pa-universal-header] [data-lang=fr]') && !!document.querySelector('[data-pa-universal-header] .pictau-brand-img')",16000);
       await evaluate("document.querySelector('[data-pa-universal-header] [data-lang=fr]').click();return true;");
       await waitFor("return document.documentElement.lang==='fr'");
       const frGeometry=await evaluate(languageGeometry);
