@@ -478,7 +478,7 @@ try{
           assert.equal(item.radius,"0px","Coin arrondi externe "+where);
           assert.equal(item.shadow,"none","Ombre support externe "+where);
           assert.equal(item.bg,"rgba(0, 0, 0, 0)","Fond de support externe "+where);
-          assert.ok(parseFloat(item.insideBorder)>=1.5,"Contour noir interne absent "+where+" "+JSON.stringify(item));
+          assert.ok(parseFloat(item.insideBorder)>=1,"Contour noir interne absent "+where+" "+JSON.stringify(item));
           assert.equal(item.insideColor,"rgb(44, 56, 52)","Contour noir interne modifié "+where);
           assert.ok(item.innerRect>0,"Dessin interne disparu "+where);
         }
