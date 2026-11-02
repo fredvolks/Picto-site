@@ -1622,7 +1622,7 @@ function renderAdmin(){
           templates:privateNamedGallery.items,fr,customPicto,scaleMetrics,fmtRaw,
           artScalePercent:bankImageSheet.scalePercent
         }):"")+'</section>'
-      +'<div class="admin-art-rotation">
+      +'<div class="admin-art-rotation">'
       +'<label for="admin-art-rotation">'+esc(fr?"Faire pivoter le dessin (centre de l\u2019encre)":"Rotate artwork (ink center)")+' : <output id="admin-art-rotation-value" for="admin-art-rotation">'+privatePreview.rotationDeg+'°</output></label>'
       +'<input id="admin-art-rotation" data-input="admin-art-rotation" type="range" min="-180" max="180" step="1" value="'+privatePreview.rotationDeg+'"'+(privatePreview.adjustBusy?' disabled':'')+' />'
       +'<div class="admin-art-rotation-actions">'
