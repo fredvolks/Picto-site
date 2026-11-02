@@ -2209,3 +2209,43 @@
  .pa-bank-results .admin-bank-item .admin-bank-item-actions{width:auto}
  .pa-bank-sheet .admin-png-named-grid{grid-template-columns:minmax(0,1fr)}
 }
+
+
+/* Correctif 2026-11-02 : la nouvelle fiche Banque n'a qu'un seul bouton.
+   L'ancienne règle mobile cache le groupe d'actions, ce qui cachait Ouvrir.
+   Le rendre accessible à 320px, téléphone, tablette et PC sans ressusciter
+   les anciennes commandes. */
+.pa-bank-results .admin-bank-item > .admin-bank-item-actions{
+  display:flex!important;
+  align-items:center;
+  justify-content:flex-end;
+  justify-self:end;
+  align-self:center;
+  width:auto;
+  max-width:100%;
+  min-width:0;
+}
+.pa-bank-results .admin-bank-item > .admin-bank-item-actions > .pa-bank-card-open{
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  min-width:76px;
+  min-height:44px;
+  max-width:100%;
+  padding:8px 11px;
+  white-space:nowrap;
+  font-size:13px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.pa-bank-results .admin-bank-item > .admin-bank-item-actions > .pa-bank-card-open:focus-visible{
+  outline:3px solid #111;
+  outline-offset:3px;
+}
+@media(max-width:350px){
+  .pa-bank-results .admin-bank-item > .admin-bank-item-actions > .pa-bank-card-open{
+    min-width:66px;
+    padding:7px 8px;
+    font-size:12px;
+  }
+}
