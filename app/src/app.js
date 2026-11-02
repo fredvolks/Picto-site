@@ -22,7 +22,9 @@ import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
 import {createNormalizedBankThumbnail} from "./bank-thumbnail.js";
-import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
+import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,renderPrivateInkNamedGallery,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
+import {validateImageFineTune,previewImageInTemplates} from "./image-fine-tune.js";
+import {readAdminImageAdjustment,saveAdminImageAdjustment} from "./image-adjustments.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
@@ -38,7 +40,7 @@ import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,sa
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf,fitPhysicalCopyColumns} from "./print-pdf.js";
-import {loadConfirmedPrintSettings,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
+import {loadConfirmedPrintSettings,loadPublishedImageScale,applyPublishedImageScale,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
@@ -694,10 +696,63 @@ const privateImport={file:null,loading:false,error:"",message:"",request:0,draft
 const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",request:0};
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
+const privateNamedGallery={items:[],assetId:null,loaded:false,loading:false,error:"",request:0};
+const bankImageSheet={tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+  loading:false,busy:false,error:"",message:"",request:0};
+function bankScaleWarning(fr=true){
+  if(!privateNamedGallery.loaded||!privateNamedGallery.items.length||!privatePreview.id)return "";
+  try{
+    const templates=privateNamedGallery.items.map(row=>({
+      id:row.id,name:row.name,shape:row.preset.shape,art_percent:row.preset.artPercent
+    }));
+    const rows=previewImageInTemplates({assetId:privatePreview.id,
+      scalePercent:bankImageSheet.scalePercent,templates});
+    const count=rows.filter(x=>x.status==="needs-review").length;
+    return count?(fr?count+" gabarit(s) à vérifier avant publication.":count+" template(s) need review before publishing."):"";
+  }catch{return fr?"Aperçus à vérifier avant publication.":"Preview requires review before publishing.";}
+}
+async function loadBankImageScale(assetId,uid,previewTicket){
+  const ticket=++bankImageSheet.request;
+  bankImageSheet.loading=true;bankImageSheet.loaded=false;bankImageSheet.error="";render();
+  try{
+    const client=await supabaseClient();
+    const row=await readAdminImageAdjustment(client,uid,assetId);
+    if(ticket!==bankImageSheet.request||previewTicket!==privatePreview.request||
+       privatePreview.id!==assetId||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    Object.assign(bankImageSheet,{scalePercent:row.scalePercent,revision:row.revision,
+      available:row.available,loaded:true});
+  }catch(error){
+    if(ticket===bankImageSheet.request&&privatePreview.id===assetId)
+      bankImageSheet.error=String(error?.message||error);
+  }finally{
+    if(ticket===bankImageSheet.request&&privatePreview.id===assetId){
+      bankImageSheet.loading=false;render();
+    }
+  }
+}
+async function loadBankNamedGallery(assetId,uid,previewTicket){
+  const ticket=++privateNamedGallery.request;
+  Object.assign(privateNamedGallery,{items:[],assetId,loaded:false,loading:true,error:""});
+  try{
+    const client=await supabaseClient();
+    const rows=await listAdminNamedTemplates(client,uid);
+    if(ticket!==privateNamedGallery.request||previewTicket!==privatePreview.request||
+       privatePreview.id!==assetId||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    privateNamedGallery.items=rows;privateNamedGallery.loaded=true;
+  }catch(error){
+    if(ticket===privateNamedGallery.request&&privatePreview.id===assetId)
+      privateNamedGallery.error=String(error?.message||error);
+  }finally{
+    if(ticket===privateNamedGallery.request&&privatePreview.id===assetId){
+      privateNamedGallery.loading=false;render();
+    }
+  }
+}
+
 const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
   dirty:false,error:"",message:"",request:0};
-const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
+const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,scalePercent:100,
   borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:"",request:0};
 function resetAdminTemplateChoices(){
   ++adminTemplateChoices.request;
@@ -707,7 +762,7 @@ function resetAdminTemplateChoices(){
 }
 function resetClientPictoTemplates(){
   ++clientPictoTemplates.request;
-  Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
+  Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,scalePercent:100,
     borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:""});
 }
 function closeClientPictoTemplateChoices(){
@@ -753,8 +808,10 @@ async function openClientPictoTemplateChoices(id){
   try{
     const client=await supabaseClient();
     const rows=await listClientPictoTemplateChoices(client,uid,id);
+    const approvedScale=await loadPublishedImageScale(client,uid,id);
     if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||canOpenAdmin())return;
     clientPictoTemplates.items=rows;
+    clientPictoTemplates.scalePercent=approvedScale;
   }catch(error){
     if(ticket===clientPictoTemplates.request)clientPictoTemplates.error=String(error?.message||error);
   }finally{
@@ -771,7 +828,7 @@ function renderClientPictoTemplateModal(){
       +'<button type="button" data-action="client-template-refresh" class="btn btn-light">'
       +esc(fr?"Actualiser les gabarits":"Refresh templates")+'</button></div>':"")
     +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
-       templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,
+       templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,artScalePercent:f.scalePercent,
        borderEnabled:f.borderEnabled,borderColor:f.borderColor,paper:f.paper,copies:f.copies,
        artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
     +'</section></div>';
@@ -825,7 +882,8 @@ function openBankRename(id){
   if(!asset)return;
   clearBankRename();bankRename.id=id;bankRename.expected=asset.admin_name??null;
   bankRename.value=asset.admin_name||asset.title_fr||"";
-  clearAdminPreview();clearDraftEditor();render();focusBankInspector();
+  if(privatePreview.id!==id)clearAdminPreview();
+  bankImageSheet.tab="name";clearDraftEditor();render();focusBankInspector();
 }
 function hasUnsavedBankEdits(){
   const renamed=privateBank.items.find(item=>item.id===bankRename.id);
@@ -927,8 +985,8 @@ function openDraftEditor(assetId){
   if(!canOpenAdmin()||draftEditor.saving)return;
   const item=privateBank.items.find(asset=>asset.id===assetId);
   if(!item||item.status!=="draft"||item.created_by!==authStatus.user?.id)return;
-  clearDraftEditor();clearAdminPreview();
-  draftEditor.id=item.id;
+  clearDraftEditor();if(privatePreview.id!==assetId)clearAdminPreview();
+  bankImageSheet.tab="name";draftEditor.id=item.id;
   draftEditor.original={title_fr:item.title_fr,title_en:item.title_en??null,theme:item.theme};
   draftEditor.form={titleFr:item.title_fr,titleEn:item.title_en||"",theme:item.theme};
   render();focusBankInspector();
@@ -959,6 +1017,10 @@ function clearAdminPreview(){
   privatePreview.id=null;privatePreview.asset=null;privatePreview.url=null;
   privatePreview.inkUrl=null;privatePreview.inkBlob=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
   privatePreview.rotationDeg=0;privatePreview.adjustBusy=false;privatePreview.adjustError="";privatePreview.adjustMessage="";
+  bankImageSheet.request++;privateNamedGallery.request++;
+  Object.assign(bankImageSheet,{tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+    loading:false,busy:false,error:"",message:""});
+  Object.assign(privateNamedGallery,{items:[],assetId:null,loaded:false,loading:false,error:""});
   privatePreview.loading=false;privatePreview.error="";
 }
 async function openAdminPreview(assetId){
@@ -977,6 +1039,8 @@ async function openAdminPreview(assetId){
     catch(error){cropError=String(error?.message||error);}
     if(request!==privatePreview.request||authStatus.user?.id!==userId||!canOpenAdmin())return;
     privatePreview.asset=result.asset;privatePreview.technical=technical;
+    void loadBankImageScale(assetId,userId,request);
+    void loadBankNamedGallery(assetId,userId,request);
     privatePreview.url=URL.createObjectURL(result.blob);
     privatePreview.inkInfo=crop;privatePreview.inkError=cropError;
     if(crop){privatePreview.inkBlob=crop.blob;privatePreview.inkUrl=URL.createObjectURL(crop.blob);}
@@ -1521,12 +1585,7 @@ function renderAdmin(){
       +'<span class="pa-bank-card-status">'+esc(asset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span>'
       +'<small>'+assignedThemes.map(t=>esc(themeLabel(t))).join(" · ")+' · '+esc(asset.status||"draft")+'</small>'
       +'<small>'+esc(fr?"Importé : ":"Imported: ")+esc(date)+'</small></div>'
-      +'<div class="admin-bank-item-actions"><button type="button" class="btn btn-light btn-small admin-preview-button" data-action="admin-preview" data-id="'+esc(asset.id)+'"'
-      +(privatePreview.loading?' disabled':'')+'>'+icon("search","btn-icon")+esc(fr?"Aperçu privé":"Private preview")+'</button>'
-      +'<button type="button" class="btn btn-light btn-small" data-action="admin-rename" data-id="'+esc(asset.id)+'">'+esc(fr?"Nom banque":"Bank name")+'</button>'
-      +'<button type="button" class="btn btn-light btn-small" data-action="admin-theme-asset" data-id="'+esc(asset.id)+'">'+esc(fr?"Thèmes":"Themes")+'</button>'
-      +(asset.status==="draft"&&asset.created_by===authStatus.user?.id?'<button type="button" class="btn btn-light btn-small" data-action="admin-edit-draft" data-id="'+esc(asset.id)+'">'+icon("check","btn-icon")+esc(fr?"Textes / fiche":"Text / record")+'</button>':"")
-      +'</div><button type="button" class="pa-bank-card-open" data-action="admin-bank-open" data-id="'+esc(asset.id)+'"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Ouvrir":"Open")+'</button></article>';
+      +'<div class="admin-bank-item-actions"><button type="button" class="btn btn-primary btn-small pa-bank-card-open" data-action="admin-bank-open" data-id="'+esc(asset.id)+'"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Ouvrir":"Open")+'</button></div></article>';
   }).join("");
   const realBankBody=privateBank.loading
     ? '<p role="status">'+esc(fr?"Chargement de la banque…":"Loading bank…")+'</p>'
@@ -1551,8 +1610,18 @@ function renderAdmin(){
     return '<div class="admin-png-template"><h4>'+esc(fr?"Comparer le vrai dessin dans trois formats":"Compare the actual artwork in three formats")+'</h4>'
       +renderPrivateInkComparison({
         asset,inkUrl:privatePreview.inkUrl,rotationDeg:privatePreview.rotationDeg,
-        preset:state.currentPreset,fr,customPicto,scaleMetrics,fmtRaw
+        preset:state.currentPreset,fr,customPicto,scaleMetrics,fmtRaw,
+        artScalePercent:bankImageSheet.scalePercent
       })
+      +'<section class="admin-png-named-section"><h4>'+esc(fr?"Dans mes templates enregistrés":"Inside my saved templates")+'</h4>'
+      +(privateNamedGallery.loading?'<p role="status">'+esc(fr?"Chargement des templates…":"Loading templates…")+'</p>':"")
+      +(privateNamedGallery.error?'<p role="alert">'+esc(privateNamedGallery.error)+'</p>':"")
+      +(privateNamedGallery.loaded&&privateNamedGallery.assetId===asset.id?
+        renderPrivateInkNamedGallery({
+          asset,inkUrl:privatePreview.inkUrl,rotationDeg:privatePreview.rotationDeg,
+          templates:privateNamedGallery.items,fr,customPicto,scaleMetrics,fmtRaw,
+          artScalePercent:bankImageSheet.scalePercent
+        }):"")+'</section>'
       +'<div class="admin-art-rotation">'
       +'<label for="admin-art-rotation">'+esc(fr?"Faire pivoter le dessin (centre de l\u2019encre)":"Rotate artwork (ink center)")+' : <output id="admin-art-rotation-value" for="admin-art-rotation">'+privatePreview.rotationDeg+'°</output></label>'
       +'<input id="admin-art-rotation" data-input="admin-art-rotation" type="range" min="-180" max="180" step="1" value="'+privatePreview.rotationDeg+'"'+(privatePreview.adjustBusy?' disabled':'')+' />'
@@ -1827,8 +1896,62 @@ function renderAdmin(){
       +bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
       +(!privateBank.loading&&!privateBank.error?pagination:"")+'</section>';
+    const sheetTabs=[["name",fr?"Nom":"Name"],["adjust",fr?"Ajuster":"Adjust"],["classify",fr?"Classer":"Classify"]];
+    const sheetNav='<nav class="pa-bank-sheet-tabs" aria-label="'+esc(fr?"Sections de la fiche":"Pictogram details")+'">'+
+      sheetTabs.map(([key,label])=>'<button type="button" data-action="pa-bank-sheet-tab" data-tab="'+key+
+        '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>';
+    const sheetTitle=selectedAsset?(selectedAsset.admin_name||selectedAsset.title_fr||"—"):"";
+    const sheetTop=selectedAsset?'<header class="pa-bank-sheet-head">'+
+      '<button type="button" class="btn btn-light" data-action="admin-bank-detail-close">'+esc(fr?"← Retour aux images":"← Back to images")+'</button>'+
+      '<h2 id="pa-bank-inspector-title" tabindex="-1">'+esc(sheetTitle)+'</h2>'+
+      '<span class="admin-chip">'+esc(selectedAsset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span></header>'+
+      (privatePreview.loading?'<p role="status">'+esc(fr?"Chargement sécurisé de l’image…":"Loading private picture…")+'</p>':"")+
+      (privatePreview.error?'<p role="alert">'+esc(privatePreview.error)+'</p>':"")+
+      (privatePreview.url?'<figure class="pa-bank-sheet-hero"><img alt="'+esc(chosenLabel)+'" src="'+esc(privatePreview.url)+'"></figure>':"")+
+      sheetNav:"";
+    const sheetNames=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Nom":"Name")+'">'+
+      '<div class="pa-bank-sheet-fields">'+
+      '<div><small>'+esc(fr?"Nom de la banque":"Bank name")+'</small><strong>'+esc(sheetTitle)+'</strong></div>'+
+      '<div><small>'+esc(fr?"Nom français":"French name")+'</small><strong>'+esc(selectedAsset.title_fr||"—")+'</strong></div>'+
+      '<div><small>'+esc(fr?"Nom anglais":"English name")+'</small><strong>'+esc(selectedAsset.title_en||"—")+'</strong></div></div>'+
+      '<div class="pa-bank-sheet-actions">'+
+      '<button type="button" class="btn btn-light" data-action="admin-rename" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier le nom de banque":"Edit bank name")+'</button>'+
+      (selectedAsset.status==="draft"&&selectedAsset.created_by===authStatus.user?.id?
+        '<button type="button" class="btn btn-light" data-action="admin-edit-draft" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier les noms FR/EN":"Edit FR/EN names")+'</button>':"")+'</div>'+
+      renameForm+draftEditBody+'</section>':"";
+    const sheetAdjust=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Ajuster":"Adjust")+'">'+
+      '<h3>'+esc(fr?"Taille de ce dessin seulement":"Size of this artwork only")+'</h3>'+
+      '<p>'+esc(fr?"100 % = taille du template. Le réglage individuel ne modifie pas les autres pictogrammes ni les modèles.":"100% = template size. The adjustment does not change other images or templates.")+'</p>'+
+      '<div class="pa-bank-sheet-range"><label for="pa-bank-scale">'+esc(fr?"Agrandir / rapetisser":"Enlarge / shrink")+
+      ' : <output id="pa-bank-scale-value">'+bankImageSheet.scalePercent+' %</output></label>'+
+      '<input type="range" id="pa-bank-scale" data-input="pa-bank-scale" min="60" max="140" step="5" value="'+bankImageSheet.scalePercent+'"'+
+      (!bankImageSheet.loaded||bankImageSheet.busy?' disabled':'')+'>'+
+      '<div class="pa-bank-sheet-range-actions"><button type="button" class="btn btn-light" data-action="pa-bank-scale-reset"'+
+        (bankImageSheet.busy||bankImageSheet.scalePercent===100?' disabled':'')+'>'+esc(fr?"Réinitialiser à 100 %":"Reset to 100%")+'</button>'+
+      '<button type="button" class="btn btn-primary" data-action="pa-bank-scale-save"'+
+        (!bankImageSheet.loaded||!bankImageSheet.available||bankImageSheet.busy||selectedAsset.status!=="draft"?' disabled':'')+'>'+
+        esc(fr?"Enregistrer pour cette image":"Save for this image")+'</button></div></div>'+
+      (bankImageSheet.loading?'<p role="status">'+esc(fr?"Vérification des réglages…":"Checking adjustments…")+'</p>':"")+
+      (!bankImageSheet.loading&&bankImageSheet.loaded&&!bankImageSheet.available?
+        '<p role="status">'+esc(fr?"Sauvegarde indisponible : actualisez la fiche.":"Saving unavailable: refresh the record.")+'</p>':"")+
+      (bankImageSheet.error?'<p role="alert">'+esc(bankImageSheet.error)+'</p>':"")+
+      (bankImageSheet.message?'<p role="status">'+esc(bankImageSheet.message)+'</p>':"")+
+      '<p id="pa-bank-scale-warning" role="status" class="pa-bank-scale-warning">'+esc(bankScaleWarning(fr))+'</p>'+
+      '<div class="pa-bank-scale-stage" data-base-scale="'+bankImageSheet.scalePercent+'" style="--pictau-image-scale:1">'+privateInkCard+'</div>'+
+      '<details class="pa-bank-secondary-details"><summary>'+esc(fr?"Vérifier et publier / informations techniques":"Review, publish and technical details")+'</summary>'+
+      privatePreviewBody+'</details></section>':"";
+    const chosenThemes=selectedAsset?(themeUI.links[selectedAsset.id]||[selectedAsset.theme]):[];
+    const sheetClassify=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Classer":"Classify")+'">'+
+      '<h3>'+esc(fr?"Thèmes du pictogramme":"Pictogram themes")+'</h3>'+
+      '<p>'+chosenThemes.map(code=>esc(themeLabel(code))).join(" · ")+'</p>'+
+      '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+
+      themeAssetPanel+'</section>':"";
+    const sheet=selectedAsset?'<section class="admin-surface pa-bank-sheet">'+sheetTop+
+      (bankImageSheet.tab==="adjust"?sheetAdjust:bankImageSheet.tab==="classify"?sheetClassify:sheetNames)+
+      '</section>':"";
     const screen=bankPanel==="import"?importForm:bankPanel==="themes"?themeManagement:
-      '<div class="pa-bank-workspace'+(hasInspector?' has-inspector':'')+'">'+results+inspector+info+'</div>';
+      (bankSelectionId&&selectedAsset?sheet:
+      '<div class="pa-bank-workspace'+(hasInspector?' has-inspector':'')+'">'+results+inspector+info+'</div>');
     body='<div class="pa-bank-shell">'+bankNavigation
       +'<div id="pa-bank-active-region" class="pa-bank-active-region" role="region" aria-label="'+esc(bankModes.find(([mode])=>mode===bankPanel)?.[1]||"Banque")+'" tabindex="-1">'
       +screen+'</div></div>';
@@ -3703,7 +3826,8 @@ root.addEventListener("click",function(event){
   if(a==="admin-theme-asset"){
     if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id))return;
     themeUI.assetId=el.dataset.id;themeUI.error="";themeUI.message="";
-    clearAdminPreview();clearDraftEditor();clearBankRename();render();focusBankInspector();return;
+    if(privatePreview.id!==el.dataset.id)clearAdminPreview();
+    bankImageSheet.tab="classify";clearDraftEditor();clearBankRename();render();focusBankInspector();return;
   }
   if(a==="admin-theme-close"){themeUI.assetId=null;render();return;}
   if(a==="admin-theme-edit-open"){
@@ -3724,8 +3848,8 @@ root.addEventListener("click",function(event){
     if(!canOpenAdmin()||state.adminTab!=="bank"||!privateBank.items.some(item=>item.id===el.dataset.id))return;
     if(!confirmDiscardBankEdits())return;
     bankSelectionId=el.dataset.id;
-    clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
-    render();focusBankInspector();return;
+    clearBankRename();clearDraftEditor();themeUI.assetId=null;
+    void openAdminPreview(el.dataset.id);return;
   }
   if(a==="admin-bank-panel"){
     if(!canOpenAdmin()||state.adminTab!=="bank")return;
@@ -3890,6 +4014,7 @@ root.addEventListener("click",function(event){
       try{
         const client=await supabaseClient();
         const settings=await loadConfirmedPrintSettings(client,uid,id,chosenId);
+        const approvedScale=await loadPublishedImageScale(client,uid,id);
         if(!current())return;
         const rows=await loadApprovedSelection(client,uid,[id]);
         if(rows.length!==1||rows[0].id!==id)
@@ -3899,13 +4024,17 @@ root.addEventListener("click",function(event){
         // La confirmation peut avoir été révoquée pendant le téléchargement PNG.
         // Ne pas générer une version sortie du catalogue de gabarits.
         const latest=await loadConfirmedPrintSettings(client,uid,id,chosenId);
+        const latestApprovedScale=await loadPublishedImageScale(client,uid,id);
         if(!current())return;
+        if(latestApprovedScale!==approvedScale)
+          throw Error("La taille du dessin a changé : actualisez la fiche avant impression.");
         if(JSON.stringify(latest)!==JSON.stringify(settings))
           throw Error("Le gabarit a changé : actualisez la fiche avant l'impression.");
         const title=String(printLanguage==="en"?(row.title_en||row.title_fr):row.title_fr).trim().slice(0,120);
         // Une seule personnalisation validée, utilisée par le calcul
         // géométrique et le PDF officiel sans réduire le pictogramme.
-        const printPreset=applyClientBorderPreference(settings,borderPreference).preset;
+        const printPreset=applyPublishedImageScale(
+          applyClientBorderPreference(settings,borderPreference),approvedScale).preset;
         const columns=fitPhysicalCopyColumns({
           widthCm:settings.widthCm,preset:printPreset,paper:printPaper,copies:printCopies
         });
@@ -3939,6 +4068,40 @@ root.addEventListener("click",function(event){
     return;
   }
   if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
+  if(a==="pa-bank-sheet-tab"){
+    if(!canOpenAdmin()||!bankSelectionId||!privatePreview.id||
+       !["name","adjust","classify"].includes(el.dataset.tab))return;
+    bankImageSheet.tab=el.dataset.tab;render();return;
+  }
+  if(a==="pa-bank-scale-reset"){
+    if(!canOpenAdmin()||!bankSelectionId||bankImageSheet.busy)return;
+    bankImageSheet.scalePercent=100;bankImageSheet.error="";bankImageSheet.message="";
+    render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-scale-save"){
+    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||
+       !bankImageSheet.available||bankImageSheet.busy||
+       !privateBank.items.some(row=>row.id===privatePreview.id&&row.status==="draft"))return;
+    const assetId=privatePreview.id,uid=authStatus.user.id;
+    const scalePercent=bankImageSheet.scalePercent,revision=bankImageSheet.revision;
+    const ticket=++bankImageSheet.request,previewTicket=privatePreview.request;
+    bankImageSheet.busy=true;bankImageSheet.error="";bankImageSheet.message="";render();
+    void(async()=>{
+      const current=()=>bankImageSheet.request===ticket&&
+        privatePreview.id===assetId&&privatePreview.request===previewTicket&&
+        authStatus.user?.id===uid&&canOpenAdmin();
+      try{
+        const client=await supabaseClient();
+        const saved=await saveAdminImageAdjustment(client,uid,{assetId,scalePercent,revision});
+        if(!current())return;
+        bankImageSheet.scalePercent=saved.scalePercent;bankImageSheet.revision=saved.revision;
+        bankImageSheet.message=state.language==="fr"?
+          "Taille enregistrée pour cette image uniquement.":"Size saved for this image only.";
+      }catch(error){if(current())bankImageSheet.error=String(error?.message||error);}
+      finally{if(current()){bankImageSheet.busy=false;render();}}
+    })();return;
+  }
+
   if(a==="close-admin-preview"){clearAdminPreview();render();return;}
   if(a==="download-admin-proof"){
     if(!canOpenAdmin()||!authStatus.user||privateProof.busy||
@@ -4181,6 +4344,22 @@ root.addEventListener("click",function(event){
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
+  if(event.target.dataset.input==="pa-bank-scale"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    try{bankImageSheet.scalePercent=validateImageFineTune({
+      assetId:privatePreview.id,scalePercent:Number(event.target.value)
+    }).scalePercent;}catch{return;}
+    bankImageSheet.error="";bankImageSheet.message="";
+    const value=root.querySelector("#pa-bank-scale-value");
+    if(value)value.textContent=bankImageSheet.scalePercent+" %";
+    const stage=root.querySelector(".pa-bank-scale-stage");
+    if(stage)stage.style.setProperty("--pictau-image-scale",String(bankImageSheet.scalePercent/Number(stage.dataset.baseScale||100)));
+    const warning=root.querySelector("#pa-bank-scale-warning");
+    if(warning)warning.textContent=bankScaleWarning(state.language==="fr");
+    const reset=root.querySelector('[data-action="pa-bank-scale-reset"]');
+    if(reset)reset.disabled=bankImageSheet.scalePercent===100;
+    return;
+  }
   if(event.target.dataset.input==="admin-art-rotation"){
     if(!canOpenAdmin()||!privatePreview.inkBlob||privatePreview.adjustBusy)return;
     const angle=Number(event.target.value);
@@ -4265,6 +4444,12 @@ root.addEventListener("input",function(event){
 });
 root.addEventListener("change",function(event){
   const el=event.target;
+  if(el?.dataset.input==="pa-bank-scale"){
+    if(canOpenAdmin()&&privatePreview.id&&bankImageSheet.tab==="adjust"&&!bankImageSheet.busy){
+      render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});
+    }
+    return;
+  }
   if(el?.dataset.input!=="test-client-plan"||!canOpenAdmin()||testClients.busy)return;
   const id=el.dataset.id,plan=el.value;
   if(!testClients.items.some(item=>item.user_id===id))return;

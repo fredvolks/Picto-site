@@ -72,7 +72,8 @@ test("L'intégration enregistre le format sélectionné et le valide avant PDF",
  assert.match(section,/printPaper=clientPictoTemplates\.paper/);
  assert.match(section,/!\["letter","a4"\]\.includes\(printPaper\)/);
  assert.match(section,/paper:printPaper,language:printLanguage,title/);
- assert.match(section,/const printPreset=applyClientBorderPreference/);
+ assert.match(section,/const printPreset=applyPublishedImageScale/);
+ assert.match(section,/applyClientBorderPreference\(settings,borderPreference\),approvedScale/);
  assert.match(section,/archivePdf\(client,uid,blob/);
  assert.match(app,/let TEMPLATE_CHOICES_RELEASED=false/);
 });

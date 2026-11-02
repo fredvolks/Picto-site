@@ -44,6 +44,43 @@ export async function loadConfirmedPrintSettings(client,uid,pictoId,templateId){
  return namedTemplatePrintSettings(selected);
 }
 
+
+function approvedImageScale(value){
+ if(!Number.isInteger(value)||value<60||value>140||(value-60)%5!==0)
+   throw Error("Taille du dessin approuvé invalide : actualisez la fiche.");
+ return value;
+}
+// Les clients ne peuvent PAS lire les ajustements privés. Seule la valeur
+// explicitement copiée dans le catalogue au moment de l'approbation est lue.
+export async function loadPublishedImageScale(client,uid,pictoId){
+ if(!UUID.test(pictoId||"")||typeof uid!=="string"||!client?.auth?.getUser)
+   throw Error("Lecture de la taille approuvée indisponible.");
+ const before=await client.auth.getUser();
+ if(before.error||before.data?.user?.id!==uid)throw Error("Session modifiée : reconnectez-vous.");
+ const {data,error}=await client.from("pictau_catalog_items")
+   .select("id,image_scale_percent").eq("id",pictoId).maybeSingle();
+ if(error)throw Error("Taille approuvée indisponible : vérifiez les migrations Supabase.");
+ if(!data||data.id!==pictoId)throw Error("Pictogramme retiré du catalogue.");
+ const percent=approvedImageScale(data.image_scale_percent);
+ const after=await client.auth.getUser();
+ if(after.error||after.data?.user?.id!==uid)throw Error("Session modifiée : reconnectez-vous.");
+ return percent;
+}
+// Un seul calcul de taille pour l'aperçu client et le PDF. Ne jamais changer
+// le gabarit enregistré ni ses autres couleurs/dimensions physiques.
+export function applyPublishedImageScale(settings,scalePercent=100){
+ const factor=approvedImageScale(scalePercent);
+ if(!settings||typeof settings!=="object"||!settings.preset||
+    !validatePreset(settings.preset))
+   throw Error("Gabarit confirmé invalide.");
+ const effectiveArtPercent=Math.round(settings.preset.artPercent*factor)/100;
+ if(effectiveArtPercent<30||effectiveArtPercent>95)
+   throw Error("Ce pictogramme déborde dans ce gabarit. Choisissez un autre modèle ou demandez un ajustement.");
+ const preset={...settings.preset,artPercent:effectiveArtPercent};
+ if(!validatePreset(preset))throw Error("Gabarit imprimable invalide.");
+ return {...settings,preset};
+}
+
 // Le client personnalise UNIQUEMENT le contour du PDF privé. Les valeurs
 // du gabarit confirmé ne sont jamais mutées ni enregistrées côté Super Admin.
 export function applyClientBorderPreference(settings,{colored=null,borderColor=null}={}){

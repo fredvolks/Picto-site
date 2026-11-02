@@ -70,11 +70,20 @@ export function privateInkPreviewVariants(preset){
   {key:"portrait-color",shape:"portrait",colored:true,widthCm:5,preset:{...preset,shape:"portrait",colored:true}}
  ];
 }
+// Géométrie de l'aperçu identique au PDF : hors limites, on n'imprime pas.
+export function fineTunedPrivatePreset(preset,artScalePercent=100){
+ if(!preset||!validatePreset(preset)||
+    !Number.isInteger(artScalePercent)||artScalePercent<60||
+    artScalePercent>140||(artScalePercent-60)%5!==0)
+   throw Error("Réglage individuel d'aperçu invalide.");
+ const artPercent=Math.round(preset.artPercent*artScalePercent)/100;
+ return artPercent>=30&&artPercent<=95?{...preset,artPercent}:null;
+}
 const escapePreview=value=>String(value??"").replace(/[&<>"']/g,c=>({
  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
 }[c]));
 export function renderPrivateInkComparison({
- asset,inkUrl,rotationDeg=0,preset,fr=true,customPicto,scaleMetrics,fmtRaw
+ asset,inkUrl,rotationDeg=0,preset,fr=true,customPicto,scaleMetrics,fmtRaw,artScalePercent=100
 }={}){
  validateArtworkRotation(rotationDeg);
  if(!asset||typeof asset.title_fr!=="string"||!asset.title_fr.trim()||
@@ -93,6 +102,7 @@ export function renderPrivateInkComparison({
  return '<div class="admin-png-variant-grid" role="group" aria-label="'+
    escapePreview(fr?"Comparaison de trois formats sur le dessin réel":"Three-format comparison of the actual artwork")+'">'+
    variants.map((v,index)=>{
+    const adjusted=fineTunedPrivatePreset(v.preset,artScalePercent);
     const measures=scaleMetrics(v.preset,v.widthCm);
     const width=escapePreview(fmtRaw(v.widthCm));
     const height=escapePreview(fmtRaw(measures.heightCm));
@@ -101,7 +111,8 @@ export function renderPrivateInkComparison({
       '<div class="admin-png-stage"><div class="color-shell'+
       (v.colored?"":" no-color")+'" style="--bordercolor:'+escapePreview(v.preset.color)+
       ';--colorwidth:2mm"><div class="admin-png-cell" style="width:'+width+
-      'cm;height:'+height+'cm">'+customPicto(picture,v.preset,v.widthCm,false)+
+      'cm;height:'+height+'cm">'+(adjusted?customPicto(picture,adjusted,v.widthCm,false):
+       '<p role="status">'+escapePreview(fr?"Taille à vérifier pour ce modèle.":"Size needs review for this template.")+'</p>')+
       '</div></div></div></figure>';
    }).join("")+'</div>';
 }
@@ -120,4 +131,65 @@ export function privateInkDraftMetadata(asset,angle){
     asset.title_en.slice(0,75)+(cropped?" (cropped)":" (rotated "+angle+"°)"):"",
   theme:asset.theme
  };
+}
+
+// Galerie en LECTURE SEULE : chaque modèle réellement enregistré s'applique
+// au même PNG rogné en mémoire. Aucun état de publication ni PNG ne change.
+export function renderPrivateInkNamedGallery({
+ asset,inkUrl,rotationDeg=0,templates=[],fr=true,customPicto,scaleMetrics,fmtRaw,artScalePercent=100
+}={}){
+ validateArtworkRotation(rotationDeg);
+ if(!asset||typeof asset.title_fr!=="string"||!asset.title_fr.trim()||
+    typeof inkUrl!=="string"||!inkUrl.startsWith("blob:")||
+    typeof customPicto!=="function"||typeof scaleMetrics!=="function"||
+    typeof fmtRaw!=="function"||!Array.isArray(templates)||templates.length>100)
+   throw Error("Galerie des gabarits privés indisponible.");
+ const ids=new Set();
+ for(const row of templates){
+   if(!row||typeof row.id!=="string"||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.id)||
+      ids.has(row.id)||typeof row.name!=="string"||!row.name.trim()||
+      row.name.length>80||/[\u0000-\u001f\u007f]/.test(row.name)||
+      !Number.isSafeInteger(row.revision)||row.revision<1||
+      typeof row.is_published!=="boolean"||
+      !row.preset||!validatePreset(row.preset)||typeof row.preset.colored!=="boolean"||
+      !/^#[0-9a-f]{6}$/i.test(row.preset.color)||!/^#[0-9a-f]{6}$/i.test(row.preset.fontColor)||
+      typeof row.widthCm!=="number"||!Number.isFinite(row.widthCm)||
+      row.widthCm<2||row.widthCm>10||
+      typeof row.rotationDeg!=="number"||!Number.isFinite(row.rotationDeg)||
+      row.rotationDeg< -180||row.rotationDeg>180)
+     throw Error("Un gabarit privé ne peut pas être prévisualisé.");
+   ids.add(row.id);
+ }
+ if(!templates.length)return '<p role="status">'+escapePreview(fr?
+   "Aucun gabarit nommé enregistré. Créez-en dans l’onglet Gabarits.":
+   "No saved named templates. Create one in the Templates tab.")+'</p>';
+ const pictureName={fr:asset.title_fr,en:asset.title_en||asset.title_fr};
+ const fmtLabel=n=>Number(n).toLocaleString(fr?"fr-CA":"en-CA",{maximumFractionDigits:2});
+ return '<div class="admin-png-named-grid" role="group" aria-label="'+escapePreview(fr?
+    "Le vrai dessin dans tous les gabarits nommés":"Actual artwork in every saved named template")+'">'+
+   templates.map(row=>{
+     const adjusted=fineTunedPrivatePreset(row.preset,artScalePercent);
+     const metrics=scaleMetrics(row.preset,row.widthCm);
+     const angle=rotationDeg+row.rotationDeg;
+     const art='<img data-pictau-ink data-admin-ink-preview src="'+escapePreview(inkUrl)+
+       '" alt="" loading="lazy" decoding="async" data-template-rotation="'+row.rotationDeg+
+       '" style="transform:rotate('+angle+'deg);transform-origin:center">';
+     const picture={...pictureName,image:art};
+     return '<figure class="admin-png-variant" data-named-template="'+escapePreview(row.id)+'">'+
+       '<figcaption><strong>'+escapePreview(row.name)+'</strong> · v'+row.revision+
+       ' <span class="admin-named-preview-status">'+escapePreview(row.is_published?
+       (fr?"Publié":"Published"):(fr?"Brouillon privé":"Private draft"))+'</span>'+
+       '<small>'+escapePreview(fmtLabel(row.widthCm))+' × '+
+       escapePreview(fmtLabel(metrics.heightCm))+' cm · '+
+       escapePreview(fmtLabel(row.rotationDeg))+'°</small></figcaption>'+
+       '<div class="admin-png-stage"><div class="color-shell'+
+       (row.preset.colored?"":" no-color")+'" style="--bordercolor:'+
+       escapePreview(row.preset.color)+';--colorwidth:2mm">'+
+       '<div class="admin-png-cell" style="width:'+escapePreview(fmtRaw(row.widthCm))+
+       'cm;height:'+escapePreview(fmtRaw(metrics.heightCm))+'cm">'+
+       (adjusted?customPicto(picture,adjusted,row.widthCm,false):
+        '<p role="status">'+escapePreview(fr?"Taille à vérifier : aperçu suspendu pour éviter un dessin coupé.":"Size needs review: preview paused to avoid clipped artwork.")+'</p>')+
+       '</div></div></div></figure>';
+   }).join("")+'</div>';
 }
