@@ -633,7 +633,7 @@ try{
     +"for(let i=0;i<3;i++){"
     +"const card=document.createElement('article');"
     +"card.className='admin-bank-card admin-bank-item';"
-    +"card.innerHTML='<span class=\"admin-bank-thumb\"><img data-private-thumb alt=\"\"></span><div class=\"admin-bank-item-meta\"><strong>Picto '+(i+1)+'</strong></div><button type=\"button\" class=\"pa-bank-card-open\">Ouvrir</button>';"
+    +"card.innerHTML='<span class=\"admin-bank-thumb\"><img data-private-thumb alt=\"\"></span><div class=\"admin-bank-item-meta\"><strong>Picto '+(i+1)+'</strong></div><div class=\"admin-bank-item-actions\"><button type=\"button\" class=\"btn btn-primary btn-small pa-bank-card-open\" data-action=\"admin-bank-open\">Ouvrir</button></div>';"
     +"const img=card.querySelector('img');"
     +"const dims=[[80,80],[160,80],[80,160]][i];"
     +"img.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"'+dims[0]+'\" height=\"'+dims[1]+'\" viewBox=\"0 0 '+dims[0]+' '+dims[1]+'\"><path fill=\"black\" d=\"M0 0h40v40H0z\"/></svg>');"
@@ -652,9 +652,23 @@ try{
         +"imgWidth:ri.width,imgHeight:ri.height,objectFit:getComputedStyle(img).objectFit,"
         +"objectPosition:getComputedStyle(img).objectPosition,"
         +"centered:Math.abs((ri.left+ri.right)/2-(r.left+r.right)/2)<=1}});"
-        +"return {boxes,screen:innerWidth,scrollWidth:document.documentElement.scrollWidth};"
+         +"const buttons=[...g.querySelectorAll('.admin-bank-item')].map(card=>{"
+         +"const btn=card.querySelector('[data-action=admin-bank-open]'),parent=btn?.parentElement,r=btn?.getBoundingClientRect();"
+         +"return {count:card.querySelectorAll('[data-action=admin-bank-open]').length,"
+         +"display:btn?getComputedStyle(btn).display:'missing',parentDisplay:parent?getComputedStyle(parent).display:'missing',"
+         +"width:r?.width||0,height:r?.height||0,text:btn?.textContent.trim(),right:r?.right||0};});"
+         +"return {boxes,buttons,screen:innerWidth,scrollWidth:document.documentElement.scrollWidth};"
       );
       assert.equal(data.boxes.length,3,"Banque : le banc doit afficher 3 miniatures");
+       assert.equal(data.buttons.length,3,"Trois boutons Ouvrir attendus");
+       for(const button of data.buttons){
+         assert.equal(button.count,1,"Un seul bouton Ouvrir par fiche");
+         assert.equal(button.text,"Ouvrir","Libellé Ouvrir manquant");
+         assert.notEqual(button.display,"none","Bouton Ouvrir caché à "+width+"px "+view);
+         assert.notEqual(button.parentDisplay,"none","Parent Ouvrir caché à "+width+"px "+view);
+         assert.ok(button.width>=60&&button.height>=44,"Ouvrir invisible ou trop petit : "+width+"px "+view+" "+JSON.stringify(button));
+         assert.ok(button.right<=width+1,"Ouvrir déborde de l'écran : "+width+"px "+view);
+       }
       for(const box of data.boxes){
         assert.ok(Math.abs(box.width-72)<0.2&&Math.abs(box.height-72)<0.2,
           "Miniature non uniforme "+width+"px "+view+" : "+JSON.stringify(box));
