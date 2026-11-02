@@ -29,7 +29,17 @@ export async function readThemes(client,uid){
   const r=await client.from("pictau_themes").select("code,label_fr,label_en,merged_into,created_at").order("label_fr",{ascending:true});
   if(r.error)throw r.error;
   await requireAdmin(client,uid);
-  return Array.isArray(r.data)?r.data:[];
+  if(!Array.isArray(r.data))throw Error("Liste des thèmes indisponible. Actualisez les thèmes.");
+  const seen=new Set();
+  for(const row of r.data){
+    if(!row||typeof row!=="object"||typeof row.code!=="string"||!SLUG.test(row.code)
+      ||typeof row.label_fr!=="string"||!row.label_fr.trim()||row.label_fr.length>80
+      ||typeof row.label_en!=="string"||!row.label_en.trim()||row.label_en.length>80
+      ||(row.merged_into!==null&&!SLUG.test(row.merged_into||""))||seen.has(row.code))
+      throw Error("Liste des thèmes incohérente. Actualisez les thèmes.");
+    seen.add(row.code);
+  }
+  return r.data;
 }
 export async function readAssetThemes(client,uid,assetIds){
   if(!Array.isArray(assetIds)||assetIds.length>24||assetIds.some(id=>!UUID.test(id)))
@@ -40,9 +50,18 @@ export async function readAssetThemes(client,uid,assetIds){
     .in("asset_id",assetIds);
   if(r.error)throw r.error;
   await requireAdmin(client,uid);
+  if(!Array.isArray(r.data))throw Error("Associations de thèmes indisponibles. Actualisez la banque.");
   const mapping=Object.fromEntries(assetIds.map(id=>[id,[]]));
-  for(const row of r.data||[])if(Object.hasOwn(mapping,row.asset_id)&&SLUG.test(row.theme_code||""))
+  if(r.data.length>Object.keys(mapping).length*MAX_THEMES_PER_ASSET)
+    throw Error("Associations de thèmes incohérentes. Actualisez la banque.");
+  for(const row of r.data){
+    if(!row||typeof row!=="object"||typeof row.asset_id!=="string"
+      ||!Object.hasOwn(mapping,row.asset_id)||typeof row.theme_code!=="string"
+      ||!SLUG.test(row.theme_code)||mapping[row.asset_id].includes(row.theme_code)
+      ||mapping[row.asset_id].length>=MAX_THEMES_PER_ASSET)
+      throw Error("Associations de thèmes incohérentes. Actualisez la banque.");
     mapping[row.asset_id].push(row.theme_code);
+  }
   return mapping;
 }
 export async function createTheme(client,uid,code,fr,en){

@@ -1,3 +1,15 @@
+// Message affiché uniquement après confirmation serveur du renommage privé.
+// Ne pas confondre un titre déjà identique avec une modification réussie.
+export function documentRenameFeedback(result,language="fr"){
+ if(typeof result?.changed!=="boolean")throw Error("Résultat de renommage invalide.");
+ if(result.changed)return language==="fr"?
+   "Nom mis à jour. Le PDF original est inchangé.":
+   "Name updated. Original PDF unchanged.";
+ return language==="fr"?
+   "Nom inchangé. Le PDF original est conservé.":
+   "Name unchanged. Original PDF preserved.";
+}
+
 // Un second geste explicite reste fiable si le navigateur a ignoré le
 // téléchargement automatique après un appel réseau (Safari/iOS notamment).
 // Le blob: provient exclusivement du PDF privé validé par downloadMyDocument.
@@ -26,11 +38,15 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
  };
  const pageMax=Math.max(0,Math.ceil(files.total/20)-1);
  const panel='<div class="files-heading"><div><span class="client-detail-kicker">'+t("VOTRE ESPACE PRIVÉ","YOUR PRIVATE SPACE")+'</span>'
-   +'<h1>'+t("Mes créations","My creations")+'</h1>'
+   +'<h1>'+t("Mes fichiers","My files")+'</h1>'
    +'<p>'+t("Retrouvez vos PDF préparés et réimprimez le document original, sans le reconstruire. Lorsqu’une source modifiable existe, vous pouvez aussi l’ouvrir pour créer une nouvelle version.","Find your prepared PDFs and reprint the unchanged original. If an editable source exists, open it to create a new version.")+'</p></div></div>';
  if(!logged)return '<div class="files-page">'+panel+'<section class="panel files-sign-in"><h2>'+t("Connectez-vous pour retrouver vos documents","Sign in to find your documents")+'</h2>'
   +'<p>'+t("Les PDF sont conservés de façon privée et associés à votre compte Google. Utilisez « Continuer avec Google » dans l’en-tête.","PDFs are stored privately under your Google account. Use Continue with Google in the header.")+'</p></section></div>';
- const form='<details class="panel files-upload-panel"><summary class="files-upload-toggle">'+t("Ajouter un PDF existant","Add an existing PDF")+'</summary><div class="files-upload-panel-inner"><h2>'+t("Archiver un PDF existant","Archive an existing PDF")+'</h2>'
+ // Le premier PDF s'ajoute immédiatement, sans devoir découvrir un panneau fermé.
+ // Un résultat vide après filtrage n'est PAS une preuve que le compte n'a aucun document.
+ const firstUse=!files.loading&&!files.error&&files.total===0&&files.page===0&&
+   !String(files.query||"").trim()&&(files.type||"all")==="all";
+ const form='<details class="panel files-upload-panel"'+(firstUse?' open':'')+'><summary class="files-upload-toggle">'+t("Ajouter un PDF existant","Add an existing PDF")+'</summary><div class="files-upload-panel-inner"><h2>'+t("Archiver un PDF existant","Archive an existing PDF")+'</h2>'
    +'<p>'+t("Choisissez un PDF de votre appareil. Son original sera conservé dans votre compte pour le retrouver et le réimprimer sur un autre appareil.","Choose a PDF from your device. Its original will be saved to your account so you can find and reprint it on another device.")+'</p>'
    +'<form data-form="archive-pdf" class="files-upload-form">'
    +'<div class="control"><label for="files-title">'+t("Nom du document","Document name")+'</label>'
@@ -58,7 +74,7 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
      ["name-desc",t("Nom Z à A","Name Z to A")]
     ].map(([key,label])=>'<option value="'+key+'"'+((files.sort||"recent")===key?' selected':'')+'>'+e(label)+'</option>').join("")+'</select></div>'
    +'<button type="submit" class="btn btn-light">'+icon("search","btn-icon")+t("Rechercher","Search")+'</button></form>';
- const list=files.loading?'<p class="files-feedback" role="status">'+t("Chargement des fichiers privés…","Loading private files…")+'</p>'
+ const list=files.error?"":files.loading?'<p class="files-feedback" role="status">'+t("Chargement des fichiers privés…","Loading private files…")+'</p>'
    :files.items.length?'<div class="files-list">'+files.items.map(doc=>{
       const renaming=files.renameId===doc.id;
       return '<article class="files-entry"><div class="files-entry-icon" aria-hidden="true">'+icon("file-text")+'</div>'
@@ -76,7 +92,11 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
          +(files.busy?' disabled':'')+'>'+icon("edit","btn-icon")+t("Modifier la source","Edit source")+'</button>':'')
        +'<button type="button" class="btn btn-light btn-small" data-action="files-rename-open" data-id="'+e(doc.id)+'">'+t("Renommer","Rename")+'</button></div></article>';
      }).join("")+'</div>'
-   :'<p class="files-empty">'+t("Aucun PDF archivé pour le moment. Vous pouvez en ajouter un ci-dessus.","No archived PDFs yet. You can add one above.")+'</p>';
+   :'<p class="files-empty" role="status">'+(firstUse?
+     t("Aucun PDF enregistré. Ajoutez votre premier document avec le formulaire ci-dessus.",
+       "No PDFs saved yet. Add your first document using the form above."):
+     t("Aucun document ne correspond aux filtres ou à la page sélectionnée.",
+       "No documents match your filters or selected page."))+'</p>';
  const pages='<div class="files-pagination"><button type="button" class="btn btn-light btn-small" data-action="files-page" data-direction="-1"'+(files.page===0||files.loading?' disabled':'')+'>'+t("Précédent","Previous")+'</button>'
     +'<span>'+e((files.page+1)+" / "+(pageMax+1)+" · "+files.total)+"</span>"
     +'<button type="button" class="btn btn-light btn-small" data-action="files-page" data-direction="1"'+(files.page>=pageMax||files.loading?' disabled':'')+'>'+t("Suivant","Next")+'</button></div>';
@@ -101,7 +121,7 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
    +(files.error?'<p class="request-error" role="alert">'+e(files.error)+'</p>':"")
    +(files.message?'<p class="request-success" role="status">'+e(files.message)+'</p>':"")
    +renderVerifiedPdfRetry({retry:files.reprintRetry,uid,language,escape:e})
-   +'<section class="panel files-history"><div class="files-history-head"><h2>'+t("Documents enregistrés","Saved documents")+'</h2>'
+   +(firstUse?form:'')+'<section class="panel files-history"><div class="files-history-head"><h2>'+t("Documents enregistrés","Saved documents")+'</h2>'
    +'<button type="button" class="btn btn-light btn-small" data-action="files-refresh"'+(files.loading?' disabled':'')+'>'+t("Actualiser","Refresh")+'</button></div>'
-   +filters+list+pages+'</section>'+form+preview+'</div>';
+   +filters+list+pages+'</section>'+(firstUse?'':form)+preview+'</div>';
 }

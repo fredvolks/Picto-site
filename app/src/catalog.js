@@ -4,6 +4,61 @@ import {loadPrivateAdminPreview} from "./admin-preview.js";
 
 export const CATALOG_BUCKET="pictau-approved";
 export const CATALOG_PAGE_SIZE=24;
+export const MAX_CATALOG_CHOICES=16;
+// Choix locaux des vraies fiches publiées; chaque ajout est revérifié au
+// serveur avec loadApprovedSelection avant de toucher à la composition.
+export function toggleCatalogChoice(current,id,visibleRows){
+  if(!(current instanceof Map)||current.size>MAX_CATALOG_CHOICES||
+     !Array.isArray(visibleRows)||!UUID.test(id||""))
+    throw Error("Sélection de la bibliothèque invalide.");
+  const row=visibleRows.find(item=>item?.id===id);
+  if(!row||!validRow(row))throw Error("Ce pictogramme n'est plus disponible. Actualisez la bibliothèque.");
+  const next=new Map(current);
+  if(next.has(id))next.delete(id);
+  else{
+    if(next.size>=MAX_CATALOG_CHOICES)throw Error("Maximum de 16 pictogrammes sélectionnés.");
+    next.set(id,{...row});
+  }
+  return next;
+}
+
+// Sélection de la page visible du catalogue authentifié, sans lecture de
+// brouillons ni mutation de composition. Les ID seront revérifiés AVANT ajout.
+// La bibliothèque montre 24 fiches par page, mais un support admet 16 choix.
+export function selectVisibleCatalogPage(current,visibleRows){
+  if(!(current instanceof Map)||current.size>MAX_CATALOG_CHOICES||
+    !Array.isArray(visibleRows)||visibleRows.length>CATALOG_PAGE_SIZE)
+    throw Error("Sélection de la bibliothèque invalide.");
+  // Valider toute la réponse avant de remplir les places disponibles :
+  // un élément incorrect ne doit jamais entraîner une sélection partielle.
+  if(visibleRows.some(row=>!validRow(row)))
+    throw Error("La page contient un pictogramme indisponible. Actualisez la bibliothèque.");
+  const selected=new Map(current);
+  let added=0,capacityReached=false;
+  for(const row of visibleRows){
+    if(selected.has(row.id))continue;
+    if(selected.size>=MAX_CATALOG_CHOICES){capacityReached=true;break;}
+    selected.set(row.id,{...row});added++;
+  }
+  return {selected,added,capacityReached};
+}
+
+// Déplace un vrai pictogramme déjà choisi, sans le remplacer ni relire le réseau.
+// L'ordre de Map est l'ordre transmis à la routine / au tableau après contrôle RLS.
+// Ne modifie pas les données de publication, y compris les choix sur d'autres pages.
+export function moveCatalogChoice(current,id,direction){
+  if(!(current instanceof Map)||current.size>MAX_CATALOG_CHOICES||
+     !UUID.test(id||"")||![-1,1].includes(direction)||
+     [...current].some(([key,row])=>key!==row?.id||!validRow(row)))
+    throw Error("Ordre de la sélection invalide.");
+  const entries=[...current.entries()],from=entries.findIndex(([key])=>key===id);
+  if(from<0)throw Error("Pictogramme absent de la sélection.");
+  const to=from+direction;
+  if(to<0||to>=entries.length)return new Map(entries);
+  [entries[from],entries[to]]=[entries[to],entries[from]];
+  return new Map(entries);
+}
+
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PNG_MAGIC=[137,80,78,71,13,10,26,10];
 const MAX_BYTES=6*1024*1024;
@@ -38,28 +93,58 @@ async function checkPng(blob){
   const sig=new Uint8Array(await blob.slice(0,8).arrayBuffer());
   if(PNG_MAGIC.some((b,i)=>sig[i]!==b))throw Error("Signature PNG invalide.");
 }
-export function normalizeCatalogFilters({query="",theme="all",page=0}={}){
+export function normalizeCatalogFilters({query="",theme="all",sort="recent",page=0,language="fr"}={}){
   const search=cleanQuery(query);
   if(theme!=="all"&&(typeof theme!=="string"||!/^[a-z0-9][a-z0-9_-]{0,59}$/.test(theme)))
     throw Error("Catégorie invalide.");
+  if(!["recent","name","name_desc"].includes(sort))throw Error("Tri du catalogue invalide.");
+  if(!["fr","en"].includes(language))throw Error("Langue du catalogue invalide.");
   if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
-  return {query:search,theme,page};
+  return {query:search,theme,sort,page,language};
 }
+function missingPublishedThemeRelation(error){
+  return error?.code==="PGRST200"&&
+    String(error?.message||"").includes("pictau_published_theme_links");
+}
+
 export async function listPublishedCatalog(client,uid,filters={}){
   const f=normalizeCatalogFilters(filters);
   await verified(client,uid);
-  let q=client.from("pictau_catalog_items").select(FIELDS,{count:"exact"});
-  if(f.theme!=="all")q=q.eq("theme",f.theme);
-  if(f.query)q=q.or("title_fr.ilike.%"+f.query+"%,title_en.ilike.%"+f.query+"%");
-  const r=await q.order("published_at",{ascending:false}).order("id",{ascending:true})
-    .range(f.page*CATALOG_PAGE_SIZE,(f.page+1)*CATALOG_PAGE_SIZE-1);
+  const byTheme=f.theme!=="all";
+  const sortField=f.sort==="recent"?"published_at":f.language==="en"?"title_en":"title_fr";
+  const sortOptions=f.sort!=="recent"&&f.language==="en"
+    ?{ascending:f.sort==="name",nullsFirst:false}:{ascending:f.sort==="name"};
+  const fetchPage=primaryOnly=>{
+    // Seule la table des PNG PUBLIÉS est interrogée. Un retour au thème
+    // principal n'ouvre aucun accès à pictau_assets ni aux brouillons.
+    const selection=byTheme&&!primaryOnly?
+      FIELDS+",published_filter:pictau_published_theme_links!inner()":FIELDS;
+    let q=client.from("pictau_catalog_items").select(selection,{count:"exact"});
+    if(byTheme)q=q.eq(primaryOnly?"theme":"published_filter.theme_code",f.theme);
+    if(f.query)q=q.or("title_fr.ilike.%"+f.query+"%,title_en.ilike.%"+f.query+"%");
+    return q.order(sortField,sortOptions).order("id",{ascending:true})
+      .range(f.page*CATALOG_PAGE_SIZE,(f.page+1)*CATALOG_PAGE_SIZE-1);
+  };
+  let r=await fetchPage(false),categoryCoverage="all";
+  if(r.error&&byTheme&&missingPublishedThemeRelation(r.error)){
+    // La première réponse peut être survenue après déconnexion ou révocation.
+    // Valider la session AVANT la seconde requête sur la projection publique.
+    await verified(client,uid);
+    r=await fetchPage(true);
+    categoryCoverage="primary";
+  }
   if(r.error)throw r.error;
   if(!Number.isSafeInteger(r.count)||r.count<0)throw Error("Catalogue indisponible.");
-  const items=r.data||[];
-  if(!Array.isArray(items)||items.some(item=>!validRow(item)))
+  if(!Array.isArray(r.data))throw Error("Réponse du catalogue invalide. Actualisez les pictogrammes.");
+  const items=byTheme&&categoryCoverage==="all"?
+    r.data.map(({published_filter:_links,...item})=>item):r.data;
+  if(items.length>CATALOG_PAGE_SIZE||items.length>r.count||
+     (f.page*CATALOG_PAGE_SIZE>=r.count&&items.length>0))
+    throw Error("Pagination du catalogue incohérente. Actualisez les pictogrammes.");
+  if(items.some(item=>!validRow(item)))
     throw Error("Une fiche publiée ne correspond pas au stockage approuvé.");
   await verified(client,uid);
-  return {items,total:r.count,page:f.page};
+  return {items,total:r.count,page:f.page,categoryCoverage};
 }
 // Si des pictogrammes sont dépubliés entre deux visites, le dernier feuillet
 // visible peut ne plus exister. Le catalogue canonique reste la seule source
@@ -108,31 +193,77 @@ export async function downloadPublishedArtwork(client,uid,row){
   return r.data;
 }
 // Publication UNIQUEMENT après un clic de revue manuelle explicite Super Admin.
+// Preuve de publication : un reçu SQL seul n'atteste jamais le vrai PNG privé.
+// Calcul identique avant copie et après relecture, sans lien public permanent.
+async function pngDigest(blob){
+  await checkPng(blob);
+  if(typeof crypto==="undefined"||!crypto.subtle)
+    throw Error("Vérification cryptographique PNG indisponible : HTTPS requis.");
+  const bytes=new Uint8Array(await crypto.subtle.digest("SHA-256",await blob.arrayBuffer()));
+  return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function confirmApprovedPublication(client,uid,assetId,source,sourceDigest,sourceSize){
+  await requireAdmin(client,uid);
+  const q=await client.from("pictau_catalog_items").select(FIELDS).eq("id",assetId).maybeSingle();
+  if(q.error)throw q.error;
+  const row=q.data;
+  if(!row)return null;
+  if(!validRow(row)||row.id!==assetId||row.title_fr!==source.title_fr||
+     (row.title_en??null)!==(source.title_en||null)||row.theme!==source.theme||
+     typeof row.published_at!=="string"||!row.published_at.trim())
+    throw Error("La fiche publiée ne correspond pas au pictogramme approuvé. Vérification manuelle requise.");
+  await requireAdmin(client,uid);
+  const actual=await client.storage.from(CATALOG_BUCKET).download("items/"+assetId+".png");
+  if(actual.error||!actual.data)
+    throw Error("PNG approuvé absent du stockage privé. Publication non confirmée.");
+  if(actual.data.size!==sourceSize||await pngDigest(actual.data)!==sourceDigest)
+    throw Error("Intégrité du PNG approuvé non confirmée. Aucun remplacement automatique.");
+  await requireAdmin(client,uid);
+  return row;
+}
+
+// Publication UNIQUEMENT après un clic de revue manuelle explicite Super Admin.
 export async function publishReviewedPictogram(client,uid,assetId){
   if(!UUID.test(assetId||""))throw Error("Identifiant invalide.");
   await requireAdmin(client,uid);
   const source=await loadPrivateAdminPreview(client,uid,assetId);
   if(source.asset.status!=="draft")throw Error("Seul un brouillon peut être approuvé.");
-  await checkPng(source.blob);
+  const sourceDigest=await pngDigest(source.blob);
   await requireAdmin(client,uid);
   const path="items/"+assetId+".png",bucket=client.storage.from(CATALOG_BUCKET);
   const uploaded=await bucket.upload(path,source.blob,{contentType:"image/png",cacheControl:"0",upsert:false});
-  if(uploaded.error)throw uploaded.error;
+  if(uploaded.error){
+    // Upload 409, ACK Storage perdu ou panne : il peut déjà exister une
+    // publication complète. Ne pas publier à l'aveugle et ne pas faire upsert.
+    const previouslyPublished=await confirmApprovedPublication(client,uid,assetId,
+      source.asset,sourceDigest,source.blob.size);
+    if(previouslyPublished)return previouslyPublished;
+    // Un INSERT précédemment refusé peut avoir laissé seulement la copie PNG
+    // privée. La réutiliser UNIQUEMENT si les octets correspondent exactement.
+    const stored=await bucket.download(path);
+    if(stored.error||!stored.data)throw uploaded.error;
+    const storedDigest=await pngDigest(stored.data);
+    if(stored.data.size!==source.blob.size||storedDigest!==sourceDigest)
+      throw Error("Conflit de pictogramme : le PNG privé existant n'est pas identique. Aucun remplacement.");
+    await requireAdmin(client,uid);
+  }
+  let insertError=null;
   try{
     await requireAdmin(client,uid);
     const r=await client.from("pictau_catalog_items").insert({
       id:assetId,title_fr:source.asset.title_fr,title_en:source.asset.title_en||null,
       theme:source.asset.theme,image_path:path,published_by:uid
     }).select(FIELDS).single();
-    if(r.error)throw r.error;
-    if(!validRow(r.data)||r.data.id!==assetId)throw Error("L'approbation n'a pas été confirmée.");
-    await requireAdmin(client,uid);
-    return r.data;
-  }catch(err){
-    try{await requireAdmin(client,uid);await bucket.remove([path]);}
-    catch{/* Copie orpheline illisible par un client sans fiche approuvée. */}
-    throw err;
-  }
+    if(r.error)insertError=r.error;
+    else if(!r.data)insertError=Error("L'approbation n'a pas été confirmée.");
+  }catch(error){insertError=error;}
+  // Une erreur INSERT peut être une réponse perdue après COMMIT. On ne
+  // supprime JAMAIS ici le PNG : une ligne publiée peut déjà le référencer.
+  // Même en cas de réussite SQL, relire la fiche ET les octets privés.
+  const confirmed=await confirmApprovedPublication(client,uid,assetId,
+    source.asset,sourceDigest,source.blob.size);
+  if(confirmed)return confirmed;
+  throw insertError||Error("L'approbation n'a pas été confirmée. PNG privé conservé pour vérification.");
 }
 
 // Le retrait coupe l'accès client immédiatement (RLS) avant le nettoyage du PNG privé.

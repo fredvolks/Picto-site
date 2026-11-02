@@ -76,6 +76,17 @@
 .login-control{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:1px solid #d5ddd5;background:#fff;color:#232923;min-height:40px;padding:8px 11px;font-weight:800;font-size:11px;white-space:nowrap}
 .login-google:hover:not(:disabled){background:#f2f4f1}
 .google-letter{display:grid;place-items:center;width:18px;height:18px;font-weight:900;font-size:16px;color:#3a6650}
+.google-mark{display:block;flex:none;width:20px;height:20px}
+.login-google{gap:11px;min-height:44px;border-color:#d9e2e8;background:#fff;color:#18374a;font-size:13px;font-weight:650;letter-spacing:0;transition:background-color .16s,border-color .16s,box-shadow .16s}
+.login-google:hover:not(:disabled){background:#f8fafc;border-color:#aec7d6;box-shadow:0 2px 10px #143e5612}
+.login-google:focus-visible{outline:3px solid #2c708f;outline-offset:3px}
+.login-google:disabled{opacity:.65;cursor:wait}
+.hosted-access-action .login-google{width:100%;min-height:48px;border-radius:12px;gap:12px;font-size:14px}
+.hosted-access-action .google-login-copy{display:inline}
+.hosted-access-action .google-login-short{display:none}
+@media(max-width:520px){.hosted-access-action .login-google{min-height:48px;padding:11px 14px}}
+
+
 .login-identity{display:flex;align-items:center;gap:7px;min-width:0}
 .login-username{color:#596459;max-width:134px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
 .login-signout{min-height:35px;padding:7px 9px}
@@ -113,6 +124,15 @@
 .admin-bank-controls .control{min-width:0}
 .admin-bank-controls input[type="search"],.admin-bank-controls select{width:100%;min-width:0;min-height:42px;border:1px solid #dce7ec;border-radius:9px;background:#fff;color:#2b404b;padding:0 11px;font-size:12px}
 .admin-bank-controls label{font-size:11px;font-weight:700;color:#586b76}
+.admin-draft-review-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  margin:12px 0;padding:12px 14px;border:1px solid #d8e3d9;border-radius:12px;background:#f6faf6}
+.admin-draft-review-tools p{flex:1 1 240px;font-size:13px;margin:0;color:#294939}
+.admin-draft-review-tools button{min-height:44px}
+.admin-draft-review-next{padding:12px 14px;margin:14px 0;border-left:4px solid #294939;
+  background:#f6faf6;border-radius:8px}
+.admin-draft-review-next p{margin:0 0 8px;line-height:1.5;font-size:14px}
+.admin-draft-review-next button{min-height:44px}
+@media(max-width:520px){.admin-draft-review-tools button{flex:1 1 100%}}
 .admin-bank-summary{font-size:12px;line-height:1.5;color:#647d8b;margin:0 0 15px;overflow-wrap:anywhere}
 .admin-preview-technical{font-size:13px;font-weight:750;color:#294b5f;text-align:center;margin:13px 0 5px}
 .admin-preview-advisory{font-size:11px;color:#6b7d84;line-height:1.55;text-align:center;margin:0}
@@ -1577,3 +1597,360 @@
   .pa-bank-results .admin-bank-controls{grid-template-columns:1fr}
   .pa-bank-results .admin-bank-view-controls .btn{font-size:10px}
 }
+
+/* PICT-AU login design 4 — isolated to hosted login, preserving other client/admin pages. */
+@media screen {
+ .hosted-access-v4{--login-blue:#28617c;--login-ink:#192f39;--login-line:#cadce6;background:linear-gradient(180deg,#e9f4f8,#e2f0f6);color:var(--login-ink)}
+ .hosted-access-v4 .hosted-access-header{background:transparent;border:0;padding:14px 18px 6px}
+ .hosted-access-v4 .hosted-access-main{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:8px 0 0;min-height:0;gap:0}
+ .hosted-access-v4 .hosted-access-art{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px auto 9px}
+ .hosted-access-v4 .hosted-access-art>span{width:43px;height:43px;border-radius:10px;border:1px solid #9bb8c7;background:#fff;display:grid;place-items:center;color:#28617c}
+ .hosted-access-v4 .hosted-access-art svg{width:26px;height:26px}
+ .hosted-access-v4 .hosted-access-welcome{text-align:center;margin:0 auto 13px;padding:0 10px}
+ .hosted-access-v4 .hosted-access-eyebrow{font-size:9px;letter-spacing:.2em;color:#718f9e;margin:0 0 5px}
+ .hosted-access-v4 .hosted-access-welcome h2{font-size:clamp(23px,6vw,30px);line-height:1.1;margin:0 0 7px;letter-spacing:-.03em}
+ .hosted-access-v4 .hosted-access-welcome p{color:#66818e;font-size:12px;line-height:1.3;margin:0}
+ .hosted-access-v4 .hosted-access-panel{margin-top:auto;flex:1;width:100%;max-width:520px;border-radius:30px 30px 0 0;padding:20px clamp(20px,7vw,35px) max(10px,env(safe-area-inset-bottom));background:#fff;border:0;box-shadow:0 -8px 30px #235c7414;text-align:left}
+ .hosted-access-v4 .hosted-access-panel h1{text-align:center;color:var(--login-ink);font-size:clamp(21px,5vw,25px);margin:0 0 6px;letter-spacing:-.03em}
+ .hosted-access-v4 .hosted-access-panel .hosted-access-intro{text-align:center;font-size:12px;line-height:1.35;margin:0 0 12px;color:#698492}
+ .hosted-access-v4 .hosted-email-form{gap:5px}
+ .hosted-access-v4 .hosted-email-form label{font-size:12px;color:#385766;margin:0}
+ .hosted-access-v4 .hosted-email-form input{height:42px;min-height:42px;padding:8px 12px;background:#f8fbfc;border-color:var(--login-line);font-size:14px}
+ .hosted-access-v4 .hosted-password-wrap{position:relative}
+ .hosted-access-v4 .hosted-password-wrap input{padding-right:52px}
+ .hosted-access-v4 .hosted-password-toggle{position:absolute;right:3px;top:1px;min-height:40px;min-width:42px;border:0;background:transparent;color:#557989;display:grid;place-items:center;cursor:pointer}
+ .hosted-access-v4 .hosted-password-toggle svg{width:20px;height:20px}
+ .hosted-access-v4 .hosted-access-link{border:0;background:transparent;color:var(--login-blue);font-size:12px;font-weight:700;cursor:pointer;min-height:32px;padding:5px 0}
+ .hosted-access-v4 .hosted-forgot{justify-self:end}
+ .hosted-access-v4 .hosted-access-submit{background:var(--login-blue);color:#fff;border:0;border-radius:12px;min-height:43px;margin:0!important;font:700 14px "DM Sans",system-ui,sans-serif;cursor:pointer}
+ .hosted-access-v4 .hosted-auth-divider{margin:10px 0}
+ .hosted-access-v4 .hosted-access-action{margin:0 0 9px}
+ .hosted-access-v4 .hosted-access-action .login-google{width:100%;min-height:43px;padding:8px 12px;justify-content:center}
+ .hosted-access-v4 .hosted-signup{text-align:center!important;font-size:12px!important;margin:8px 0!important;line-height:1.5!important}
+ .hosted-access-v4 .hosted-signup a{color:var(--login-blue);font-weight:700}
+ .hosted-access-v4 .hosted-access-back{display:block;text-align:center;font-size:11px;color:#6b8793;margin:7px 0 0}
+ .hosted-access-v4 .hosted-return-login{display:block;margin:14px auto}
+ .hosted-access-v4 .hosted-access-error{font-size:12px!important;line-height:1.3!important;margin:6px 0!important}
+ .hosted-access-v4 button:focus-visible,.hosted-access-v4 a:focus-visible{outline:3px solid #4d9fc3;outline-offset:3px}
+ .hosted-access-v4 button:disabled{opacity:.6;cursor:wait}
+}
+@media screen and (min-width:781px){
+ .hosted-access-v4 .hosted-access-panel{border-radius:26px;flex:unset;margin:0 auto 30px;box-shadow:0 16px 35px #235c7418}
+ .hosted-access-v4 .hosted-access-main{justify-content:center}
+}
+@media screen and (max-height:660px) and (max-width:780px){
+ .hosted-access-v4 .hosted-access-header{padding-top:5px;padding-bottom:0}
+ .hosted-access-v4 .hosted-access-main{padding-top:0}
+ .hosted-access-v4 .hosted-access-art{margin:0 auto 4px}
+ .hosted-access-v4 .hosted-access-art>span{width:32px;height:32px}
+ .hosted-access-v4 .hosted-access-art svg{width:20px;height:20px}
+ .hosted-access-v4 .hosted-access-welcome{margin-bottom:6px}
+ .hosted-access-v4 .hosted-access-welcome h2{font-size:20px;margin-bottom:2px}
+ .hosted-access-v4 .hosted-access-welcome p{font-size:10px}
+ .hosted-access-v4 .hosted-access-panel{padding-top:12px}
+ .hosted-access-v4 .hosted-access-panel .hosted-access-intro{margin-bottom:7px}
+ .hosted-access-v4 .hosted-email-form{gap:3px}
+ .hosted-access-v4 .hosted-email-form input{height:38px;min-height:38px}
+ .hosted-access-v4 .hosted-password-toggle{min-height:37px}
+ .hosted-access-v4 .hosted-access-submit,.hosted-access-v4 .hosted-access-action .login-google{min-height:40px}
+ .hosted-access-v4 .hosted-auth-divider{margin:6px 0}
+ .hosted-access-v4 .hosted-signup{margin:4px 0!important}
+}
+
+/* Connexion Design 4 : avertissement clavier physique, discret sur tous écrans. */
+.hosted-access-v4 .hosted-caps-hint{margin:0;color:#80521b;background:#fff6e3;border:1px solid #ebd9b0;border-radius:9px;padding:7px 10px;font-size:12px;line-height:1.4}
+.hosted-access-v4 .hosted-caps-hint[hidden]{display:none}
+
+/* Mes brouillons : recherche utilisable au clavier, au tactile et en format réduit. */
+.pa-drafts-filter{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr)) auto auto;
+  align-items:end;gap:12px;margin:18px 0}
+.pa-drafts-filter .control{min-width:0}
+.pa-drafts-filter label{display:block;margin-bottom:6px;font-size:14px;font-weight:600}
+.pa-drafts-filter input,.pa-drafts-filter select{width:100%;min-height:44px}
+.pa-drafts-filter>.btn{min-height:44px;white-space:nowrap}
+@media(max-width:900px){
+  .pa-drafts-filter{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  .pa-drafts-filter{grid-template-columns:minmax(0,1fr);gap:10px}
+  .pa-drafts-filter>.btn{width:100%}
+}
+@media print{.pa-drafts-filter{display:none!important}}
+
+
+/* Sélection multi-pages du vrai catalogue : même repère noir/blanc que Mes pictogrammes utilisés. */
+  .pa-catalog-bulk-choice{display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;min-height:44px;margin-top:12px;padding:8px 12px;background:#fff;
+    color:#111;border:1px solid #888;border-radius:11px;font-weight:750;font-size:13px;cursor:pointer}
+  .pa-catalog-bulk-choice[aria-pressed="true"]{background:#111;color:#fff;border-color:#111}
+  .pa-catalog-bulk-choice svg{width:17px;height:17px;flex:none}
+  .pa-catalog-bulk-choice:focus-visible,.pa-catalog-bulk-actions button:focus-visible{
+    outline:3px solid #555;outline-offset:3px}
+  .pa-catalog-bulk-choice:disabled{opacity:.5;cursor:not-allowed}
+  .pa-catalog-bulk-review{margin-block:12px 18px}
+  .pa-catalog-ordered-selection{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:8px}
+  .pa-catalog-ordered-selection .pa-catalog-order-item{display:flex;align-items:center;justify-content:space-between;
+    gap:8px;min-width:0;max-width:none;padding:6px 8px;border-radius:12px;background:#fff;border:1px solid #d3d3d3}
+  .pa-catalog-choice-title{font-size:13px;font-weight:700;min-width:0;flex:1;overflow-wrap:anywhere}
+  .pa-catalog-choice-controls{display:flex;gap:3px;flex:none;align-items:center}
+  .pa-catalog-ordered-selection .pa-catalog-choice-controls button{
+    width:44px;height:44px;min-width:44px;min-height:44px;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;border:1px solid #aaa;
+    border-radius:10px;background:#fff;font-size:21px;line-height:1;color:#1d1d1d}
+  .pa-catalog-ordered-selection .pa-catalog-choice-controls button:disabled{opacity:.35;cursor:not-allowed}
+  .pa-catalog-ordered-selection .pa-catalog-choice-controls button:focus-visible{outline:3px solid #555;outline-offset:2px}
+
+
+  .pa-catalog-bulk-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+  .pa-catalog-bulk-actions button{min-height:44px;white-space:normal}
+  @media(max-width:599px){
+    .pa-catalog-bulk-actions{display:grid;grid-template-columns:1fr;gap:8px}
+    .pa-catalog-bulk-actions button{width:100%}
+  }
+
+/* Action de sélection de la page officielle, avant la grille du catalogue. */
+.pa-catalog-page-select{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;
+  margin:16px 0;padding:10px 0;border-top:1px solid #e5e5e5}
+.pa-catalog-page-select .btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;
+  max-width:100%;white-space:normal;text-align:left}
+.pa-catalog-page-select .btn svg{width:17px;height:17px;flex:none}
+.pa-catalog-page-select .btn:focus-visible{outline:3px solid #555;outline-offset:3px}
+.pa-catalog-page-select>span{font-size:12px;line-height:1.4;color:#505050}
+@media(max-width:599px){
+  .pa-catalog-page-select .btn{width:100%;justify-content:center}
+}
+
+
+/* Parcours d'approbation des vraies images privées depuis l'accueil Super Admin. */
+.admin-review-shortcut{margin:18px 0;padding:18px;border:1px solid #bfcfc4;border-radius:14px;
+  background:#f4f7f2;color:#1f3028}
+.admin-review-shortcut h2{font-size:clamp(17px,2vw,22px);margin:0 0 8px;line-height:1.3}
+.admin-review-shortcut p{margin:0 0 12px;max-width:70ch;font-size:14px;line-height:1.5}
+.admin-review-shortcut .btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;
+  white-space:normal;text-align:left}
+.admin-review-shortcut .btn svg{width:18px;height:18px;flex:none}
+.admin-review-shortcut .btn:focus-visible,
+.admin-surface-head [data-action="admin-review-next"]:focus-visible{
+  outline:3px solid #385a49;outline-offset:3px}
+.admin-surface-head [data-action="admin-review-next"]{min-height:44px;white-space:normal}
+@media(max-width:620px){
+  .admin-review-shortcut{padding:14px}
+  .admin-review-shortcut .btn{width:100%;justify-content:center}
+  .admin-surface-head [data-action="admin-review-next"]{width:100%}
+}
+
+/* Publication d'un vrai PNG : accusé affiché même après fermeture du panneau
+   privé; le lien mène à la banque publique, pas à une URL Storage exposée. */
+.admin-publish-confirmation{padding:14px 16px;margin:12px 0 16px;border:1px solid #9bb4a5;
+  background:#f1f6f1;color:#213a2e;border-radius:12px;display:flex;flex-wrap:wrap;
+  gap:12px;align-items:center;justify-content:space-between}
+.admin-publish-confirmation p{margin:0;line-height:1.45;font-weight:650}
+.admin-publish-confirmation button{min-height:44px;display:inline-flex;align-items:center;gap:7px}
+.admin-publish-confirmation button:focus-visible{outline:3px solid #395f4b;outline-offset:3px}
+@media(max-width:620px){.admin-publish-confirmation button{width:100%;justify-content:center}}
+
+/* Épreuve non publiante : un PDF de contrôle local pour le Super Admin. */
+.admin-private-proof{display:flex;flex-direction:column;align-items:flex-start;gap:10px;
+  border:1px solid #b9c5bb;border-radius:12px;background:#f6f8f4;padding:14px;margin:16px 0}
+.admin-private-proof>p{margin:0;line-height:1.5;font-size:13px;max-width:66ch}
+.admin-private-proof .btn{min-height:44px;max-width:100%;white-space:normal;display:inline-flex;
+  gap:8px;align-items:center;text-align:left}
+.admin-private-proof .btn:focus-visible{outline:3px solid #355942;outline-offset:3px}
+@media(max-width:599px){.admin-private-proof{align-items:stretch}
+  .admin-private-proof .btn{width:100%;justify-content:center}}
+
+/* Un geste : choisir un pictogramme officiel et ouvrir le vrai tableau. */
+.pa-catalog-add .pa-catalog-open-board{
+  grid-column:1 / -1;background:#161b19;color:#fff;border-color:#161b19;
+  font-size:12px;min-height:44px;line-height:1.35;white-space:normal}
+.pa-catalog-add .pa-catalog-open-board:hover{background:#34463c;border-color:#34463c}
+.pa-catalog-add .pa-catalog-open-board:disabled{opacity:.46}
+.pa-catalog-add .pa-catalog-open-board:focus-visible,
+.pa-catalog-bulk-actions .pa-catalog-open-board:focus-visible{
+  outline:3px solid #536d5e;outline-offset:3px}
+.pa-catalog-bulk-actions .pa-catalog-open-board{min-height:44px}
+@media(max-width:599px){
+  .pa-catalog-add .pa-catalog-open-board{width:100%;text-align:center}
+  .pa-catalog-bulk-actions .pa-catalog-open-board{width:100%}
+}
+
+/* La banque client sans publication propose un chemin vers les vraies
+   catégories et les demandes, jamais des exemples ou brouillons privés. */
+.pa-catalog-empty-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.pa-catalog-empty-actions .btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;
+  max-width:100%;white-space:normal;text-align:center;justify-content:center}
+.pa-catalog-empty-actions .btn svg{width:17px;height:17px;flex:none}
+.pa-catalog-empty-actions .btn:focus-visible{outline:3px solid #555;outline-offset:3px}
+@media(max-width:599px){
+ .pa-catalog-empty-actions{flex-direction:column;align-items:stretch}
+ .pa-catalog-empty-actions .btn{width:100%}
+}
+
+/* En-tête client permanent ; la navigation métier est secondaire, pas dans la rangée de marque. */
+.pa-client-workspace .pa-client-header[data-pa-universal-header]{position:sticky;z-index:30;top:0;background:#fff;border-bottom:1px solid #e9edec}
+.pa-client-workspace .pa-client-secondary-nav{display:flex;justify-content:center;flex-wrap:wrap;width:100%;gap:0;padding:4px 15px;background:#fff;border-bottom:1px solid #ecefec}
+@media(max-width:980px){.pa-client-workspace .pa-client-secondary-nav{display:none}}
+@media print{.pa-client-workspace .pa-client-secondary-nav{display:none!important}}
+
+/* Bibliothèque cliente : tri FR/EN et réinitialisation accessibles, sans affecter les pages publiques gelées. */
+@media screen{
+  .pa-client-workspace .pa-catalog-sort-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;margin:14px 0}
+  .pa-client-workspace .pa-catalog-sort-bar>div{display:flex;flex-direction:column;gap:5px;flex:1;min-width:165px}
+  .pa-client-workspace .pa-catalog-sort-bar label{font-size:13px;font-weight:700}
+  .pa-client-workspace .pa-catalog-sort-bar select{min-height:44px;width:100%;padding:8px 12px;border:1px solid #c9d0c9;border-radius:11px;background:#fff;color:#182a20}
+  .pa-client-workspace .pa-catalog-clear{min-height:44px;white-space:normal;text-align:center}
+  .pa-client-workspace .pa-catalog-sort-bar :is(button,select):focus-visible{outline:3px solid #294939;outline-offset:2px}
+}
+@media screen and (max-width:599px){.pa-client-workspace .pa-catalog-sort-bar>div,.pa-client-workspace .pa-catalog-clear{flex-basis:100%;width:100%}}
+
+/* L3 : gabarits nommés vrais Super Admin, pas de styles sur les trois pages gelées. */
+.admin-named-templates{margin:20px 0;padding:22px;border:1px solid #dfe6e2;border-radius:18px;background:#fff;max-width:100%;min-width:0}
+.admin-named-templates h2{font-size:1.35rem;margin:0 0 12px}
+.admin-named-template-fields{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr));gap:13px}
+.admin-named-template-fields>div{min-width:0;display:flex;flex-direction:column;gap:6px}
+.admin-named-template-fields label{font-size:13px;font-weight:700}
+.admin-named-template-fields input{width:100%;min-height:44px;border:1px solid #c9d5cb;border-radius:9px;padding:9px 12px;background:#fff;color:inherit}
+.admin-named-template-help{font-size:13px;color:#486254}
+.admin-named-template-live-warning{margin:12px 0;padding:12px 14px;border-left:4px solid #9a682c;
+  border-radius:8px;background:#fff8e8;color:#493922;font-size:14px;line-height:1.5}
+
+.admin-named-template-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.admin-named-template-actions button,.admin-named-template-list button{min-height:44px;border:1px solid #becbc4;border-radius:10px;padding:9px 12px;background:#fff;color:#243d31;font-weight:650}
+.admin-named-template-actions button:last-child{background:#294939;color:#fff}
+.admin-named-template-list{list-style:none;padding:0;margin:0;display:grid;gap:9px}
+.admin-named-template-list li{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px;border:1px solid #e4eae6;border-radius:10px}
+.admin-named-template-list li button:first-child{flex:1;text-align:left;min-width:150px}
+.admin-named-template-list li span{font-size:13px}
+.admin-named-templates :is(button,input):focus-visible{outline:3px solid #294939;outline-offset:2px}
+@media(max-width:700px){.admin-named-template-fields{grid-template-columns:minmax(0,1fr)}.admin-named-templates{padding:15px}.admin-named-template-actions button{flex:1 1 140px}}
+
+/* L3: sélection de gabarits confirmés dans la fiche d'un pictogramme, scoped. */
+.pa-admin-template-choices,.pa-client-template-choices{margin:18px 0;padding:18px;border:1px solid #d9e3dc;border-radius:15px;background:#fff;min-width:0}
+.pa-admin-template-choices h3,.pa-client-template-choices h3{font-size:1.2rem;margin:0 0 10px}
+.pa-template-choice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,175px),1fr));gap:12px}
+.pa-template-choice{display:flex;flex-direction:column;gap:7px;min-width:0;padding:12px;border:1px solid #d3dfd7;border-radius:12px;background:#fafcfb;cursor:pointer}
+.pa-template-choice:has(input:checked){border-color:#294939;box-shadow:0 0 0 2px #29493929}
+.pa-template-choice>span:not(.pa-template-mini){overflow-wrap:anywhere;font-size:13px;font-weight:700}
+.pa-template-choice>small{font-size:12px;color:#516558}
+.pa-template-choice input{width:19px;height:19px;accent-color:#294939}
+.pa-template-mini{width:94px;min-height:94px;max-width:100%;align-self:center;display:flex;flex-direction:column;padding:4px;border:2px solid var(--template-edge,#000);background:#fff}
+.pa-template-mini.tall{min-height:123px}
+.pa-template-mini-inner{display:flex;flex:1;flex-direction:column;min-height:0}
+.pa-template-mini-art{display:flex;flex:1;min-height:55px;align-items:center;justify-content:center;overflow:hidden}
+.pa-template-mini-art img{width:100%;height:100%;object-fit:contain}
+.pa-template-mini-label{display:block;border-top:1px solid #333;text-align:center;font-size:11px;overflow-wrap:anywhere;padding-top:4px}
+.pa-template-choice-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.pa-template-choice-actions button,.pa-template-choice-recovery button{min-height:44px;padding:9px 14px;border-radius:10px;border:1px solid #294939;background:#fff;color:#294939;font-weight:700}
+.pa-template-choice-actions button:last-child{background:#294939;color:#fff}
+.pa-template-choice-recovery{padding:12px;background:#f8f3e7;border-radius:10px}
+.pa-template-choice-status,.pa-template-choice-help{font-size:13px;color:#375446}
+.pa-template-modal-backdrop{position:fixed;inset:0;z-index:1100;background:#102117a8;display:grid;place-items:center;padding:14px}
+.pa-template-dialog{max-width:750px;width:100%;max-height:calc(100dvh - 28px);overflow:auto;padding:20px;border-radius:16px;background:#fff}
+.pa-template-dialog>button{margin-left:auto;display:block;min-height:44px}
+.pa-admin-template-choices :is(input,button):focus-visible,.pa-template-dialog :is(input,button):focus-visible{outline:3px solid #294939;outline-offset:2px}
+@media(max-width:600px){.pa-admin-template-choices,.pa-client-template-choices{padding:12px}.pa-template-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pa-template-modal-backdrop{padding:7px}.pa-template-dialog{padding:12px;max-height:calc(100dvh - 14px)}}
+@media(max-width:380px){.pa-template-choice-grid{grid-template-columns:minmax(0,1fr)}}
+
+
+/* L3 client : contour choisi uniquement pour le PDF de ce pictogramme. */
+.pa-client-border-controls{min-width:0;margin:16px 0;padding:14px;border:1px solid #bfcfc4;border-radius:12px;background:#f8faf8}
+.pa-client-border-controls legend{font-weight:750;padding:0 5px}
+.pa-client-border-toggle{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-weight:650}
+.pa-client-border-toggle input{width:22px;height:22px;accent-color:#294939}
+.pa-client-border-colors{display:grid;gap:9px;margin-top:12px}
+.pa-client-border-colors.is-disabled{opacity:.55}
+.pa-client-border-swatches{display:flex;gap:6px;flex-wrap:wrap;max-width:100%}
+.pa-client-border-swatch{width:44px;height:44px;border:2px solid #89958d;border-radius:10px;background:var(--pa-choice-swatch);box-shadow:inset 0 0 0 2px #fff;cursor:pointer}
+.pa-client-border-swatch[aria-pressed="true"]{outline:3px solid #294939;outline-offset:2px}
+.pa-client-border-swatch:focus-visible{outline:3px solid #84b0e9;outline-offset:3px}
+.pa-client-border-custom{display:flex;align-items:center;gap:12px;min-height:44px;font-weight:600;flex-wrap:wrap}
+.pa-client-border-custom input[type="color"]{width:72px;height:44px;min-width:72px;padding:2px;border:1px solid #7b9283;border-radius:8px;background:white}
+.pa-client-border-help{margin:12px 0 0;color:#516558;font-size:.9rem}
+@media(max-width:400px){.pa-client-border-controls{padding:10px}.pa-client-border-swatches{gap:6px}}
+
+/* Sans contour coloré, seul le cadre noir structurel de la case reste visible. */
+.pa-client-template-choices .pa-template-mini:not(.is-colored){border-color:#111}
+
+/* L3 : choix du format physique du PDF sans redimensionner les pictogrammes. */
+.pa-template-print-controls{display:grid;gap:10px;max-width:100%;margin-top:14px}
+.pa-template-print-controls label{font-weight:650;color:#293649}
+.pa-template-print-controls select{width:min(100%,320px);min-height:44px;padding:10px 12px;border:1px solid #788a83;border-radius:10px;background:#fff;color:#1c293b;font:inherit}
+.pa-template-print-controls select:focus-visible{outline:3px solid #84b0e9;outline-offset:2px}
+.pa-template-print-controls select:disabled{opacity:.65;cursor:not-allowed}
+.pa-template-print-controls .pa-template-print-note{margin:0;color:#516558;font-size:.92rem;line-height:1.45}
+.pa-template-print-controls .btn{justify-self:start;max-width:100%;white-space:normal}
+@media(max-width:599px){.pa-template-print-controls select,.pa-template-print-controls .btn{width:100%;justify-self:stretch}}
+
+/* Fiche client : vrai aperçu de placement des copies avant génération PDF.
+   Le schéma montre des cases neutres, jamais un faux pictogramme approuvé. */
+.pa-client-sheet-preview{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;
+  padding:12px;border:1px solid #c4d6ca;border-radius:12px;background:#f7faf8;color:#294939}
+.pa-client-sheet-diagram{width:120px;min-height:154px;flex:0 0 120px;
+  display:grid;grid-template-columns:repeat(var(--pa-copy-columns),minmax(0,1fr));
+  grid-auto-rows:min-content;align-content:start;gap:3px;padding:11px 9px;
+  border:1px solid #a4b8ab;border-radius:4px;background:#fff;box-shadow:0 2px 6px #182d201a}
+.pa-client-sheet-diagram span{display:block;width:100%;aspect-ratio:var(--pa-copy-ratio);
+  border:1.5px solid #294939;border-radius:2px;background:#eef2ee}
+.pa-client-sheet-summary{flex:1 1 210px;min-width:0;font-size:.9rem;line-height:1.5}
+.pa-client-sheet-summary strong{display:block;font-weight:750}
+.pa-client-sheet-summary p{margin:4px 0}
+.pa-client-sheet-summary small{display:block;color:#53695b;line-height:1.45}
+.pa-template-print-error{color:#8b2632;font-weight:650}
+@media(max-width:420px){.pa-client-sheet-preview{gap:10px;padding:10px}
+  .pa-client-sheet-diagram{flex-basis:90px;width:90px;min-height:120px;padding:8px 6px}}
+
+/* Atelier privé : rotation non destructive de l'encre avant nouveau brouillon. */
+.admin-art-rotation{display:grid;gap:10px;margin:18px 0 0;padding:14px;border:1px solid #cbdad2;border-radius:12px;background:#f8faf8}
+.admin-art-rotation label{font-weight:700;color:#294939;font-size:14px}
+.admin-art-rotation output{font-variant-numeric:tabular-nums}
+.admin-art-rotation input[type="range"]{width:100%;min-height:44px;accent-color:#294939;cursor:grab}
+.admin-art-rotation input[type="range"]:focus-visible{outline:3px solid #84b0e9;outline-offset:3px}
+.admin-art-rotation input[type="range"]:disabled{cursor:not-allowed}
+.admin-art-rotation-actions{display:flex;gap:9px;flex-wrap:wrap}
+.admin-art-rotation-actions .btn{min-height:44px;white-space:normal}
+.admin-art-rotation p{margin:0;text-align:left;font-size:12px;line-height:1.55;color:#516558}
+@media(max-width:480px){.admin-art-rotation{padding:10px}.admin-art-rotation-actions .btn{flex:1 1 100%}}
+
+/* Banque privée : importation de lots réels de PNG sans publication. */
+.admin-batch-import{margin-top:22px;padding:18px;border:1px solid #cbdad2;border-radius:14px;background:#f7faf8;min-width:0}
+.admin-batch-import h3{font-size:17px;color:#294939;margin:0 0 9px}
+.admin-batch-import>p{font-size:13px;color:#506457;line-height:1.5}
+.admin-batch-import .admin-import-form{margin-top:13px}
+.admin-batch-list{margin:10px 0;padding:10px 10px 10px 30px;background:#fff;border:1px solid #d2ddd4;border-radius:10px;max-height:215px;overflow-y:auto;overflow-wrap:anywhere}
+.admin-batch-list li{padding:4px 0;font-size:13px;line-height:1.5}
+.admin-batch-list li span{font-weight:650;color:#294939}
+.admin-batch-import .admin-batch-list{grid-column:1/-1}
+.admin-batch-list li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;align-items:center}
+.admin-batch-list label{display:grid;gap:4px;min-width:0;font-weight:650;color:#294939}
+.admin-batch-list input[type="text"]{width:100%;min-width:0;min-height:44px;padding:9px 11px;border:1px solid #bdcfc4;border-radius:9px;background:#fff;color:#1f3528;font:inherit}
+.admin-batch-list input[type="text"]:focus-visible{outline:2px solid #1f3528;outline-offset:2px}
+@media(max-width:480px){.admin-batch-list li{grid-template-columns:minmax(0,1fr);gap:5px}}
+.admin-batch-import .admin-import-actions .btn{min-height:44px;white-space:normal}
+.admin-batch-note{border-top:1px solid #d2ddd4;padding-top:11px}
+@media(max-width:480px){.admin-batch-import{padding:12px}.admin-batch-import .admin-import-actions .btn{width:100%}}
+
+/* Comparaison privée de trois formats : le vrai PNG ne quitte pas le navigateur. */
+.admin-png-variant-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr));gap:14px;align-items:stretch;min-width:0;margin:12px 0 16px}
+.admin-png-variant{min-width:0;margin:0;padding:12px;border:1px solid #d1ded4;border-radius:12px;background:#fff;display:flex;flex-direction:column;gap:10px}
+.admin-png-variant figcaption{font-size:13px;font-weight:750;color:#294939;line-height:1.45;min-height:2.4em}
+.admin-png-variant .admin-png-stage{flex:1;min-width:0;padding:12px 6px;align-items:center}
+.admin-png-variant .color-shell{flex-shrink:0}
+.admin-png-variant .admin-png-cell{max-width:none}
+@media(max-width:490px){.admin-png-variant-grid{grid-template-columns:minmax(0,1fr);gap:10px}.admin-png-variant{padding:10px}.admin-png-variant figcaption{min-height:0}}
+
+/* Super Admin — gestion limitée aux comptes explicitement marqués TEST. */
+.admin-test-clients{max-width:1100px;margin-inline:auto}
+.admin-test-create{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr) auto;align-items:end;gap:14px;margin:22px 0}
+.admin-test-create .control{margin:0;min-width:0}
+.admin-test-create input,.admin-test-create select,.admin-test-row select{width:100%;min-height:44px}
+.admin-test-create .btn,.admin-test-row .btn{min-height:44px}
+.admin-test-list{display:grid;gap:10px;margin-top:16px}
+.admin-test-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px;border:1px solid var(--line,#d9dfdc);border-radius:14px;background:#fff}
+.admin-test-identity{display:flex;flex-direction:column;gap:4px;min-width:0}
+.admin-test-identity small{overflow-wrap:anywhere}
+.admin-test-plan{display:grid;gap:5px;min-width:0}
+.admin-test-plan label{font-size:.83rem}
+.admin-test-note{font-size:.89rem;color:var(--muted,#617168);line-height:1.6}
+.admin-test-credentials{margin:16px 0;padding:16px;border:2px solid #46766f;border-radius:14px;background:#f2f8f6}
+.admin-test-credentials code{overflow-wrap:anywhere;user-select:all;line-height:1.8}
+@media(max-width:760px){.admin-test-create,.admin-test-row{grid-template-columns:minmax(0,1fr)}.admin-test-create .btn,.admin-test-row .btn{width:100%}}
