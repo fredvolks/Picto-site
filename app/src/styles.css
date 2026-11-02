@@ -2015,3 +2015,16 @@
  .pa-bank-results .admin-bank-thumb{width:48px!important;height:48px!important;min-height:48px!important}
  .pa-bank-card-open{min-width:60px;padding:6px;font-size:11px}
 }
+
+.pa-bank-review-tools summary{display:none}
+.pa-bank-review-tools>div{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media(max-width:700px){
+ .pa-bank-review-tools{margin:4px 0 0}
+ .pa-bank-review-tools summary{display:flex;min-height:44px;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;font-size:13px;font-weight:700;color:#444;border:1px solid #e4e4e4;border-radius:12px;background:#fff;list-style:none}
+ .pa-bank-review-tools summary::-webkit-details-marker{display:none}
+ .pa-bank-review-tools summary:after{content:"+";font-size:18px;font-weight:500}
+ .pa-bank-review-tools[open] summary:after{content:"−"}
+ .pa-bank-review-tools>div{display:grid;grid-template-columns:1fr;gap:8px;padding:10px 0}
+ .pa-bank-review-tools .btn{width:100%;min-height:44px}
+ .pa-bank-review-tools .admin-draft-review-tools{display:grid;width:100%;gap:8px}
+}
