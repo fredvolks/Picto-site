@@ -76,10 +76,10 @@ try{
    "--user-data-dir="+profile,"--remote-debugging-port=0","about:blank"],
    {stdio:["ignore","ignore","pipe"],env:{...process.env,DBUS_SESSION_BUS_ADDRESS:""}});
   chrome.stderr.on("data",chunk=>{chromeErrors+=String(chunk).slice(-2500)});
-  chrome.on("error",error=>{chromeErrors+="\\n"+String(error)});
+  chrome.on("error",error=>{chromeErrors+="\n"+String(error)});
   for(let i=0;i<180&&!endpoint;i++){
    try{
-    const p=(await readFile(join(profile,"DevToolsActivePort"),"utf8")).split("\\n")[0];
+    const p=(await readFile(join(profile,"DevToolsActivePort"),"utf8")).split("\n")[0];
     const dp=Number(p);
     if(Number.isInteger(dp)&&dp>0){
      const tabs=await (await fetch("http://127.0.0.1:"+dp+"/json/list",
