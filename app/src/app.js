@@ -4535,6 +4535,59 @@ root.addEventListener("click",function(event){
   if(a==="save"){if(!validatePreset(state.currentPreset)){notify(T("unavailable"));return;}state.savedPreset={...state.currentPreset};store("pictau-preset",serializeVersionedPreset(state.savedPreset,DEFAULT_PRESET,validatePreset));notify(T("saved"));}
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
+// Déplacement direct dans la grande image : un petit symbole rappelle le geste.
+root.addEventListener("pointerdown",event=>{
+  const hero=event.target.closest?.(".pa-bank-adjust-hero");
+  if(!hero||!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy||
+     !bankImageSheet.loaded||event.isPrimary===false||event.button!==0)return;
+  event.preventDefault();
+  bankHeroDrag={id:event.pointerId,x:event.clientX,y:event.clientY,
+    offsetX:bankImageSheet.offsetX,offsetY:bankImageSheet.offsetY,
+    width:Math.max(1,hero.clientWidth),height:Math.max(1,hero.clientHeight)};
+  hero.setPointerCapture?.(event.pointerId);
+});
+root.addEventListener("pointermove",event=>{
+  if(!bankHeroDrag||event.pointerId!==bankHeroDrag.id)return;
+  event.preventDefault();
+  bankImageSheet.offsetX=clampBankSheetOffset(bankHeroDrag.offsetX+
+    (event.clientX-bankHeroDrag.x)*100/bankHeroDrag.width);
+  bankImageSheet.offsetY=clampBankSheetOffset(bankHeroDrag.offsetY+
+    (event.clientY-bankHeroDrag.y)*100/bankHeroDrag.height);
+  bankImageSheet.message="";bankImageSheet.error="";
+  syncBankSheetPreview();
+});
+function endBankHeroDrag(event){if(bankHeroDrag?.id===event.pointerId)bankHeroDrag=null;}
+root.addEventListener("pointerup",endBankHeroDrag);
+root.addEventListener("pointercancel",endBankHeroDrag);
+root.addEventListener("keydown",event=>{
+  const dialog=root.querySelector(".pa-bank-save-dialog");
+  if(dialog){
+    if(event.key==="Escape"&&!bankImageSheet.busy){
+      event.preventDefault();event.stopPropagation();
+      bankImageSheet.saveOpen=false;render();
+      root.querySelector('[data-action="pa-bank-save-open"]')?.focus({preventScroll:true});
+      return;
+    }
+    if(event.key==="Tab"){
+      const buttons=[...dialog.querySelectorAll("button:not(:disabled)")];
+      if(!buttons.length)return;
+      const first=buttons[0],last=buttons.at(-1);
+      if(!dialog.contains(document.activeElement)){event.preventDefault();first.focus();return;}
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();return;}
+      if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();return;}
+    }
+    return;
+  }
+  if(!event.target.closest?.(".pa-bank-adjust-hero")||
+     !["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)||
+     !canOpenAdmin()||bankImageSheet.busy||!bankImageSheet.loaded)return;
+  event.preventDefault();
+  const dx=event.key==="ArrowLeft"?-2:event.key==="ArrowRight"?2:0;
+  const dy=event.key==="ArrowUp"?-2:event.key==="ArrowDown"?2:0;
+  bankImageSheet.offsetX=clampBankSheetOffset(bankImageSheet.offsetX+dx);
+  bankImageSheet.offsetY=clampBankSheetOffset(bankImageSheet.offsetY+dy);
+  syncBankSheetPreview();
+},true);
 root.addEventListener("input",function(event){
   const nameField=event.target.dataset.input;
   if(["pa-bank-name","pa-bank-name-fr","pa-bank-name-en"].includes(nameField)){
