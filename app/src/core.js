@@ -24,18 +24,11 @@ export function labelFor(item, language) {
   return language === "en" ? item.en : item.fr;
 }
 
-// Recherche locale tolérante à la saisie mobile sans accents, en FR et EN.
-// Uniformiser également les apostrophes typographiques sans modifier les libellés.
-function foldCatalogSearch(value,language) {
-  return String(value ?? "").normalize("NFD").replace(/\p{M}/gu,"")
-    .replace(/[‘’ʼ]/gu,"'").toLocaleLowerCase(language === "en" ? "en" : "fr").trim();
-}
-
 export function searchCatalog(items, query, theme, sort, language) {
-  const q = foldCatalogSearch(query,language);
+  const q = String(query || "").trim().toLocaleLowerCase(language === "en" ? "en" : "fr");
   return items.filter(function(item) {
     const byTheme = theme === "all" || item.theme === theme;
-    const text = foldCatalogSearch([item.fr,item.en,item.theme,...(item.tags || [])].join(" "),language);
+    const text = [item.fr, item.en, item.theme, ...(item.tags || [])].join(" ").toLocaleLowerCase();
     return byTheme && (!q || text.includes(q));
   }).sort(function(a,b) {
     return sort === "az" ? labelFor(a,language).localeCompare(labelFor(b,language)) : b.created - a.created;

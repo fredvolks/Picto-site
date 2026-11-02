@@ -2,42 +2,30 @@ import {samples} from "./data.js";
 import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
-import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters,planNextPrivateDraftReview} from "./admin-bank.js";
-import {listTestClients,createTestClient,setTestClientPlan,deleteTestClient} from "./test-clients.js";
-import {renderTestClients} from "./test-clients-ui.js";
-import {CLIENT_CATEGORIES,clientCategoryLabel} from "./client-categories.js";
+import {readAdminBank,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters} from "./admin-bank.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
-import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy} from "./admin-template-bank.js";
-import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption,confirmPublishedNamedTemplateEdit} from "./admin-template-bank-ui.js";
-import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
-import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
-
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
-import {importPrivateDraft,validateDraftMetadata,importPrivateDraftBatch,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
+import {importPrivateDraft,validateDraftMetadata} from "./admin-import.js";
 import {editPrivateDraftMetadata} from "./admin-draft-edit.js";
 import {assessDraftQuality} from "./admin-quality.js";
 import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
 import {loadPrivateAdminPreview} from "./admin-preview.js";
-import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
-import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
 import {renderAdminRequestDesk} from "./request-ui.js";
 import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
 import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
-
-import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE,toggleCatalogChoice,selectVisibleCatalogPage,moveCatalogChoice} from "./catalog.js";
+import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE} from "./catalog.js";
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
-import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer,updateComposerPrintFit} from "./official-composer.js";
+import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer} from "./official-composer.js";
 import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
-import {createPreparedPdf,fitPhysicalCopyColumns} from "./print-pdf.js";
-import {loadConfirmedPrintSettings,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
+import {createPreparedPdf} from "./print-pdf.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
@@ -46,26 +34,6 @@ const PUBLIC_DEMO = false;
 // Le site GitHub Pages officiel conserve l’unique accueil commercial à sa racine.
 // Dans /app/, entrer directement dans la bibliothèque sans dupliquer cet accueil.
 const SITE_EMBEDDED = Boolean(document.querySelector('meta[name="pictau-site-app"]'));
-let TEMPLATE_CHOICES_RELEASED=false,templateChoicesProbe=0;
-async function probeTemplateChoices(client,uid){
-  const ticket=++templateChoicesProbe;
-  try{
-    for(const name of ["pictau_templates","pictau_picto_template_drafts",
-        "pictau_picto_template_choices","pictau_picto_template_confirmations"]){
-      const q=await client.from(name).select(name==="pictau_templates"?"id":"catalog_id").limit(0);
-      if(q.error)throw q.error;
-    }
-    const check=await client.auth.getUser();
-    if(check.error||check.data?.user?.id!==uid)throw Error("Session modifiée.");
-    if(ticket!==templateChoicesProbe||authStatus.user?.id!==uid)return;
-    if(!TEMPLATE_CHOICES_RELEASED){TEMPLATE_CHOICES_RELEASED=true;render();}
-  }catch{
-    if(ticket!==templateChoicesProbe||authStatus.user?.id!==uid)return;
-    if(TEMPLATE_CHOICES_RELEASED){TEMPLATE_CHOICES_RELEASED=false;render();}
-  }
-}
-// L’édition des fiches s’active seulement si le serveur confirme la
-// présence de la migration de protection. Sinon : proposition JSON locale.
 // Sauvegarde verrouillée : la politique SQL proposée est encore EN REVUE.
 const DRAFT_METADATA_WRITES_ENABLED = false;
 import {DEFAULT_PRESET, THEMES, clampWidth, scaleMetrics, labelFor, searchCatalog, addToRoutine, moveRoutine, routineFitsPaper, validatePreset} from "./core.js";
@@ -143,7 +111,6 @@ const themeNames = {
   en:{all:"All themes",hygiene:"Hygiene",autonomie:"Independence",alimentation:"Food",ecole:"School",loisirs:"Leisure",transport:"Transport",sensoriel:"Sensory"}
 };
 const iconPaths = {
-  users:'<circle cx="9" cy="7.5" r="3"/><path d="M3 21v-2.5a6 6 0 0 1 12 0V21M16.5 11a3.5 3.5 0 0 0 0-7M17 15a5 5 0 0 1 4 5v1"/>',
   home:'<path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-7h6v7"/>',
   library:'<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
   routine:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
@@ -151,8 +118,6 @@ const iconPaths = {
   upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/>',
   settings:'<path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/>',
   search:'<circle cx="10.8" cy="10.8" r="6.4"/><path d="m16 16 5 5"/>',
-  eye:'<path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
-  'eye-off':'<path d="m3 3 18 18M10.7 5.6A11.6 11.6 0 0 1 12 5.5c6.2 0 10 6.5 10 6.5a17.4 17.4 0 0 1-3.2 3.8M6.3 6.9C3.5 8.9 2 12 2 12s3.8 6.5 10 6.5a10.7 10.7 0 0 0 4.2-.8M9.8 9.8a3 3 0 0 0 4.4 4.4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   heart:'<path d="M20.8 4.9c-2.1-2.1-5.5-2.1-7.6 0L12 6.1l-1.2-1.2c-2.1-2.1-5.5-2.1-7.6 0s-2.1 5.5 0 7.6L12 21l8.8-8.5c2.1-2.1 2.1-5.5 0-7.6Z"/>',
   arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',
@@ -179,8 +144,7 @@ let clientNavigationEpoch=0;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 let pdfRecoveryBusy=false,pdfRecoveryRequest=0,pdfRecoveryError="";
-const testClients={items:[],loaded:false,loading:false,busy:false,error:"",message:"",created:null,request:0};
-const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",emailView:"login",showPassword:false,error:""};
+const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",error:""};
 function emptyComposerSettings(){
   return {routine:{title:null,widthCm:"3",paper:"letter",columns:"3"},
     board:{title:null,widthCm:"5",paper:"letter",columns:"3"}};
@@ -191,17 +155,6 @@ const singleApprovedAdd={busy:false,request:0,page:null,message:"",error:""};
 function resetSingleApprovedAdd(){
  singleApprovedAdd.request++;singleApprovedAdd.busy=false;
  singleApprovedAdd.page=null;singleApprovedAdd.message="";singleApprovedAdd.error="";
-}
-// Passage direct de la bibliothèque au vrai compositeur, seulement APRÈS
-// revalidation des IDs approuvés par Supabase. Ne génère aucun PDF ni ne
-// remplace des sélections ou brouillons précédents.
-function openVerifiedCatalogBoard(){
-  clientNavigationEpoch++;
-  resetSingleApprovedAdd();
-  clearPdfReprintRetry();clearClientPreview();
-  state.page="boards";state.toast="";
-  render();
-  window.scrollTo({top:0,behavior:"instant"});
 }
 function renderSingleApprovedAddFeedback(page){
  if(singleApprovedAdd.page!==page)return "";
@@ -233,12 +186,12 @@ async function fetchCaptionFeature(){
     }
   }
 }
-const editableDrafts={items:[],total:0,page:0,kind:"all",query:"",sort:"recent",loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
+const editableDrafts={items:[],total:0,page:0,loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
   openEpoch:{routine:0,board:0},current:{routine:null,board:null},dirty:{routine:false,board:false}};
 function resetEditableDrafts(){
   draftAutosave.reset();editableDrafts.sessionEpoch++;
   editableDrafts.openEpoch.routine++;editableDrafts.openEpoch.board++;
-  editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.kind="all";editableDrafts.query="";editableDrafts.sort="recent";editableDrafts.loaded=false;
+  editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.loaded=false;
   editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.deletingKind=null;editableDrafts.copyKind=null;editableDrafts.error="";editableDrafts.message="";
   editableDrafts.current={routine:null,board:null};editableDrafts.dirty={routine:false,board:false};
 }
@@ -248,7 +201,7 @@ async function fetchEditableDrafts(){
   editableDrafts.loading=true;editableDrafts.error="";render();
   try{
     const client=await supabaseClient();
-    const result=await listEditableDraftsAvailablePage(client,uid,{page:editableDrafts.page,kind:editableDrafts.kind,query:editableDrafts.query,sort:editableDrafts.sort});
+    const result=await listEditableDraftsAvailablePage(client,uid,{page:editableDrafts.page});
     if(token!==editableDrafts.request||authStatus.user?.id!==uid)return;
     editableDrafts.items=result.items;editableDrafts.total=result.total;editableDrafts.page=result.page;editableDrafts.loaded=true;
   }catch(error){
@@ -350,8 +303,6 @@ function recordComposerFormValue(target){
   const field=target.name;
   if(!["title","widthCm","paper","columns"].includes(field))return false;
   officialComposer.settings[kind][field]=String(target.value).slice(0,120);
-  updateComposerPrintFit(form,{kind,items:officialComposer[kind],
-    ...officialComposer.settings[kind],language:state.language});
   markDraftChanged(kind);
   return true;
 }
@@ -392,8 +343,7 @@ async function fetchUsedPictos(){
   try{
     const client=await supabaseClient();
     const result=await listUsedPictogramsAvailablePage(client,uid,{
-      query:usedPictos.query,theme:usedPictos.theme,sort:usedPictos.sort,page:usedPictos.page,
-      language:state.language
+      query:usedPictos.query,theme:usedPictos.theme,sort:usedPictos.sort,page:usedPictos.page
     });
     if(ticket!==usedPictos.request||authStatus.user?.id!==uid)return;
     usedPictos.page=result.page;usedPictos.items=result.items;usedPictos.total=result.total;
@@ -406,19 +356,16 @@ async function fetchUsedPictos(){
     }
   }
 }
-const publishedCatalog={items:[],total:0,page:0,sort:"recent",categoryCoverage:"all",loading:false,loaded:false,error:"",request:0,
-  imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:"",
-  bulkSelected:new Map(),bulkBusy:false,bulkRequest:0,bulkFeedback:"",bulkError:""};
+const publishedCatalog={items:[],total:0,page:0,loading:false,loaded:false,error:"",request:0,
+  imageUrls:new Map(),loadingImages:new Set(),approvedByAdmin:new Set(),publishing:false,publishError:"",publishMessage:""};
 function clearPublishedCatalog(){
   publishedCatalog.request++;
   for(const url of publishedCatalog.imageUrls.values())URL.revokeObjectURL(url);
   publishedCatalog.imageUrls.clear();publishedCatalog.loadingImages.clear();
-  publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.page=0;publishedCatalog.sort="recent";publishedCatalog.categoryCoverage="all";
+  publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.page=0;
   publishedCatalog.loading=false;publishedCatalog.loaded=false;publishedCatalog.error="";
   publishedCatalog.approvedByAdmin.clear();publishedCatalog.publishing=false;
   publishedCatalog.publishError="";publishedCatalog.publishMessage="";
-  publishedCatalog.bulkSelected=new Map();publishedCatalog.bulkBusy=false;
-  publishedCatalog.bulkRequest++;publishedCatalog.bulkFeedback="";publishedCatalog.bulkError="";
 }
 async function fetchPublishedCatalog(){
   if(!SITE_EMBEDDED||!authStatus.user||!authStatus.roleReady||canOpenAdmin())return;
@@ -428,8 +375,7 @@ async function fetchPublishedCatalog(){
   try{
     const client=await supabaseClient();
     const result=await listPublishedCatalogAvailablePage(client,uid,{
-      query:state.search,theme:state.clientCategory||"all",sort:publishedCatalog.sort,
-      language:state.language,page:publishedCatalog.page
+      query:state.search,theme:state.clientCategory||"all",page:publishedCatalog.page
     });
     if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
     const held=new Set([...officialComposer.routine,...officialComposer.board].map(row=>row.id));
@@ -437,11 +383,11 @@ async function fetchPublishedCatalog(){
       URL.revokeObjectURL(url);publishedCatalog.imageUrls.delete(id);
     }
     publishedCatalog.items=result.items;publishedCatalog.total=result.total;
-    publishedCatalog.page=result.page;publishedCatalog.categoryCoverage=result.categoryCoverage||"all";publishedCatalog.loaded=true;
+    publishedCatalog.page=result.page;publishedCatalog.loaded=true;
   }catch(error){
     if(ticket!==publishedCatalog.request||authStatus.user?.id!==uid)return;
     publishedCatalog.error=String(error?.message||error);
-    publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.categoryCoverage="all";publishedCatalog.loaded=false;
+    publishedCatalog.items=[];publishedCatalog.total=0;publishedCatalog.loaded=false;
   }finally{
     if(ticket===publishedCatalog.request){publishedCatalog.loading=false;render();}
   }
@@ -626,156 +572,9 @@ function requestStatusLabel(status){return REQUEST_LABELS[status]?.[state.langua
 function requestDate(value){const ms=Date.parse(value||"");return Number.isFinite(ms)?new Date(ms).toLocaleDateString(state.language==="fr"?"fr-CA":"en-CA",{year:"numeric",month:"short",day:"numeric"}):"—";}
 
 const privateBank={allowed:false,loading:false,items:[],error:"",request:0,total:0,page:0};
-// Les brouillons sont revus un par un; jamais d'approbation implicite.
-const draftReviewQueue={active:false,pending:false,seen:new Set(),message:""};
-function stopDraftReviewQueue(){
-  draftReviewQueue.active=false;draftReviewQueue.pending=false;
-  draftReviewQueue.seen.clear();draftReviewQueue.message="";
-}
-function advanceDraftReviewQueue(){
-  if(!draftReviewQueue.active||privateBank.loading||privateBank.error||
-     !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank")return;
-  const plan=planNextPrivateDraftReview({
-    items:privateBank.items,seen:draftReviewQueue.seen,
-    total:privateBank.total,page:privateBank.page
-  });
-  if(plan.kind==="open"){
-    draftReviewQueue.seen.add(plan.id);
-    draftReviewQueue.message="";
-    void openAdminPreview(plan.id);
-  }else if(plan.kind==="page"){
-    privateBank.page=plan.page;
-    draftReviewQueue.pending=true;
-    queueAdminBankRefresh();
-  }else{
-    draftReviewQueue.message=state.language==="fr"?
-      "Fin des brouillons à réviser dans cette file. Aucun pictogramme n’a été publié automatiquement.":
-      "End of drafts to review in this queue. No pictogram was published automatically.";
-    render();
-  }
-}
-
-const adminNamedTemplates={items:[],loaded:false,loading:false,busy:false,error:"",message:"",
-  name:"",selectedId:null,widthCm:5,rotationDeg:0,request:0};
-function resetAdminNamedTemplates(){
-  adminNamedTemplates.request++;
-  Object.assign(adminNamedTemplates,{items:[],loaded:false,loading:false,busy:false,
-    error:"",message:"",name:"",selectedId:null,widthCm:5,rotationDeg:0});
-}
-async function fetchAdminNamedTemplates(){
-  if(!canOpenAdmin()||!authStatus.user||state.adminTab!=="templates")return;
-  const uid=authStatus.user.id,ticket=++adminNamedTemplates.request;
-  adminNamedTemplates.loading=true;adminNamedTemplates.error="";adminNamedTemplates.message="";render();
-  try{
-    const client=await supabaseClient();
-    const rows=await listAdminNamedTemplates(client,uid);
-    if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-    adminNamedTemplates.items=rows;adminNamedTemplates.loaded=true;
-    if(adminNamedTemplates.selectedId&&!rows.some(row=>row.id===adminNamedTemplates.selectedId)){
-      adminNamedTemplates.selectedId=null;adminNamedTemplates.name="";
-    }
-  }catch(error){
-    if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid)return;
-    adminNamedTemplates.loaded=false;
-    const code=String(error?.code||"");
-    adminNamedTemplates.error=["42P01","PGRST205","PGRST116"].includes(code)?
-      (state.language==="fr"?"Gabarits nommés indisponibles : migration Supabase non activée.":
-        "Saved templates unavailable: Supabase migration not enabled."):
-      String(error?.message||error);
-  }finally{
-    if(ticket===adminNamedTemplates.request&&authStatus.user?.id===uid){
-      adminNamedTemplates.loading=false;render();
-    }
-  }
-}
 let bankQueryTimer=null;
 const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
-const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",request:0};
-const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
-const privateProof={busy:false,error:"",message:"",request:0};
-const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
-  revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
-  dirty:false,error:"",message:"",request:0};
-const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
-  borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:"",request:0};
-function resetAdminTemplateChoices(){
-  ++adminTemplateChoices.request;
-  Object.assign(adminTemplateChoices,{assetId:null,available:[],selected:[],confirmed:[],
-    revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
-    dirty:false,error:"",message:""});
-}
-function resetClientPictoTemplates(){
-  ++clientPictoTemplates.request;
-  Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
-    borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:""});
-}
-function closeClientPictoTemplateChoices(){
-  const id=clientPictoTemplates.pictoId;
-  resetClientPictoTemplates();
-  render();
-  if(id&&/^[0-9a-f-]{36}$/i.test(id))
-    root.querySelector('[data-action="approved-template-open"][data-id="'+id+'"]')?.focus({preventScroll:true});
-}
-async function openAdminTemplateChoices(assetId){
-  if(!TEMPLATE_CHOICES_RELEASED||!canOpenAdmin()||!authStatus.user||
-     !privateBank.items.some(row=>row.id===assetId&&row.status==="published"))return;
-  resetAdminTemplateChoices();
-  const uid=authStatus.user.id,ticket=++adminTemplateChoices.request;
-  adminTemplateChoices.assetId=assetId;adminTemplateChoices.loading=true;render();
-  try{
-    const client=await supabaseClient();
-    const [all,picker]=await Promise.all([
-      listAdminNamedTemplates(client,uid),
-      getAdminPictoTemplateChoices(client,uid,assetId)
-    ]);
-    if(ticket!==adminTemplateChoices.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-    Object.assign(adminTemplateChoices,{
-      available:all.filter(t=>t.is_published),selected:picker.selected,
-      confirmed:picker.confirmed,revision:picker.revision,
-      confirmedRevision:picker.confirmedRevision,loaded:true,dirty:false
-    });
-  }catch(error){
-    if(ticket===adminTemplateChoices.request)adminTemplateChoices.error=String(error?.message||error);
-  }finally{
-    if(ticket===adminTemplateChoices.request){adminTemplateChoices.loading=false;render();}
-  }
-}
-async function openClientPictoTemplateChoices(id){
-  if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
-  const item=publishedCatalog.items.find(row=>row.id===id);
-  if(!item)return;
-  resetClientPictoTemplates();
-  const uid=authStatus.user.id,ticket=++clientPictoTemplates.request;
-  clientPictoTemplates.pictoId=id;
-  clientPictoTemplates.pictoName=state.language==="en"?(item.title_en||item.title_fr):item.title_fr;
-  clientPictoTemplates.loading=true;render();
-  try{
-    const client=await supabaseClient();
-    const rows=await listClientPictoTemplateChoices(client,uid,id);
-    if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||canOpenAdmin())return;
-    clientPictoTemplates.items=rows;
-  }catch(error){
-    if(ticket===clientPictoTemplates.request)clientPictoTemplates.error=String(error?.message||error);
-  }finally{
-    if(ticket===clientPictoTemplates.request){clientPictoTemplates.loading=false;render();}
-  }
-}
-function renderClientPictoTemplateModal(){
-  if(!TEMPLATE_CHOICES_RELEASED||!clientPictoTemplates.pictoId)return "";
-  const fr=state.language==="fr",f=clientPictoTemplates;
-  return '<div class="pa-template-modal-backdrop"><section class="admin-surface pa-template-dialog" role="dialog" aria-modal="true" aria-label="'+esc(fr?"Gabarits du pictogramme":"Pictogram templates")+'">'
-    +'<button type="button" data-action="client-template-close" class="btn btn-light">'+esc(fr?"Fermer":"Close")+'</button>'
-    +(f.loading?'<p role="status">'+esc(fr?"Chargement des gabarits confirmés…":"Loading confirmed templates…")+'</p>':"")
-    +(f.error?'<div role="alert"><p>'+esc(f.error)+'</p>'
-      +'<button type="button" data-action="client-template-refresh" class="btn btn-light">'
-      +esc(fr?"Actualiser les gabarits":"Refresh templates")+'</button></div>':"")
-    +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
-       templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,
-       borderEnabled:f.borderEnabled,borderColor:f.borderColor,paper:f.paper,copies:f.copies,
-       artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
-    +'</section></div>';
-}
-
+const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",request:0};
 const bankFilters={query:"",status:"all",theme:"all",sort:"recent"};
 const themeUI={items:[],links:{},error:"",message:"",assetId:null,editCode:"",
  form:{code:"",fr:"",en:""},edit:{fr:"",en:""},
@@ -807,7 +606,9 @@ function themeLabel(code,lang=state.language){
   const found=themeUI.items.find(t=>t.code===code);
   return found?(lang==="fr"?found.label_fr:found.label_en):code;
 }
-let bankView=["list","small","medium"].includes(load("pictau-admin-bank-view","small"))?load("pictau-admin-bank-view","small"):"small";
+const defaultBankView=window.matchMedia("(max-width: 700px)").matches?"list":"small";
+let bankView=["list","small","medium"].includes(load("pictau-admin-bank-view",defaultBankView))?load("pictau-admin-bank-view",defaultBankView):defaultBankView;
+let bankPanel="browse"; // Images d’abord; ajout et thèmes dans des vues dédiées.
 const bankRename={id:null,expected:null,value:"",busy:false,error:"",message:"",request:0};
 function clearBankRename(){
   bankRename.request++;bankRename.id=null;bankRename.expected=null;bankRename.value="";
@@ -819,7 +620,28 @@ function openBankRename(id){
   if(!asset)return;
   clearBankRename();bankRename.id=id;bankRename.expected=asset.admin_name??null;
   bankRename.value=asset.admin_name||asset.title_fr||"";
-  clearAdminPreview();clearDraftEditor();render();
+  clearAdminPreview();clearDraftEditor();render();focusBankInspector();
+}
+function hasUnsavedBankEdits(){
+  const renamed=privateBank.items.find(item=>item.id===bankRename.id);
+  const originalName=renamed?(renamed.admin_name||renamed.title_fr||""):"";
+  if(renamed&&bankRename.value!==originalName)return true;
+  if(draftEditor.id&&draftEditor.original){
+    const original=draftEditor.original,form=draftEditor.form;
+    return form.titleFr!==original.title_fr||form.titleEn!==(original.title_en||"")||form.theme!==original.theme;
+  }
+  return false;
+}
+function confirmDiscardBankEdits(){
+  return !hasUnsavedBankEdits()||window.confirm(state.language==="fr"
+    ?"Abandonner les modifications non enregistrées de cette fiche ?"
+    :"Discard unsaved changes to this record?");
+}
+function focusBankInspector(){
+  const heading=root.querySelector("#pa-bank-inspector-title");
+  if(!heading)return;
+  heading.scrollIntoView({block:"start",behavior:"auto"});
+  heading.focus({preventScroll:true});
 }
 const bankThumbs={epoch:0,urls:new Map(),queue:[],queued:new Set(),loading:0,observer:null};
 function clearBankThumbs(){
@@ -897,7 +719,7 @@ function openDraftEditor(assetId){
   draftEditor.id=item.id;
   draftEditor.original={title_fr:item.title_fr,title_en:item.title_en??null,theme:item.theme};
   draftEditor.form={titleFr:item.title_fr,titleEn:item.title_en||"",theme:item.theme};
-  render();
+  render();focusBankInspector();
 }
 function exportDraftProposal(){
   if(!canOpenAdmin()||!draftEditor.id||draftEditor.saving)return;
@@ -917,23 +739,18 @@ function exportDraftProposal(){
   render();
 }
 function clearAdminPreview(){
-  resetAdminTemplateChoices();
-  privateProof.request++;privateProof.busy=false;privateProof.error="";privateProof.message="";
   privatePreview.request++;
   if(privatePreview.url)URL.revokeObjectURL(privatePreview.url);
   if(privatePreview.inkUrl)URL.revokeObjectURL(privatePreview.inkUrl);
   privatePreview.id=null;privatePreview.asset=null;privatePreview.url=null;
-  privatePreview.inkUrl=null;privatePreview.inkBlob=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
-  privatePreview.rotationDeg=0;privatePreview.adjustBusy=false;privatePreview.adjustError="";privatePreview.adjustMessage="";
+  privatePreview.inkUrl=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
   privatePreview.loading=false;privatePreview.error="";
 }
 async function openAdminPreview(assetId){
   if(!canOpenAdmin()||privatePreview.loading||!privateBank.items.some(item=>item.id===assetId))return;
   clearAdminPreview();
   const userId=authStatus.user.id,request=++privatePreview.request;
-  privatePreview.id=assetId;privatePreview.loading=true;
-  if(draftReviewQueue.active)draftReviewQueue.seen.add(assetId);
-  render();
+  privatePreview.id=assetId;privatePreview.loading=true;render();focusBankInspector();
   try{
     const client=await supabaseClient();
     const result=await loadPrivateAdminPreview(client,userId,assetId);
@@ -945,7 +762,7 @@ async function openAdminPreview(assetId){
     privatePreview.asset=result.asset;privatePreview.technical=technical;
     privatePreview.url=URL.createObjectURL(result.blob);
     privatePreview.inkInfo=crop;privatePreview.inkError=cropError;
-    if(crop){privatePreview.inkBlob=crop.blob;privatePreview.inkUrl=URL.createObjectURL(crop.blob);}
+    if(crop)privatePreview.inkUrl=URL.createObjectURL(crop.blob);
   }catch(error){
     if(request!==privatePreview.request||authStatus.user?.id!==userId)return;
     privatePreview.error=String(error?.message||error);
@@ -954,34 +771,13 @@ async function openAdminPreview(assetId){
   }
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
-async function fetchTestClientAccounts() {
-  if(!canOpenAdmin()||!authStatus.user)return;
-  const uid=authStatus.user.id,ticket=++testClients.request;
-  testClients.loading=true;testClients.error="";render();
-  try {
-    const client=await supabaseClient(),items=await listTestClients(client,uid);
-    if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-    testClients.items=items;testClients.loaded=true;
-  }catch(error){
-    if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
-    testClients.error=String(error?.message||error);testClients.loaded=false;
-  }finally{
-    if(ticket===testClients.request){testClients.loading=false;render();}
-  }
-}
 function resetPrivateBank(){
-  testClients.request++;testClients.items=[];testClients.loaded=false;
-  testClients.loading=false;testClients.busy=false;testClients.error="";
-  testClients.message="";testClients.created=null;
-  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();resetClientPictoTemplates();
-  templateChoicesProbe++;TEMPLATE_CHOICES_RELEASED=false;
-  stopDraftReviewQueue();
+  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
   bankFilters.query="";bankFilters.status="all";bankFilters.theme="all";bankFilters.sort="recent";
   privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
-  batchImport.request++;Object.assign(batchImport,{files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:""});
 }
 async function refreshPrivateBank(client,userId){
   clearBankThumbs();
@@ -989,10 +785,9 @@ async function refreshPrivateBank(client,userId){
   privateBank.loading=true;privateBank.error="";
   render();
   try{
-    const result=await readAdminBankAvailablePage(client,userId,{...bankFilters,page:privateBank.page});
+    const result=await readAdminBank(client,userId,{...bankFilters,page:privateBank.page});
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
-    if(SITE_EMBEDDED&&authStatus.user?.id===userId)void probeTemplateChoices(client,userId);
     authStatus.roleReady=true;authStatus.roleError="";
     if(SITE_EMBEDDED&&!captionFeature.loading&&!captionFeature.loaded)
       void fetchCaptionFeature();
@@ -1000,10 +795,8 @@ async function refreshPrivateBank(client,userId){
       if(state.page==="home")void fetchClientFiles(client,userId);
       if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();
     }
-    if(SITE_EMBEDDED&&result.authorized){
-      // Garder l'onglet actif après filtres, pagination et approbation.
-      if(state.page!=="admin"){state.page="admin";state.adminTab="overview";}
-    }else if(SITE_EMBEDDED&&state.page==="admin")state.page="home";
+    if(SITE_EMBEDDED&&result.authorized){state.page="admin";state.adminTab="overview";}
+    else if(SITE_EMBEDDED&&state.page==="admin")state.page="home";
     privateBank.items=result.items;privateBank.total=result.total;privateBank.page=result.page;
     if(result.authorized){
       try{
@@ -1044,15 +837,7 @@ function queueAdminBankRefresh(delay=0){
   const load=()=>{
     bankQueryTimer=null;
     if(!canOpenAdmin()||authStatus.user?.id!==uid)return;
-    void supabaseClient().then(async c=>{
-      await refreshPrivateBank(c,uid);
-      if(draftReviewQueue.active&&draftReviewQueue.pending&&
-         authStatus.user?.id===uid&&canOpenAdmin()&&
-         !privateBank.loading&&!privateBank.error){
-        draftReviewQueue.pending=false;
-        advanceDraftReviewQueue();
-      }
-    }).catch(error=>{
+    void supabaseClient().then(c=>refreshPrivateBank(c,uid)).catch(error=>{
       if(authStatus.user?.id!==uid||privateBank.request!==epoch)return;
       privateBank.loading=false;privateBank.error=String(error?.message||error);
       render();
@@ -1068,7 +853,7 @@ function googleButton(){
     return '<div class="login-identity"><span class="login-username" title="'+email+'">'+email+'</span><button type="button" class="login-control login-signout" data-action="google-logout">'+(fr?"Déconnexion":"Sign out")+'</button></div>';
   }
   const signInLabel=authStatus.working?(fr?"Connexion…":"Signing in…"):(fr?"Continuer avec Google":"Continue with Google");
-  return '<button class="login-control login-google" type="button" data-action="google-login" aria-label="'+esc(signInLabel)+'"'+(authStatus.working?" disabled":"")+'><svg class="google-mark" width="20" height="20" viewBox="0 0 2048 2048" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M1651,330L1569,261L1473,199L1373,151L1272,117L1166,95L1073,86L959,87L844,102L748,126L644,165L554,211L462,272L375,346L300,427L239,510L186,603L498,845L516,796L545,739L582,683L615,643L702,564L801,506L877,478L955,462L1043,458L1115,465L1180,480L1244,504L1320,547L1383,598Z"/><path fill="#FBBC05" d="M185,604L139,711L108,817L90,926L85,1042L93,1147L117,1266L148,1360L187,1443L497,1202L476,1121L467,1025L474,938L497,845Z"/><path fill="#34A853" d="M186,1444L238,1536L303,1624L381,1707L454,1769L547,1832L644,1882L748,1921L844,1945L959,1960L1075,1961L1173,1952L1291,1928L1400,1891L1487,1849L1569,1797L1644,1735L1340,1499L1302,1523L1223,1558L1159,1576L1078,1588L988,1589L925,1581L861,1565L799,1541L705,1486L657,1447L616,1406L572,1351L541,1302L516,1252L498,1203Z"/><path fill="#4285F4" d="M1024,853L1024,1216L1528,1216L1507,1295L1468,1371L1422,1430L1381,1469L1341,1499L1646,1734L1723,1652L1787,1562L1839,1464L1881,1352L1907,1244L1923,1106L1922,969L1907,853Z"/></svg><span class="google-login-copy">'+esc(signInLabel)+'</span><span class="google-login-short" aria-hidden="true">Google</span></button>';
+  return '<button class="login-control login-google" type="button" data-action="google-login" aria-label="'+esc(signInLabel)+'"'+(authStatus.working?" disabled":"")+'><span class="google-letter" aria-hidden="true">G</span><span class="google-login-copy">'+esc(signInLabel)+'</span><span class="google-login-short" aria-hidden="true">Google</span></button>';
 }
 async function refreshGoogleUser(client){
   try{
@@ -1078,7 +863,7 @@ async function refreshGoogleUser(client){
     if(!verified){authStatus.roleReady=false;authStatus.roleError="";authStatus.recovery=false;resetPrivateBank();render();return;}
     if(previousId!==verified.id){authStatus.roleReady=false;authStatus.roleError="";resetPrivateBank();render();void refreshPrivateBank(client,verified.id);if(state.page==="files")void fetchClientFiles(client,verified.id);return;}
   }catch(error){
-    authStatus.user=null;authStatus.error=(error?.name==="AuthSessionMissingError"||/auth session missing/i.test(String(error?.message||"")))?"":String(error.message||error);authStatus.ready=true;authStatus.roleReady=false;
+    authStatus.user=null;authStatus.error=String(error.message||error);authStatus.ready=true;authStatus.roleReady=false;
     resetPrivateBank();
   }
   render();
@@ -1348,31 +1133,15 @@ function renderBoard(){
 }
 function adminPreview(){
   const item=samples.find(x=>x.id===state.adminItem)||samples[0],p=state.currentPreset;
-  const preview=namedTemplatePreviewState({
-    widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
-    enabled:adminNamedTemplates.loaded
-  });
-  if(!preview.valid)return '<p class="admin-preview-invalid" role="status">'+
-    esc(namedTemplatePreviewCaption({
-      widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
-      enabled:true,fr:state.language==="fr"
-    }))+'</p>';
-  const content=customPicto(item,p,preview.widthCm,false);
-  // Seul le dessin pivote autour de son centre; ni le cadre ni le texte.
-  // Quand la table est absente, conserver l'ancienne illustration de 5 cm.
-  const fixed=adminNamedTemplates.loaded?
-    content.replace('<div class="picto-artwork">',
-      '<div class="picto-artwork" style="transform:rotate('+preview.rotationDeg+
-      'deg);transform-origin:center center">'):
-    content.replace(/(class="picto"[^>]*style=")/,
-      '$1width:5cm;height:'+(p.shape==="portrait"?'6.75':'5')+'cm;');
-  return '<div class="picto-wrapper"><div class="color-shell'+(p.colored?"":" no-color")+
-    '" style="--bordercolor:'+p.color+';--colorwidth:2mm">'+fixed+'</div></div>';
+  const size=5;
+  const content=customPicto(item,p,size,false);
+  const fixed=content.replace(/(class="picto"[^>]*style=")/,'$1width:5cm;height:'+(p.shape==="portrait"?'6.75':'5')+'cm;');
+  return '<div class="picto-wrapper"><div class="color-shell'+(p.colored?"":" no-color")+'" style="--bordercolor:'+p.color+';--colorwidth:2mm">'+fixed+'</div></div>';
 }
 function renderAdminTemplate(){
   const p=state.currentPreset;
   return '<div class="page-intro"><div><div class="admin-title"><h1>'+T("adminTitle")+'</h1><span class="label-tag">'+T("demo")+'</span></div><p>'+T("adminCopy")+'</p></div></div>'
-  +'<div class="page-two-col"><section class="panel"><h2 class="panel-title">'+T("adminPreview")+'</h2><div id="admin-stage" class="admin-stage">'+adminPreview()+'</div><p id="admin-preview-caption" class="admin-preview-caption" role="status" aria-live="polite">'+esc(namedTemplatePreviewCaption({widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,enabled:adminNamedTemplates.loaded,fr:state.language==="fr"}))+'</p>'
+  +'<div class="page-two-col"><section class="panel"><h2 class="panel-title">'+T("adminPreview")+'</h2><div id="admin-stage" class="admin-stage">'+adminPreview()+'</div><p class="admin-preview-caption">'+T("example")+' · 5 cm · '+T("changes")+'</p>'
   +'<div id="admin-art-feedback" class="notice admin-art-feedback" role="alert" hidden></div>'
   +'<div class="notice blue" style="margin-top:20px">'+T("adminNote")+'</div></section>'
   +'<section class="panel"><h2 class="panel-title">'+T("preset")+'</h2><p class="panel-copy">'+T("adminCopy")+'</p><div class="settings-grid">'
@@ -1391,20 +1160,12 @@ function renderAdminTemplate(){
   +adminRange("separatorMm",T("separator"),p.separatorMm,.5,4,.1,"mm")
   +'<label class="toggle-row full-span"><input type="checkbox" data-field="adminColored" '+(p.colored?"checked":"")+'>'+T("colored")+'</label></div>'
   +'<div class="admin-actions" style="margin-top:22px"><button class="btn btn-primary" data-action="save">'+icon("check","btn-icon")+T("save")+'</button><button class="btn btn-quiet" data-action="restore">'+T("restore")+'</button></div>'
-  +'</section></div>'
-  +renderAdminNamedTemplateBank({
-    templates:adminNamedTemplates.items,selectedId:adminNamedTemplates.selectedId,
-    name:adminNamedTemplates.name,widthCm:adminNamedTemplates.widthCm,
-    rotationDeg:adminNamedTemplates.rotationDeg,
-    busy:adminNamedTemplates.busy||!adminNamedTemplates.loaded,
-    loading:adminNamedTemplates.loading,error:adminNamedTemplates.error,
-    message:adminNamedTemplates.message,fr:state.language==="fr"
-  });
+  +'</section></div>';
 }
 function renderAdmin(){
   const fr=state.language==="fr";
   const sectionNames=fr?{
-    overview:"Vue d'ensemble",bank:"Banque",requests:"Demandes",tools:"Outils",templates:"Gabarits",testClients:"Clients de test",
+    overview:"Vue d'ensemble",bank:"Banque",requests:"Demandes",tools:"Outils",templates:"Gabarits",
     heading:"Espace de gestion",description:"Un endroit simple pour organiser les pictogrammes et préparer les supports visuels.",
     status:"ACCÈS ADMIN VÉRIFIÉ",sample:"Illustrations de démonstration",samples:"Images de test",privateBank:"Banque privée Supabase",
     privateInfo:"Aperçus d’images privées et propositions de corrections locales. La sauvegarde Supabase attend une politique de sécurité approuvée. Aucune publication.",
@@ -1416,7 +1177,7 @@ function renderAdmin(){
     edit:"Ouvrir les gabarits",soon:"À connecter",noReal:"Aucun actif réel n'est chargé dans cette maquette",
     mustBePrivate:"L'accès à la banque réelle sera réservé aux comptes super admin authentifiés."
   }:{
-    overview:"Overview",bank:"Library",requests:"Requests",tools:"Tools",templates:"Templates",testClients:"Test clients",
+    overview:"Overview",bank:"Library",requests:"Requests",tools:"Tools",templates:"Templates",
     heading:"Management workspace",description:"A simple place to organize pictograms and prepare visual materials.",
     status:"VERIFIED ADMIN ACCESS",sample:"Sample illustrations",samples:"Sample images",privateBank:"Private Supabase bank",
     privateInfo:"Private image previews and local correction proposals. Supabase saving awaits approval of a security policy. No publishing.",
@@ -1447,22 +1208,11 @@ function renderAdmin(){
     +'<option value="name"'+(bankFilters.sort==="name"?' selected':'')+'>'+esc(fr?"Nom affiché A–Z":"Displayed name A–Z")+'</option>'
     +'<option value="name_desc"'+(bankFilters.sort==="name_desc"?' selected':'')+'>'+esc(fr?"Nom affiché Z–A":"Displayed name Z–A")+'</option></select></div></div>';
   const bankViewControls='<div class="admin-bank-view-controls" role="group" aria-label="'+esc(fr?"Affichage des actifs":"Asset display mode")+'">'
-    +[["list",fr?"Liste":"List"],["small",fr?"Petites miniatures":"Small thumbnails"],["medium",fr?"Images moyennes":"Medium images"]]
+    +[["list",fr?"Liste":"List"],["small",fr?"Vignettes":"Thumbnails"],["medium",fr?"Grandes":"Large"]]
       .map(([value,label])=>'<button type="button" data-action="admin-bank-view" data-view="'+value+'" class="btn btn-light btn-small'+(bankView===value?' is-active':'')+'" aria-pressed="'+(bankView===value)+'">'+esc(label)+'</button>').join("")
     +'</div>';
-  const reviewQueueTools='<div class="admin-draft-review-tools">'
-    +'<button type="button" class="btn btn-primary" data-action="admin-draft-review-start"'
-    +(privateBank.loading||draftReviewQueue.active?' disabled':'')+'>'
-    +esc(fr?"Réviser les brouillons un par un":"Review drafts one by one")+'</button>'
-    +(draftReviewQueue.active?'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop">'
-      +esc(fr?"Terminer la révision":"End review")+'</button>':"")
-    +(draftReviewQueue.active?'<p role="status">'+esc(draftReviewQueue.message||
-      (fr?"File de révision privée : publication seulement après votre approbation.":
-          "Private review queue: publication only after your approval."))+'</p>':"")
-    +'</div>';
   const bankSummary='<p class="admin-bank-summary" role="status">'
-    +esc(fr?privateBank.total+" résultat(s) dans la banque pour ces critères (recherche serveur, "+ADMIN_BANK_PAGE_SIZE+" fiches par page)."
-      :privateBank.total+" result(s) in the bank for these filters (server-side search, "+ADMIN_BANK_PAGE_SIZE+" records per page).")
+    +esc(fr?privateBank.total+" image(s) trouvée(s)":"Images found: "+privateBank.total)
     +'</p>';
   const firstItem=privateBank.total?privateBank.page*ADMIN_BANK_PAGE_SIZE+1:0;
   const lastItem=privateBank.total?Math.min(privateBank.total,(privateBank.page+1)*ADMIN_BANK_PAGE_SIZE):0;
@@ -1472,23 +1222,24 @@ function renderAdmin(){
     +'<span role="status">'+esc(fr?("Fiches "+firstItem+"–"+lastItem+" sur "+privateBank.total+" · page "+(privateBank.page+1)+"/"+(lastPage+1))
       :("Records "+firstItem+"–"+lastItem+" of "+privateBank.total+" · page "+(privateBank.page+1)+"/"+(lastPage+1)))+'</span>'
     +'<button type="button" class="btn btn-light btn-small" data-action="admin-bank-page" data-direction="next"'+(privateBank.page>=lastPage||privateBank.loading?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></nav>';
+  const selectedBankId=bankRename.id||themeUI.assetId||privatePreview.id||draftEditor.id;
   const realAssets=visibleAssets.map(asset=>{
     const label=state.language==="en"?(asset.title_en||asset.title_fr):asset.title_fr;
     const adminName=asset.admin_name||asset.title_fr||"—";
     const assignedThemes=themeUI.links[asset.id]||[asset.theme];
     const date=asset.created_at&&Number.isFinite(Date.parse(asset.created_at))
       ?new Date(asset.created_at).toLocaleDateString(state.language==="fr"?"fr-CA":"en-CA"):"—";
-    return '<article class="admin-bank-card admin-bank-item">'
+    return '<article class="admin-bank-card admin-bank-item'+(asset.id===selectedBankId?' is-selected':'')+'">'
       +renderBankThumb(asset)
       +'<div class="admin-bank-item-meta"><strong title="'+esc(adminName)+'">'+esc(adminName)+'</strong>'
-      +(adminName!==label?'<span class="admin-bank-secondary">'+esc(label||"—")+'</span>':"")
+      +'<span class="admin-bank-secondary">'+esc(fr?"Texte FR/EN : ":"Caption FR/EN: ")+esc(label||"—")+'</span>'
       +'<small>'+assignedThemes.map(t=>esc(themeLabel(t))).join(" · ")+' · '+esc(asset.status||"draft")+'</small>'
       +'<small>'+esc(fr?"Importé : ":"Imported: ")+esc(date)+'</small></div>'
       +'<div class="admin-bank-item-actions"><button type="button" class="btn btn-light btn-small admin-preview-button" data-action="admin-preview" data-id="'+esc(asset.id)+'"'
       +(privatePreview.loading?' disabled':'')+'>'+icon("search","btn-icon")+esc(fr?"Aperçu privé":"Private preview")+'</button>'
-      +'<button type="button" class="btn btn-light btn-small" data-action="admin-rename" data-id="'+esc(asset.id)+'">'+esc(fr?"Renommer":"Rename")+'</button>'
+      +'<button type="button" class="btn btn-light btn-small" data-action="admin-rename" data-id="'+esc(asset.id)+'">'+esc(fr?"Nom banque":"Bank name")+'</button>'
       +'<button type="button" class="btn btn-light btn-small" data-action="admin-theme-asset" data-id="'+esc(asset.id)+'">'+esc(fr?"Thèmes":"Themes")+'</button>'
-      +(asset.status==="draft"&&asset.created_by===authStatus.user?.id?'<button type="button" class="btn btn-light btn-small" data-action="admin-edit-draft" data-id="'+esc(asset.id)+'">'+icon("check","btn-icon")+esc(fr?"Préparer la fiche":"Review draft")+'</button>':"")
+      +(asset.status==="draft"&&asset.created_by===authStatus.user?.id?'<button type="button" class="btn btn-light btn-small" data-action="admin-edit-draft" data-id="'+esc(asset.id)+'">'+icon("check","btn-icon")+esc(fr?"Textes / fiche":"Text / record")+'</button>':"")
       +'</div></article>';
   }).join("");
   const realBankBody=privateBank.loading
@@ -1511,51 +1262,16 @@ function renderAdmin(){
       "Preliminary guidance only. Publishing requires a compliant composition and human approval.")+'</p></div>';
   const privateInkCard=!privatePreview.inkUrl||!privatePreview.asset?"":(()=>{
     const asset=privatePreview.asset;
-    return '<div class="admin-png-template"><h4>'+esc(fr?"Comparer le vrai dessin dans trois formats":"Compare the actual artwork in three formats")+'</h4>'
-      +renderPrivateInkComparison({
-        asset,inkUrl:privatePreview.inkUrl,rotationDeg:privatePreview.rotationDeg,
-        preset:state.currentPreset,fr,customPicto,scaleMetrics,fmtRaw
-      })
-      +'<div class="admin-art-rotation">'
-      +'<label for="admin-art-rotation">'+esc(fr?"Faire pivoter le dessin (centre de l\u2019encre)":"Rotate artwork (ink center)")+' : <output id="admin-art-rotation-value" for="admin-art-rotation">'+privatePreview.rotationDeg+'°</output></label>'
-      +'<input id="admin-art-rotation" data-input="admin-art-rotation" type="range" min="-180" max="180" step="1" value="'+privatePreview.rotationDeg+'"'+(privatePreview.adjustBusy?' disabled':'')+' />'
-      +'<div class="admin-art-rotation-actions">'
-      +'<button type="button" data-action="admin-art-rotation-reset" class="btn btn-light btn-small"'+(privatePreview.adjustBusy||privatePreview.rotationDeg===0?' disabled':'')+'>'+esc(fr?"Remettre à 0°":"Reset to 0°")+'</button>'
-      +'<button type="button" data-action="admin-art-rotation-save" class="btn btn-primary btn-small"'+(privatePreview.adjustBusy?' disabled':'')+'>'+esc(privatePreview.adjustBusy?(fr?"Création du brouillon…":"Creating draft…"):(privatePreview.rotationDeg===0?(fr?"Créer un brouillon recadré":"Create cropped private draft"):(fr?"Créer un brouillon avec cette rotation":"Create draft with this rotation")))+'</button>'
-      +'</div>'
-      +'<p>'+esc(fr?"Vous pouvez enregistrer le dessin recadré même à 0°, ou le pivoter avant l’enregistrement. Une nouvelle fiche privée sera créée; l’original reste intact et l’approbation demeure obligatoire.":"Save the cropped artwork at 0° or rotate it before saving. A new private record is created; the original remains unchanged and approval is still required.")+'</p>'
-      +(privatePreview.adjustError?'<p role="alert" class="admin-import-alert">'+esc(privatePreview.adjustError)+'</p>':'')
-      +(privatePreview.adjustMessage?'<p role="status" class="admin-import-success">'+esc(privatePreview.adjustMessage)+'</p>':'')
-      +'</div>'
+    const picture={fr:asset.title_fr,en:asset.title_en||asset.title_fr,
+      image:'<img data-pictau-ink src="'+esc(privatePreview.inkUrl)+'" alt="" loading="eager" decoding="async">'};
+    const p=state.currentPreset;
+    const geom=scaleMetrics(p,5);
+    return '<div class="admin-png-template"><h4>'+esc(fr?"Essai de centrage du dessin dans le gabarit":"Artwork centering trial in template")+'</h4>'
+      +'<div class="admin-png-stage"><div class="color-shell'+(p.colored?"":" no-color")+'" style="--bordercolor:'+p.color+';--colorwidth:2mm">'
+      +'<div class="admin-png-cell" style="width:5cm;height:'+fmtRaw(geom.heightCm)+'cm">'+customPicto(picture,p,5,false)+'</div></div></div>'
       +'<p>'+esc(fr?"Le rognage ignore les marges claires ou transparentes. Copie temporaire dans ce navigateur : source originale intacte, aucune publication.":"Cropping ignores light or transparent margins. Temporary browser copy only: original unchanged and never published.")+'</p>'
       +'</div>';
   })();
-  const privateProofControls=chosen&&chosen.status==="draft"&&privatePreview.asset?.id===chosen.id&&
-    privatePreview.technical&&!privatePreview.loading?
-      '<div class="admin-private-proof">'
-      +'<p>'+esc(fr?
-        "Épreuve PDF privée, une image de 5 cm sur papier Lettre. Vérifiez le rendu avant d’approuver. Le brouillon reste privé et le PDF n’est pas archivé.":
-        "Private PDF proof, one 5 cm image on Letter paper. Check the print before approval. The draft remains private and the PDF is not archived.")+'</p>'
-      +'<button type="button" class="btn btn-light" data-action="download-admin-proof"'
-      +(privateProof.busy||publishedCatalog.publishing?' disabled':'')+'>'
-      +icon("file-text","btn-icon")+esc(privateProof.busy?
-        (fr?"Création de l’épreuve…":"Creating proof…"):
-        (fr?"Télécharger l’épreuve PDF privée":"Download private PDF proof"))+'</button>'
-      +(privateProof.error?'<p role="alert" class="admin-import-alert">'+esc(privateProof.error)+'</p>':
-        privateProof.message?'<p role="status" class="admin-import-success">'+esc(privateProof.message)+'</p>':"")
-      +'</div>':"";
-  const adminTemplatePanel=TEMPLATE_CHOICES_RELEASED&&chosen?.status==="published"&&
-    adminTemplateChoices.assetId===chosen.id
-    ?(adminTemplateChoices.loading?'<p role="status">'+esc(fr?"Chargement des gabarits…":"Loading templates…")+'</p>':
-      adminTemplateChoices.error?'<p role="alert">'+esc(adminTemplateChoices.error)+'</p>':
-      adminTemplateChoices.loaded?renderAdminPictoTemplatePicker({
-        catalogId:chosen.id,templates:adminTemplateChoices.available,
-        selected:adminTemplateChoices.selected,confirmed:adminTemplateChoices.confirmed,
-        revision:adminTemplateChoices.revision,confirmedRevision:adminTemplateChoices.confirmedRevision,
-        dirty:adminTemplateChoices.dirty,busy:adminTemplateChoices.busy,
-        message:adminTemplateChoices.message,fr,
-        artworkUrl:privatePreview.inkUrl,pictoName:chosenLabel
-      }):""):"";
   const privatePreviewBody=!chosen?"":'<section class="admin-private-preview" role="region" aria-label="'+esc(fr?"Aperçu du pictogramme privé":"Private pictogram preview")+'">'
     +'<div class="admin-preview-heading"><div><h3>'+esc(chosenLabel||"—")+'</h3><p>'+esc(fr?"Source privée; non publiée par cet aperçu.":"Private source; viewing it does not publish it.")+'</p></div>'
     +'<button type="button" class="btn btn-quiet btn-small" data-action="close-admin-preview">'+icon("close","btn-icon")+esc(fr?"Fermer":"Close")+'</button></div>'
@@ -1571,13 +1287,7 @@ function renderAdmin(){
     "Informations techniques seulement : qualité graphique et publication à valider manuellement.":
     "Technical information only: artwork quality and publishing still require human review.")+'</p>':"")
     +(privatePreview.inkError?'<p class="admin-import-alert" role="status">'+esc(fr?"Aperçu d'encre indisponible : ":"Ink preview unavailable: ")+esc(privatePreview.inkError)+'</p>':"")
-    +(draftReviewQueue.active?'<div class="admin-draft-review-next">'
-      +'<p>'+esc(fr?"Révision en cours : passez au brouillon suivant après avoir examiné celui-ci.":
-        "Review in progress: continue to the next draft once you have examined this one.")+'</p>'
-      +'<button type="button" class="btn btn-light" data-action="admin-draft-review-next"'
-      +(privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'
-      +esc(fr?"Brouillon suivant sans publier":"Next draft without publishing")+'</button></div>':"")
-    +privateInkCard+reviewHtml+privateProofControls+adminTemplatePanel
+    +privateInkCard+reviewHtml
     +(publishedCatalog.publishError?'<p role="alert" class="admin-import-alert">'+esc(publishedCatalog.publishError)+'</p>':'')
     +(publishedCatalog.publishMessage?'<p role="status" class="admin-import-success">'+esc(publishedCatalog.publishMessage)+'</p>':'')
     +(privatePreview.asset&&privatePreview.technical&&chosen.status==="draft"
@@ -1588,7 +1298,6 @@ function renderAdmin(){
         +'<button type="submit" class="btn btn-primary"'+(publishedCatalog.publishing?' disabled':'')+'>'+icon("check","btn-icon")+esc(publishedCatalog.publishing?(fr?'Publication…':'Publishing…'):(fr?'Approuver et publier':'Approve and publish'))+'</button></form>'
        :chosen.status==="published"
        ?'<div class="admin-publish-control"><p>'+esc(fr?'Ce pictogramme est publié dans le catalogue client.':'This pictogram is published in the client catalogue.')+'</p>'
-        +(TEMPLATE_CHOICES_RELEASED?'<button type="button" class="btn btn-light" data-action="admin-template-choices-open" data-id="'+esc(chosen.id)+'">'+esc(fr?"Choisir les gabarits de la fiche client":"Choose customer detail templates")+'</button>':"")
         +'<button type="button" class="btn btn-light" data-action="catalog-unpublish" data-id="'+esc(chosen.id)+'"'+(publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?'Retirer de la bibliothèque client':'Remove from client library')+'</button></div>'
        :"")+'</section>';
 
@@ -1607,42 +1316,10 @@ function renderAdmin(){
    +themes.map(([v,label])=>'<option value="'+v+'"'+(v===privateImport.draft.theme?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
    +'<div class="control"><label for="draft-file">'+esc(fr?"Image PNG * (max. 6 Mo)":"PNG image * (max. 6 MB)")+'</label><input id="draft-file" data-field="admin-import-file" type="file" accept=".png,image/png" aria-describedby="draft-file-status"><small id="draft-file-status" role="status">'
    +esc(privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):(fr?"Aucun fichier sélectionné":"No file selected"))+'</small></div>'
-   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading||batchImport.busy?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
+   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
    +'<small>'+esc(fr?"PNG seulement; aucune publication automatique.":"PNG only; never auto-published.")+'</small></div></form>'
    +(privateImport.error?'<p class="admin-import-alert" role="alert">'+esc(privateImport.error)+'</p>':"")
    +(privateImport.message?'<p class="admin-import-success" role="status">'+esc(privateImport.message)+'</p>':"")
-   +'<section class="admin-batch-import" aria-labelledby="admin-batch-heading">'
-   +'<h3 id="admin-batch-heading">'+esc(fr?"Importer plusieurs PNG à la fois":"Import multiple PNG files at once")+'</h3>'
-   +'<p>'+esc(fr?"Jusqu’à 20 images par lot. Corrigez le nom français de chacune avant l’import; les images restent privées jusqu’à approbation.":"Up to 20 images per batch. Edit each French title before import; images stay private until approval.")+'</p>'
-   +'<form data-form="admin-batch-import" class="admin-import-form">'
-   +'<div class="control"><label for="batch-theme">'+esc(fr?"Thème du lot":"Batch theme")+'</label>'
-   +'<select id="batch-theme" data-field="admin-batch-theme" name="theme"'+(batchImport.busy?' disabled':'')+'>'
-   +themes.map(([v,label])=>'<option value="'+v+'"'+(v===batchImport.theme?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
-   +'<div class="control"><label for="batch-files">'+esc(fr?"Fichiers PNG (1 à 20, maximum 6 Mo chacun)":"PNG files (1–20, up to 6 MB each)")+'</label>'
-   +'<input id="batch-files" data-field="admin-batch-files" type="file" accept=".png,image/png" multiple'+(batchImport.busy?' disabled':'')+' aria-describedby="batch-file-status">'
-   +'<small id="batch-file-status" role="status">'+esc(batchImport.files.length?
-     (fr?batchImport.files.length+" fichier(s) sélectionné(s) :":batchImport.files.length+" selected file(s):"):
-     (fr?"Aucun lot sélectionné.":"No batch selected."))+'</small></div>'
-   +(batchImport.files.length?'<ol class="admin-batch-list">'+batchImport.files.map((f,index)=>
-      '<li><span class="admin-batch-filename">'+esc(f.name)+'</span>'
-      +'<label for="batch-title-'+index+'">'+esc(fr?"Nom français":"French title")
-      +'<input id="batch-title-'+index+'" data-input="admin-batch-title" data-index="'+index
-      +'" type="text" maxlength="100" required value="'
-      +esc(batchImport.titles[index]??draftTitleFromFilename(f.name))+'"'
-      +(batchImport.busy?' disabled':'')+'></label></li>').join("")+'</ol>':"")
-   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+
-     (batchImport.busy||privateImport.loading||!batchImport.files.length?' disabled':'')+'>'+
-     esc(batchImport.busy?(fr?"Importation en cours…":"Importing…"):(fr?"Créer les brouillons privés du lot":"Create private drafts from batch"))+'</button></div>'
-   +'</form>'
-   +(batchImport.busy?'<p role="status" aria-live="polite">'+esc(
-      (fr?"Importés : ":"Imported: ")+batchImport.completed+" / "+batchImport.total+
-      (batchImport.currentName?" · "+batchImport.currentName:""))+'</p>':"")
-   +(batchImport.error?'<p class="admin-import-alert" role="alert">'+esc(batchImport.error)+'</p>':"")
-   +(batchImport.message?'<p class="admin-import-success" role="status">'+esc(batchImport.message)+'</p>':"")
-   +'<p class="admin-batch-note">'+esc(fr?
-      "Le lot s’arrête à la première erreur. Vérifiez les brouillons déjà créés avant de sélectionner de nouveau les fichiers restants : aucune reprise automatique.":
-      "The batch stops at the first error. Check drafts already created before selecting remaining files again; no automatic retry.")+'</p>'
-   +'</section>'
    +'</section>';
   const activeThemes=themeUI.items.filter(t=>!t.merged_into);
   const selectedThemeAsset=privateBank.items.find(a=>a.id===themeUI.assetId);
@@ -1723,12 +1400,6 @@ function renderAdmin(){
       +(draftEditor.message?'<p class="admin-import-success" role="status">'+esc(draftEditor.message)+'</p>':"")
       +'</section>';
   }
-  const draftReviewAction=state.adminTab==="bank"&&bankFilters.status==="draft"&&
-    !privateBank.loading&&!privateBank.error&&
-    privateBank.items.some(item=>item.status==="draft")?
-      '<button type="button" class="btn btn-primary" data-action="admin-review-next"'+
-      (privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'+
-      icon("search","btn-icon")+esc(fr?'Examiner un brouillon':'Review a draft')+'</button>':"";
   let body="";
   if(state.adminTab==="overview"){
     body='<div class="admin-overview-grid"><article class="admin-stat"><span>'+esc(sectionNames.samples)+'</span><strong>'+samples.length+'</strong><small>'+esc(sectionNames.sample)+'</small></article>'
@@ -1739,17 +1410,28 @@ function renderAdmin(){
       +'<button class="admin-feature-action" data-action="admin-tab" data-tab="tools">'+icon("upload")+esc(sectionNames.toolChrome)+' '+icon("arrow","btn-icon")+'</button>'
       +'<button class="admin-feature-action" data-action="admin-tab" data-tab="templates">'+icon("settings")+esc(sectionNames.toolGabarit)+' '+icon("arrow","btn-icon")+'</button></section></div>'+info;
   }else if(state.adminTab==="bank"){
-    body=importForm+'<section class="admin-surface"><div class="admin-surface-head"><div><h2>'+esc(sectionNames.bankTitle)+'</h2><p>'+esc(sectionNames.bankSub)+'</p></div>'+draftReviewAction+'<button type="button" class="btn btn-light" data-action="refresh-admin-bank"'+(privateBank.loading?" disabled":"")+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
-      +(!privatePreview.id&&publishedCatalog.publishMessage?
-        '<div class="admin-publish-confirmation" role="status" aria-live="polite">'
-        +'<p>'+esc(publishedCatalog.publishMessage)+'</p>'
-        +'<button type="button" class="btn btn-light btn-small" data-action="admin-view-published">'
-        +icon("check","btn-icon")+esc(fr?'Voir les pictogrammes publiés':'View published pictograms')
-        +'</button></div>':"")
+    const bankModes=[["browse",fr?"Images":"Images"],["import",fr?"Ajouter une image":"Add image"],["themes",fr?"Thèmes":"Themes"]];
+    const bankNavigation='<nav class="pa-bank-mode-nav" aria-label="'+esc(fr?"Espaces de la banque":"Library sections")+'">'
+      +bankModes.map(([mode,label])=>'<button type="button" class="pa-bank-mode'+(bankPanel===mode?' is-active':'')+'" data-action="admin-bank-panel" data-panel="'+mode+'" aria-pressed="'+(bankPanel===mode)+'"'+(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing?' disabled':'')+'>'+esc(label)+'</button>').join("")
+      +'</nav>';
+    const inspectorContent=renameForm+themeAssetPanel+privatePreviewBody+draftEditBody;
+    const hasInspector=Boolean(inspectorContent);
+    const inspector=hasInspector?'<aside class="pa-bank-inspector" aria-label="'+esc(fr?"Fiche sélectionnée":"Selected asset")+'">'
+      +'<div class="pa-bank-inspector-header"><h3 tabindex="-1" id="pa-bank-inspector-title">'+esc(fr?"Fiche du pictogramme":"Pictogram details")+'</h3>'
+      +'<button type="button" class="btn btn-light btn-small" data-action="admin-bank-detail-close"'+(bankRename.busy||draftEditor.saving||publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?"Fermer":"Close")+'</button></div>'
+      +inspectorContent+'</aside>':"";
+    const results='<section class="admin-surface pa-bank-results">'
+      +'<div class="pa-bank-results-header"><div><h2>'+esc(fr?"Mes images":"My images")+'</h2><p>'+esc(fr?"Rechercher, ouvrir ou classer un pictogramme.":"Search, open or classify a pictogram.")+'</p></div>'
+      +'<button type="button" class="btn btn-light btn-small" data-action="refresh-admin-bank"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
       +(privateBank.error?'<p role="alert">'+esc(fr?"Impossible de lire la banque privée.":"Unable to load private bank.")+'</p>':"")
-      +filters+reviewQueueTools+bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
+      +filters+bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
-      +(!privateBank.loading&&!privateBank.error?pagination:"")+renameForm+themeAssetPanel+privatePreviewBody+draftEditBody+'</section>'+themeManagement+info;
+      +(!privateBank.loading&&!privateBank.error?pagination:"")+'</section>';
+    const screen=bankPanel==="import"?importForm:bankPanel==="themes"?themeManagement:
+      '<div class="pa-bank-workspace'+(hasInspector?' has-inspector':'')+'">'+results+inspector+'</div>';
+    body='<div class="pa-bank-shell">'+bankNavigation
+      +'<div id="pa-bank-active-region" class="pa-bank-active-region" role="region" aria-label="'+esc(bankModes.find(([mode])=>mode===bankPanel)?.[1]||"Banque")+'" tabindex="-1">'
+      +screen+'</div></div>';
   }else if(state.adminTab==="requests"){
     body=renderAdminRequestDesk({fr,requests:adminRequests,labels:REQUEST_LABELS,escape:esc,dateLabel:requestDate});
   }else if(state.adminTab==="tools"){
@@ -1758,13 +1440,9 @@ function renderAdmin(){
       +'<a class="btn btn-primary" href="https://github.com/fredvolks/pictogram/tree/setup/prompt-maitre-projet-picto/chrome-extension" target="_blank" rel="noopener noreferrer">'+esc(sectionNames.openExtension)+' ↗</a></article>'
       +'<article class="admin-tool"><span class="admin-tool-icon">'+icon("upload")+'</span><h3>'+esc(sectionNames.toolLibrary)+'</h3><p>'+esc(sectionNames.toolLibrarySub)+'</p><button type="button" class="btn btn-light" data-action="admin-tab" data-tab="bank">'+esc(fr?"Ouvrir la banque":"Open bank")+'</button></article>'
       +'<article class="admin-tool"><span class="admin-tool-icon">'+icon("settings")+'</span><h3>'+esc(sectionNames.toolGabarit)+'</h3><p>'+esc(sectionNames.toolGabaritSub)+'</p><button class="btn btn-light" data-action="admin-tab" data-tab="templates">'+esc(sectionNames.edit)+'</button></article></div></section>'+info;
-  }else if(state.adminTab==="test-clients"){
-    body=renderTestClients({fr,items:testClients.items,busy:testClients.busy,
-      loading:testClients.loading,error:testClients.error,message:testClients.message,
-      created:testClients.created});
   }else body=renderAdminTemplate();
   return '<div class="admin-ui"><div class="admin-ui-title"><div><div class="eyebrow">'+esc(sectionNames.status)+'</div><h1>'+esc(sectionNames.heading)+'</h1><p>'+esc(sectionNames.description)+'</p></div></div>'
-    +'<nav class="admin-tabs" aria-label="'+esc(fr?"Sections administrateur":"Admin sections")+'">'+tab("overview",sectionNames.overview,"home")+tab("bank",sectionNames.bank,"library")+tab("requests",sectionNames.requests,"library")+tab("tools",sectionNames.tools,"settings")+tab("templates",sectionNames.templates,"routine")+tab("test-clients",sectionNames.testClients,"settings")+'</nav>'
+    +'<nav class="admin-tabs" aria-label="'+esc(fr?"Sections administrateur":"Admin sections")+'">'+tab("overview",sectionNames.overview,"home")+tab("bank",sectionNames.bank,"library")+tab("requests",sectionNames.requests,"library")+tab("tools",sectionNames.tools,"settings")+tab("templates",sectionNames.templates,"routine")+'</nav>'
     +body+'</div>';
 }
 
@@ -1774,7 +1452,7 @@ function adminRange(key,label,value,min,max,step,unit){
 
 function renderRoleChecking(){
   const fr=state.language==="fr";
-  return '<section class="hosted-access" aria-label="'+esc(fr?'Vérification des accès':'Access verification')+'">'+universalHeader("hosted-access-header",true)
+  return '<section class="hosted-access" aria-label="'+esc(fr?'Vérification des accès':'Access verification')+'">'
     +'<div class="hosted-access-main"><div class="hosted-access-panel"><span class="hosted-access-eyebrow">PICT-AU</span>'
     +'<h1>'+esc(fr?'Vérification des accès':'Checking access')+'</h1>'
     +'<p role="status">'+esc(authStatus.roleError|| (fr?'Vérification sécurisée de votre rôle…':'Securely checking your role…'))+'</p>'
@@ -1795,13 +1473,6 @@ function renderAdminHome(){
     +'<p>'+esc(fr?'Gérez vos pictogrammes, vos demandes et vos gabarits en un seul endroit.':'Manage your pictograms, requests, and templates in one place.')+'</p>'
     +'<div class="admin-dashboard-summary"><div><span>'+esc(fr?'Fiches dans la banque privée':'Private bank records')+'</span><strong>'+privateBank.total+'</strong></div>'
     +'<div><span>'+esc(fr?'Statut':'Status')+'</span><strong>'+esc(fr?'Accès administrateur vérifié':'Administrator verified')+'</strong></div></div>'
-    +'<section class="admin-review-shortcut" aria-labelledby="admin-review-shortcut-title">'
-    +'<h2 id="admin-review-shortcut-title">'+esc(fr?'Brouillons à approuver':'Drafts to review')+'</h2>'
-    +'<p>'+esc(fr?
-      "Les images restent privées jusqu’à leur vérification et à une approbation explicite. Retrouvez les brouillons en attente.":
-      "Artwork stays private until it is reviewed and explicitly approved. Open drafts awaiting publication.")+'</p>'
-    +'<button type="button" class="btn btn-primary" data-action="admin-review-queue">'
-      +icon("library","btn-icon")+esc(fr?'Examiner les brouillons privés':'Review private drafts')+'</button></section>'
     +'<div class="admin-dashboard-grid">'+links.map(([tab,title,copy,ico])=>
       '<button type="button" class="admin-dashboard-card" data-action="admin-tab" data-tab="'+tab+'">'
       +icon(ico)+ '<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
@@ -1835,7 +1506,6 @@ function renderAdminWorkspace(){
     ["requests",fr?"Demandes":"Requests","file-text"],
     ["tools",fr?"Outils":"Tools","upload"],
     ["templates",fr?"Gabarits":"Templates","settings"],
-    ["test-clients",fr?"Clients de test":"Test clients","users"],
     ["settings",fr?"Paramètres":"Settings","settings"]
   ];
   const button=([tab,label,ico],compact=false)=>
@@ -1864,6 +1534,14 @@ function renderAdminWorkspace(){
     +'</div>';
 }
 // BOUTIQUE CLIENT : structure premium noire et blanche, contenus uniquement du vrai compte.
+const CLIENT_CATEGORIES=[
+  ["alimentation","Alimentation","Food"],["hygiene","Hygiène","Hygiene"],
+  ["autonomie","Autonomie","Independence"],["ecole","École","School"],
+  ["loisirs","Loisirs","Leisure"],["socialisation","Socialisation","Socialization"],
+  ["actions","Actions","Actions"],["consignes","Consignes","Instructions"],
+  ["emotions","Émotions","Emotions"],["sensoriel","Sensoriel","Sensory"],
+  ["lieux","Lieux","Places"],["transport","Transport","Transport"]
+];
 function clientNavItems(){
   const fr=state.language==="fr";
   return [
@@ -1874,24 +1552,6 @@ function clientNavItems(){
     ["search",fr?"Rechercher":"Search","search"],
     ["account",fr?"Mon compte":"My account","settings"]
   ];
-}
-function universalBrand(){
-  return '<a class="pa-universal-logo-link" href="../index.html" aria-label="Pict-au — '+esc(state.language==="fr"?"Accueil":"Home")+'">'
-    +'<picture><source media="(max-width: 680px)" srcset="../branding/pictau-logo-le-fil-mobile.svg">'
-    +'<img class="pictau-brand-img" src="../branding/pictau-logo-le-fil.svg" alt="" width="760" height="116" decoding="async"></picture></a>';
-}
-function universalControls(authenticated=false){
-  const fr=state.language==="fr";
-  const language='<div class="lang-switch" role="group" aria-label="'+esc(fr?'Langue':'Language')+'">'
-    +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
-    +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>';
-  const destination=authenticated
-    ?'<button type="button" class="pa-universal-account" data-action="nav" data-page="account">'+esc(fr?'Mon compte':'My account')+'</button>'
-    :'<span class="pa-universal-current" aria-current="page">'+esc(fr?'Connexion':'Sign in')+'</span>';
-  return '<nav class="pa-universal-controls" aria-label="'+esc(fr?'Navigation principale':'Main navigation')+'">'+language+destination+'</nav>';
-}
-function universalHeader(extraClass,authenticated=false){
-  return '<header class="'+extraClass+'" data-pa-universal-header>'+universalBrand()+universalControls(authenticated)+'</header>';
 }
 function renderClientWorkspace(content){
   const fr=state.language==="fr";
@@ -1904,9 +1564,13 @@ function renderClientWorkspace(content){
   };
   return '<div class="pa-client-workspace">'
     +'<a class="skip" href="#pa-client-main">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
-    +universalHeader("pa-client-header",true)
-    +'<nav class="pa-client-desktop-nav pa-client-secondary-nav" aria-label="'+esc(fr?'Navigation de mon espace':'My space navigation')+'">'
+    +'<header class="pa-client-header"><button class="pa-client-brand" type="button" data-action="nav" data-page="home" aria-label="Pict-au, '+esc(fr?'accueil':'home')+'">Pict-<span>a</span>u</button>'
+    +'<nav class="pa-client-desktop-nav" aria-label="'+esc(fr?'Navigation de mon espace':'My space navigation')+'">'
     +items.map(x=>action(x,"pa-client-nav-link")).join("")+'</nav>'
+    +'<div class="pa-client-tools"><button class="pa-client-header-search" type="button" data-action="client-search" aria-label="'+esc(fr?'Rechercher un pictogramme':'Search pictograms')+'">'+icon("search")+'</button><div class="lang-switch" role="group" aria-label="Language">'
+    +'<button class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
+    +'<button class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
+    +'</div></header>'
     +'<main class="pa-client-main" id="pa-client-main">'
     +((pendingGeneratedPdf&&!["routines","boards"].includes(state.page))?renderPdfRecovery({
       pending:pendingGeneratedPdf,uid:authStatus.user?.id,
@@ -1967,28 +1631,16 @@ function renderClientLibrary(){
   const pages=Math.max(1,Math.ceil(f.total/CATALOG_PAGE_SIZE));
   const cards=f.items.map(item=>{
     const name=fr?item.title_fr:(item.title_en||item.title_fr);
-    const selected=f.bulkSelected.has(item.id);
     const url=f.imageUrls.get(item.id);
     return '<article class="pa-catalog-card"><div class="pa-catalog-art">'
       +'<div class="pa-catalog-art-body"><img data-catalog-id="'+esc(item.id)+'"'
       +(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async"></div>'
       +'<div class="pa-catalog-art-caption">'+esc(name)+'</div></div>'
       +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
-        clientCategoryLabel(item.theme,state.language)
-      )+'</span>'
-      +'<button type="button" class="pa-catalog-bulk-choice" data-action="catalog-bulk-toggle" data-id="'+esc(item.id)+'" aria-pressed="'+selected+'"'
-      +(f.bulkBusy||f.loading?' disabled':'')+' aria-label="'+esc(selected?
-        (fr?'Retirer '+name+' de ma sélection':'Remove '+name+' from selection'):
-        (fr?'Sélectionner '+name:'Select '+name))+'">'
-      +icon(selected?'check':'plus')+esc(selected?(fr?'Sélectionné':'Selected'):(fr?'Sélectionner':'Select'))+'</button>'
-      +'<div class="pa-catalog-add">'
+        CLIENT_CATEGORIES.find(x=>x[0]===item.theme)?.[fr?1:2]||item.theme
+      )+'</span><div class="pa-catalog-add">'
       +'<button type="button" data-action="approved-add" data-kind="routine" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+icon("plus")+esc(fr?'Routine':'Routine')+'</button>'
-      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button>'
-      +'<button type="button" class="pa-catalog-open-board" data-action="approved-open-board" data-kind="board" data-id="'+esc(item.id)+'"'
-      +(singleApprovedAdd.busy||officialComposer.busy||officialComposer.board.length>=16?' disabled':'')
-      +'>'+icon("arrow")+esc(fr?'Ajouter et ouvrir le tableau':'Add & open board')+'</button>'
-      +(TEMPLATE_CHOICES_RELEASED?'<button type="button" data-action="approved-template-open" data-id="'+esc(item.id)+'">'+esc(fr?"Voir les gabarits":"View templates")+'</button>':"")
-      +'</div></article>';
+      +'<button type="button" data-action="approved-add" data-kind="board" data-id="'+esc(item.id)+'"'+(singleApprovedAdd.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("plus")+esc(fr?'Tableau':'Board')+'</button></div></article>';
   }).join("");
   const feedback=f.loading?'<p class="pa-catalog-notice" role="status">'+esc(fr?'Chargement de la bibliothèque officielle…':'Loading official library…')+'</p>':
     f.error?'<div class="pa-catalog-notice" role="alert"><p>'+esc(fr?'La bibliothèque est momentanément indisponible.':'The library is temporarily unavailable.')+'</p>'
@@ -1996,57 +1648,12 @@ function renderClientLibrary(){
     !f.items.length?'<div class="pa-client-empty pa-client-catalog-empty">'+icon("library")+'<div><h2>'
       +esc(fr?'Aucun pictogramme approuvé pour ces critères':'No approved pictograms for this selection')+'</h2>'
       +'<p>'+esc(fr?'Seules les images réellement validées par le Super Admin apparaissent ici. Aucun brouillon ni dessin d’essai.':'Only artwork reviewed by the Super Admin appears here. No drafts or sample illustrations.')+'</p>'
-      +(c?'<p>'+esc(fr?'Catégorie : ':'Category: ')+esc(fr?c[1]:c[2])+'</p>':'')
-      +'<div class="pa-catalog-empty-actions">'
-      +'<button type="button" class="btn btn-primary" data-action="request-open">'+icon("plus","btn-icon")
-      +esc(fr?'Demander un pictogramme':'Request a pictogram')+'</button>'
-      +'</div></div></div>':
+      +(c?'<p>'+esc(fr?'Catégorie : ':'Category: ')+esc(fr?c[1]:c[2])+'</p>':'')+'</div></div>':
     '<div class="pa-catalog-grid">'+cards+'</div>'
       +(pages>1?'<nav class="pa-catalog-pages" aria-label="'+esc(fr?'Pages des pictogrammes':'Pictogram pages')+'">'
         +'<button type="button" class="btn btn-light" data-action="catalog-page" data-direction="-1"'+(f.page===0?' disabled':'')+'>'+esc(fr?'Précédent':'Previous')+'</button>'
         +'<span>'+first+'–'+last+' / '+f.total+'</span>'
         +'<button type="button" class="btn btn-light" data-action="catalog-page" data-direction="1"'+(f.page>=pages-1?' disabled':'')+'>'+esc(fr?'Suivant':'Next')+'</button></nav>':'');
-  const pageSelectable=f.items.some(item=>!f.bulkSelected.has(item.id));
-  const pageSelection=f.items.length&&!f.loading&&!f.error?
-    '<div class="pa-catalog-page-select">'
-      +'<button type="button" data-action="catalog-select-page" class="btn btn-light"'
-      +(f.bulkBusy||!pageSelectable||f.bulkSelected.size>=16?' disabled':'')+'>'
-      +icon("check")+esc(fr?'Sélectionner sur cette page (16 max.)':
-        'Select from this page (max. 16)')+'</button>'
-      +'<span>'+esc(fr?'Choix conservés entre les pages.':'Selection stays across pages.')+'</span></div>':"";
-  const chosen=[...f.bulkSelected.values()];
-  const bulkReview=chosen.length?
-    '<section class="pa-used-selection-review pa-catalog-bulk-review" aria-labelledby="pa-catalog-bulk-title">'
-    +'<div class="pa-used-selection-heading"><h2 id="pa-catalog-bulk-title">'+esc(fr?'Ma sélection':'My selection')+'</h2>'
-    +'<span aria-live="polite">'+chosen.length+' / 16</span></div>'
-    +'<p class="pa-client-context">'+esc(fr?
-      "Choisissez sur plusieurs pages. Les pictogrammes seront revérifiés avant d’être ajoutés à votre support.":
-      "Select across several pages. Pictograms are rechecked before being added to your support.")+'</p>'
-    +'<ol class="pa-used-selection-list pa-catalog-ordered-selection">'+chosen.map((item,index)=>{
-      const title=fr?item.title_fr:(item.title_en||item.title_fr);
-      const disabled=f.bulkBusy||officialComposer.busy;
-      return '<li class="pa-catalog-order-item" data-choice-id="'+esc(item.id)+'">'
-        +'<span class="pa-catalog-choice-title">'+esc((index+1)+'. '+title)+'</span>'
-        +'<div class="pa-catalog-choice-controls">'
-        +'<button type="button" data-action="catalog-bulk-move" data-id="'+esc(item.id)+'" data-direction="-1"'
-        +(disabled||index===0?' disabled':'')+' aria-label="'+esc(fr?'Monter '+title:'Move '+title+' up')+'">'
-        +'<span aria-hidden="true">↑</span></button>'
-        +'<button type="button" data-action="catalog-bulk-move" data-id="'+esc(item.id)+'" data-direction="1"'
-        +(disabled||index===chosen.length-1?' disabled':'')+' aria-label="'+esc(fr?'Descendre '+title:'Move '+title+' down')+'">'
-        +'<span aria-hidden="true">↓</span></button>'
-        +'<button type="button" data-action="catalog-bulk-remove" data-id="'+esc(item.id)+'"'
-        +(disabled?' disabled':'')+' aria-label="'+esc(fr?'Retirer '+title+' de la sélection':'Remove '+title+' from selection')+'">'
-        +'<span aria-hidden="true">×</span></button></div></li>';
-    }).join("")+'</ol>'
-    +'<div class="pa-catalog-bulk-actions">'
-    +'<button type="button" class="btn btn-primary" data-action="catalog-bulk-add" data-kind="routine"'
-    +(f.bulkBusy||officialComposer.busy||officialComposer.routine.length>=10?' disabled':'')+'>'+esc(fr?'Ajouter à la routine':'Add to routine')+'</button>'
-    +'<button type="button" class="btn btn-primary" data-action="catalog-bulk-add" data-kind="board"'
-    +(f.bulkBusy||officialComposer.busy||officialComposer.board.length>=16?' disabled':'')+'>'+esc(fr?'Ajouter au tableau':'Add to board')+'</button>'
-    +'<button type="button" class="btn btn-light pa-catalog-open-board" data-action="catalog-bulk-open-board" data-kind="board"'
-    +(f.bulkBusy||singleApprovedAdd.busy||officialComposer.busy||officialComposer.board.length>=16?' disabled':'')+'>'+icon("arrow")+esc(fr?'Ajouter et ouvrir le tableau':'Add & open board')+'</button>'
-    +'<button type="button" class="btn btn-light" data-action="catalog-bulk-clear"'
-    +(f.bulkBusy?' disabled':'')+'>'+esc(fr?'Effacer la sélection':'Clear selection')+'</button></div></section>':"";
   return '<section class="pa-client-catalog" aria-labelledby="pa-catalog-title">'
     +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'BIBLIOTHÈQUE':'LIBRARY')+'</span>'
     +'<h1 id="pa-catalog-title">'+esc(fr?'Explorer les pictogrammes':'Explore pictograms')+'</h1></div>'
@@ -2059,31 +1666,16 @@ function renderClientLibrary(){
     +'<div class="pa-client-search-field">'+icon("search")+'<input type="search" id="pa-client-search" data-input="client-search" maxlength="80"'
     +' value="'+esc(state.search)+'" placeholder="'+esc(fr?'Ex. : toilette, manger, école…':'E.g. bathroom, eat, school…')+'">'
     +'<button class="pa-catalog-search-button" type="submit">'+esc(fr?'Rechercher':'Search')+'</button></div></form>'
-    +'<div class="pa-catalog-sort-bar"><div><label for="pa-catalog-sort">'+esc(fr?'Trier les pictogrammes':'Sort pictograms')+'</label>'
-    +'<select id="pa-catalog-sort" data-field="catalog-sort">'
-    +'<option value="recent"'+(f.sort==="recent"?' selected':'')+'>'+esc(fr?'Plus récents':'Newest first')+'</option>'
-    +'<option value="name"'+(f.sort==="name"?' selected':'')+'>'+esc(fr?'Nom A à Z':'Name A to Z')+'</option>'
-    +'<option value="name_desc"'+(f.sort==="name_desc"?' selected':'')+'>'+esc(fr?'Nom Z à A':'Name Z to A')+'</option></select></div>'
-    +'<button type="button" class="btn btn-light pa-catalog-clear" data-action="catalog-clear-filters"'+(f.loading?' disabled':'')+'>'+esc(fr?'Tous les pictogrammes':'All pictograms')+'</button></div>'
     +(officialComposer.routine.length||officialComposer.board.length?
        '<div class="pa-composer-toolbar"><strong>'+esc(fr?'Votre sélection':'Your selection')+'</strong>'
        +'<button data-action="nav" data-page="routines" type="button">'+esc(fr?'Routine':'Routine')+' · '+officialComposer.routine.length+'</button>'
        +'<button data-action="nav" data-page="boards" type="button">'+esc(fr?'Tableau':'Board')+' · '+officialComposer.board.length+'</button></div>':'')
      +renderSingleApprovedAddFeedback("library")
-     +(f.bulkError?'<p class="pa-catalog-notice" role="alert">'+esc(f.bulkError)+'</p>':
-       f.bulkFeedback?'<p class="pa-catalog-notice" role="status">'+esc(f.bulkFeedback)+'</p>':"")
-     +bulkReview
     +'<div class="pa-client-category-filters" role="group" aria-label="'+esc(fr?'Filtrer par catégorie':'Filter by category')+'">'
     +'<button type="button" class="'+(!state.clientCategory?'active':'')+'" data-action="client-category" data-category="" aria-pressed="'+(!state.clientCategory)+'">'+esc(fr?'Toutes':'All')+'</button>'
     +CLIENT_CATEGORIES.map(([key,frName,enName])=>'<button type="button" class="'+(state.clientCategory===key?'active':'')+'" data-action="client-category" data-category="'+esc(key)+'" aria-pressed="'+(state.clientCategory===key)+'">'
-      +esc(fr?frName:enName)+'</button>').join("")+'</div>'
-    +(state.clientCategory&&f.loaded&&f.categoryCoverage==="primary"?
-      '<p class="pa-catalog-notice" role="status">'+esc(fr?
-        "Filtre temporaire : seuls les pictogrammes dont c’est la catégorie principale apparaissent. Les catégories secondaires seront disponibles après validation de leur activation.":
-        "Temporary filter: only pictograms with this as their primary category are shown. Secondary categories will be available once enabled and validated.")+'</p>':"")
-    +pageSelection+feedback+'</section>'
-    +(customerRequests.view!=="closed"?renderCustomerRequestCenter():"")
-    +renderClientPictoTemplateModal();
+      +esc(fr?frName:enName)+'</button>').join("")+'</div>'+feedback+'</section>'
+    +(customerRequests.view!=="closed"?renderCustomerRequestCenter():"");
 }
 function renderClientUsed(){
   const fr=state.language==="fr",u=usedPictos;
@@ -2187,37 +1779,15 @@ function renderClientCreate(){
    +'<p class="pa-client-context">'+esc(fr?'Choisissez un format. Les étapes utilisant des images nécessitent des pictogrammes officiels publiés.':'Choose a format. Image-based steps require published official pictograms.')+'</p>'
    +'<div class="pa-client-create-grid">'+items.map(([page,title,copy])=>'<button type="button" data-action="nav" data-page="'+page+'" class="pa-client-create-card">'
    +icon(page==="routines"?"routine":"library")+'<strong>'+esc(title)+'</strong><span>'+esc(copy)+'</span>'+icon("arrow")+'</button>').join("")+'</div>'
-   +'<p class="pa-client-context">'+esc(fr?'Vous possédez déjà un PDF ? Enregistrez-le dans Mes fichiers pour le retrouver et le réimprimer.':'Already have a PDF? Save it in My files to find and reprint it later.')+'</p>'
-   +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes fichiers':'Open My files')+'</button>'
+   +'<p class="pa-client-context">'+esc(fr?'Vous possédez déjà un PDF ? Enregistrez-le dans Mes créations pour le retrouver et le réimprimer.':'Already have a PDF? Save it in My creations to find and reprint it later.')+'</p>'
+   +'<button type="button" class="btn btn-light" data-action="nav" data-page="files">'+esc(fr?'Ouvrir Mes créations':'Open My creations')+'</button>'
    +'<section class="pa-editable-drafts" aria-labelledby="pa-editable-drafts-title">'
    +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'ENREGISTRÉS DANS VOTRE COMPTE':'SAVED TO YOUR ACCOUNT')+'</span>'
    +'<h2 id="pa-editable-drafts-title">'+esc(fr?'Mes brouillons':'My drafts')+'</h2></div>'
    +'<button type="button" class="btn btn-light" data-action="draft-refresh"'+(editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Actualiser':'Refresh')+'</button></div>'
-   +'<form data-form="draft-filter" class="pa-drafts-filter" role="search">'
-   +'<div class="control"><label for="draft-query">'+esc(fr?'Rechercher un brouillon':'Search drafts')+'</label>'
-   +'<input id="draft-query" name="query" type="search" maxlength="80" value="'+esc(editableDrafts.query)+'"'
-   +' placeholder="'+esc(fr?'Ex. routine du soir':'E.g. evening routine')+'"'+(editableDrafts.busy?' disabled':'')+'></div>'
-   +'<div class="control"><label for="draft-kind">'+esc(fr?'Type de support':'Document type')+'</label>'
-   +'<select id="draft-kind" name="kind"'+(editableDrafts.busy?' disabled':'')+'>'
-   +[['all',fr?'Tous':'All'],['routine',fr?'Routines':'Routines'],['board',fr?'Tableaux':'Boards']]
-     .map(([value,text])=>'<option value="'+value+'"'+(editableDrafts.kind===value?' selected':'')+'>'+esc(text)+'</option>').join("")
-   +'</select></div><div class="control"><label for="draft-sort">'+esc(fr?'Trier les brouillons':'Sort drafts')+'</label>'
-   +'<select id="draft-sort" name="sort"'+(editableDrafts.busy?' disabled':'')+'>'
-   +[['recent',fr?'Modifiés récemment':'Recently edited'],['oldest',fr?'Plus anciens':'Oldest first'],
-     ['title-asc',fr?'Nom A à Z':'Name A to Z'],['title-desc',fr?'Nom Z à A':'Name Z to A']]
-     .map(([value,text])=>'<option value="'+value+'"'+(editableDrafts.sort===value?' selected':'')+'>'+esc(text)+'</option>').join("")
-   +'</select></div><button class="btn btn-primary" type="submit"'+(editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'
-   +esc(fr?'Rechercher':'Search')+'</button>'
-   +'<button class="btn btn-light" type="button" data-action="draft-filter-reset"'
-   +(!editableDrafts.query&&editableDrafts.kind==='all'&&editableDrafts.sort==='recent'||editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'
-   +esc(fr?'Tout afficher':'Show all')+'</button></form>'
    +(editableDrafts.loading?'<p role="status">'+esc(fr?'Chargement des brouillons…':'Loading drafts…')+'</p>':
      editableDrafts.error?'<p role="alert">'+esc(editableDrafts.error)+'</p>':
-     !editableDrafts.items.length?'<p class="pa-client-context" role="status">'+esc(
-        editableDrafts.kind!=="all"||editableDrafts.query?
-          (fr?'Aucun brouillon ne correspond à votre recherche. Modifiez les filtres ou choisissez « Tout afficher ».':'No drafts match your search. Adjust the filters or choose Show all.'):
-          (fr?'Aucun brouillon sauvegardé. Créez une routine ou un tableau, puis choisissez « Enregistrer le brouillon ».':'No drafts saved. Create a routine or board, then choose Save editable draft.')
-       )+'</p>':
+     !editableDrafts.items.length?'<p class="pa-client-context">'+esc(fr?'Aucun brouillon sauvegardé. Créez une routine ou un tableau, puis choisissez « Enregistrer le brouillon ».':'No drafts saved. Create a routine or board, then choose Save editable draft.')+'</p>':
      '<ul class="pa-drafts-list">'+editableDrafts.items.map(doc=>'<li class="pa-drafts-row"><div><strong>'+esc(doc.title)+'</strong>'
        +'<small>'+esc(doc.kind==="routine"?(fr?'Routine':'Routine'):(fr?'Tableau':'Board'))+' · '+esc(fr?'Version ':'Version ')+doc.revision+'</small></div>'
        +'<div class="pa-drafts-actions"><button type="button" data-action="draft-open" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Modifier':'Edit')+'</button>'
@@ -2241,7 +1811,7 @@ function renderClientAccount(){
 }
 function renderNewPassword(){
   const fr=state.language==="fr";
-  return '<section class="hosted-access">'+universalHeader("hosted-access-header",true)+'<div class="hosted-access-main"><div class="hosted-access-panel">'
+  return '<section class="hosted-access"><div class="hosted-access-main"><div class="hosted-access-panel">'
    +'<span class="hosted-access-eyebrow">PICT-AU · '+esc(fr?'SÉCURITÉ':'SECURITY')+'</span>'
    +'<h1>'+esc(fr?'Choisir un nouveau mot de passe':'Choose a new password')+'</h1>'
    +'<p>'+esc(fr?'Votre lien de récupération a été reconnu. Choisissez un nouveau mot de passe.':'Your recovery link was recognized. Choose a new password.')+'</p>'
@@ -2251,55 +1821,23 @@ function renderNewPassword(){
    +(authStatus.emailError?'<p role="alert" class="hosted-access-error">'+esc(authStatus.emailError)+'</p>':'')
    +'</div></div></section>';
 }
-const HOSTED_LOGIN_PICTOS=Object.freeze([
-  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"39\" cy=\"39\" r=\"23\"/><path d=\"m56 56 21 21\"/></svg>",fr:"Trouver",en:"Find"},
-  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><rect height=\"57\" rx=\"5\" width=\"61\" x=\"14\" y=\"16\"/><path d=\"M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9\"/></svg>",fr:"Personnaliser",en:"Personalize"},
-  {svg:"<svg viewBox=\"0 0 92 92\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6\"/></svg>",fr:"Imprimer",en:"Print"}
-]);
 function renderHostedAccess(){
-  const fr=state.language==="fr",forgot=authStatus.emailView==="forgot";
-  const busy=authStatus.emailBusy||authStatus.working;
-  const t=(frText,enText)=>esc(fr?frText:enText);
-  const side=universalHeader("hosted-access-header",false);
-  const art='<div class="hosted-e-tiles" aria-label="'+t('Trouver, Personnaliser, Imprimer','Find, Personalize, Print')+'">'
-    +HOSTED_LOGIN_PICTOS.map(item=>'<div class="hosted-e-tile"><div class="hosted-e-art">'+item.svg+'</div><div class="hosted-e-tile-label">'+esc(fr?item.fr:item.en)+'</div></div>').join('')+'</div>';
-  const email='<label for="auth-email">'+t('Adresse courriel','Email address')+'</label>'
-    +'<input id="auth-email" name="email" type="email" maxlength="254" autocomplete="email" inputmode="email" required value="'+esc(authStatus.email)+'" placeholder="nom@exemple.com"'+(busy?' disabled':'')+'>';
-  const feedback=(authStatus.emailError?'<p role="alert" class="hosted-access-error">'+esc(authStatus.emailError)+'</p>':'')
-    +(authStatus.emailMessage?'<p role="status" class="hosted-email-success">'+esc(authStatus.emailMessage)+'</p>':'')
-    +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'');
-  const content=forgot?
-    '<h1 id="hosted-access-title">'+t('Mot de passe oublié ?','Forgot your password?')+'</h1>'
-    +'<p class="hosted-access-intro">'+t('Entrez votre courriel pour recevoir un lien de récupération.','Enter your email to receive a recovery link.')+'</p>'
-    +'<form class="hosted-email-form" data-form="email-reset">'+email
-    +'<button class="hosted-access-submit" type="submit"'+(busy?' disabled':'')+'>'+t('Envoyer le lien','Send recovery link')+'</button></form>'
-    +feedback+'<button type="button" class="hosted-access-link hosted-return-login" data-action="auth-back-login">'+t('← Retour à la connexion','← Back to sign in')+'</button>':
-    '<h1 id="hosted-access-title">'+t('Se connecter','Sign in')+'</h1>'
-    +'<p class="hosted-access-intro">'+t('Connectez-vous avec votre courriel ou Google.','Sign in with your email or Google.')+'</p>'
-    +'<form class="hosted-email-form" data-form="email-login">'+email
-    +'<label for="auth-password">'+t('Mot de passe','Password')+'</label><div class="hosted-password-wrap">'
-    +'<input id="auth-password" name="password" type="'+(authStatus.showPassword?'text':'password')+'" autocomplete="current-password" required minlength="1"'+(busy?' disabled':'')+'>'
-    +'<button class="hosted-password-toggle" type="button" data-action="auth-show-password" aria-controls="auth-password" aria-label="'+t(authStatus.showPassword?'Masquer le mot de passe':'Afficher le mot de passe',authStatus.showPassword?'Hide password':'Show password')+'" aria-pressed="'+authStatus.showPassword+'">'+icon(authStatus.showPassword?"eye-off":"eye")+'</button></div>'
-    +'<p class="hosted-caps-hint" data-auth-caps role="status" aria-live="polite" hidden>'+t('Verr. maj. est activé.','Caps Lock is on.')+'</p>'
-    +'<button class="hosted-access-link hosted-forgot" type="button" data-action="auth-forgot">'+t('Mot de passe oublié ?','Forgot password?')+'</button>'
-    +'<button class="hosted-access-submit" type="submit"'+(busy||!authStatus.ready?' disabled':'')+'>'+t('Se connecter','Sign in')+'</button></form>'
-    +'<div class="hosted-auth-divider">'+t('ou','or')+'</div><div class="hosted-access-action">'+googleButton()+'</div>'
-    +feedback+'<p class="hosted-signup">'+t('Pas encore de compte ?','New to Pict-au?')+' <a href="../forfait.html">'+t('Créer un compte','Create an account')+'</a></p>';
-  const introduction='<div class="hosted-e-intro">'
-    +'<span class="hosted-access-eyebrow">'+t('VOTRE ESPACE PERSONNEL','YOUR PERSONAL SPACE')+'</span>'
-    +'<h2>'+t('Votre espace','Your space')+' <em>Pict-au</em></h2>'
-    +'<p>'+t('Retrouvez vos pictogrammes, vos routines et vos supports personnalisés.','Find your pictograms, routines and personalized materials.')+'</p>'
-    +art+'</div>';
-  return '<section class="hosted-access hosted-access-v5" aria-labelledby="hosted-access-title">'+side
-    +'<main class="hosted-access-main"><div class="hosted-e-layout">'+introduction
-    +'<div class="hosted-access-panel">'+content
-    +(!authStatus.ready?'<p role="status" class="hosted-access-status">'+t('Vérification de la session…','Checking session…')+'</p>':'')
-    +'<a href="../index.html" class="hosted-access-back">'+t('← Retour à l’accueil Pict-au','← Back to Pict-au home')+'</a>'
-    +'</div></div></main>'
-    +'<footer class="hosted-e-footer"><span>© Pict-au</span><nav aria-label="'+t('Liens utiles','Useful links')+'">'
-    +'<a href="../index.html">'+t('Accueil','Home')+'</a>'
-    +'<a href="../conditions.html">'+t('Conditions','Terms')+'</a>'
-    +'<a href="../confidentialite.html">'+t('Confidentialité','Privacy')+'</a></nav></footer></section>';
+  const fr=state.language==="fr";
+  const wait=!authStatus.ready;
+  return '<section class="hosted-access" aria-labelledby="hosted-access-title">'
+   +'<header class="hosted-access-header"><a class="hosted-access-brand" href="../index.html">'+brand()+'</a>'
+   +'<div class="lang-switch" role="group" aria-label="Language">'
+   +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
+   +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div></header>'
+   +'<main class="hosted-access-main"><div class="hosted-access-panel">'
+   +'<span class="hosted-access-eyebrow">'+esc(fr?'ESPACE PICT-AU':'YOUR PICT-AU SPACE')+'</span>'
+   +'<h1 id="hosted-access-title">'+esc(fr?'Accéder à mon espace':'Access my space')+'</h1>'
+   +'<p>'+esc(fr?'Connectez-vous pour retrouver vos fichiers et vos demandes. Aucune démonstration n’est ajoutée à votre compte.':'Sign in to access your files and requests. No sample content is added to your account.')+'</p>'
+   +(wait?'<p class="hosted-access-status" role="status">'+esc(fr?'Vérification de la session…':'Checking your session…')+'</p>':'')
+   +'<div class="hosted-access-action">'+googleButton()+'</div>'
+   +(authStatus.error?'<p role="alert" class="hosted-access-error">'+esc(authStatus.error)+'</p>':'')
+   +'<a href="../index.html" class="hosted-access-back">'+esc(fr?'← Retour à l’accueil Pict-au':'← Back to Pict-au home')+'</a>'
+   +'</div></main></section>';
 }
 function renderHostedEmpty(){
   const fr=state.language==="fr";
@@ -2316,18 +1854,6 @@ function renderHostedEmpty(){
     +'</section>'+(library?renderCustomerRequestCenter():'');
 }
 function render(){
-  const templateFocusedId=document.activeElement?.closest?.(".pa-template-dialog")&&
-    document.activeElement?.dataset?.input==="client-template-select"?
-      document.activeElement.value:null;
-  const templateActive=document.activeElement?.closest?.(".pa-template-dialog")?
-    document.activeElement:null;
-  const templateFocusedInput=["client-template-border-enabled","client-template-border-color"]
-    .includes(templateActive?.dataset?.input)?templateActive.dataset.input:null;
-  const templateFocusedColor=templateActive?.dataset?.action==="client-template-border-swatch"?
-    templateActive.dataset.color:null;
-  const templatePaperFocused=templateActive?.dataset?.input==="client-template-paper";
-  if(!canOpenAdmin() && state.page==="admin")state.page="library";
-  document.documentElement.lang=state.language;
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   const clientTitles={used:["Mes pictogrammes utilisés","My used pictograms"],
@@ -2358,18 +1884,6 @@ function render(){
   updateArtFeedback();
   observeBankThumbnails();
   observePublishedArtwork();
-  // render() remplace tout le DOM. Le dialogue reste focalisé après ouverture,
-  // chargement réseau, sélection d'une radio ou traduction FR/EN.
-  const templateDialog=root.querySelector(".pa-template-dialog");
-  if(templateDialog){
-    const radio=templateFocusedId?[...templateDialog.querySelectorAll('[data-input="client-template-select"]')]
-      .find(el=>el.value===templateFocusedId):null;
-    const focused=((typeof templatePaperFocused!=="undefined"&&templatePaperFocused)?templateDialog.querySelector("#pa-client-template-paper"):null)||radio||
-      ((typeof templateFocusedInput!=="undefined"&&templateFocusedInput)?templateDialog.querySelector('[data-input="'+templateFocusedInput+'"]'):null)||
-      ((typeof templateFocusedColor!=="undefined"&&templateFocusedColor)?templateDialog.querySelector('[data-action="client-template-border-swatch"][data-color="'+templateFocusedColor+'"]'):null);
-    (focused||templateDialog.querySelector('[data-action="client-template-close"]'))
-      ?.focus({preventScroll:true});
-  }
 }
 // La fermeture ne garantit jamais l'achèvement d'une requête réseau.
 window.addEventListener("beforeunload",event=>{
@@ -2417,11 +1931,6 @@ function updateArtFeedback(){
 function adminLive(){
   const stage=document.querySelector("#admin-stage");
   if(stage){stage.innerHTML=adminPreview();layoutArtwork(stage);updateArtFeedback();}
-  const caption=document.querySelector("#admin-preview-caption");
-  if(caption)caption.textContent=namedTemplatePreviewCaption({
-    widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
-    enabled:adminNamedTemplates.loaded,fr:state.language==="fr"
-  });
 }
 function routineLive(){
   const stage=document.querySelector("#routine-stage");
@@ -2436,45 +1945,7 @@ root.addEventListener("load",function(event){
   }
 },true);
 // Fenêtre modale d'aperçu : Escape ferme et Tab reste dans le dialogue.
-// Sur ordinateur uniquement, signale Caps Lock sans lire ni conserver le secret.
-function syncLoginCapsState(event){
- if(event.target?.id!=="auth-password")return;
- const hint=root.querySelector("[data-auth-caps]");
- if(hint&&typeof event.getModifierState==="function")
-   hint.hidden=!event.getModifierState("CapsLock");
-}
-root.addEventListener("keydown",syncLoginCapsState);
-root.addEventListener("keyup",syncLoginCapsState);
-root.addEventListener("focusout",event=>{
- if(event.target?.id==="auth-password"){
-   const hint=root.querySelector("[data-auth-caps]");
-   if(hint)hint.hidden=true;
- }
-});
-
 root.addEventListener("keydown",function(event){
-  const templateDialog=TEMPLATE_CHOICES_RELEASED&&clientPictoTemplates.pictoId?
-    root.querySelector(".pa-template-dialog"):null;
-  if(templateDialog){
-    if(event.key==="Escape"){
-      event.preventDefault();closeClientPictoTemplateChoices();return;
-    }
-    if(event.key==="Tab"){
-      const controls=[...templateDialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled])')];
-      if(!controls.length)return;
-      const first=controls[0],last=controls.at(-1);
-      if(!templateDialog.contains(document.activeElement)){
-        event.preventDefault();first.focus();return;
-      }
-      if(event.shiftKey&&document.activeElement===first){
-        event.preventDefault();last.focus();return;
-      }
-      if(!event.shiftKey&&document.activeElement===last){
-        event.preventDefault();first.focus();return;
-      }
-    }
-    return;
-  }
   if(event.key==="Escape"&&state.adminMenuOpen&&SITE_EMBEDDED){
     event.preventDefault();state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
@@ -2517,9 +1988,6 @@ root.addEventListener("focusout",function(event){
     root.querySelector(".pa-client-workspace")?.classList.remove("pa-keyboard-open");
 });
 root.addEventListener("click",function(event){
-  if(TEMPLATE_CHOICES_RELEASED&&event.target?.classList?.contains("pa-template-modal-backdrop")){
-    closeClientPictoTemplateChoices();return;
-  }
   const el=event.target.closest("[data-action]");
   if(!el)return;
   if(el.tagName==="A")event.preventDefault();
@@ -2544,10 +2012,6 @@ root.addEventListener("click",function(event){
     void fetchEditableDrafts();return;
   }
   if(a==="draft-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
-    void fetchEditableDrafts();return;
-  }
-  if(a==="draft-filter-reset"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.loading&&!editableDrafts.busy){
-    editableDrafts.kind="all";editableDrafts.query="";editableDrafts.sort="recent";editableDrafts.page=0;
     void fetchEditableDrafts();return;
   }
   if(a==="draft-save"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy&&!officialComposer.busy){
@@ -2789,14 +2253,6 @@ root.addEventListener("click",function(event){
     if(SITE_EMBEDDED&&!canOpenAdmin()){state.page="library";render();if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());}
     return;
   }
-  if(a==="catalog-clear-filters"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      state.page==="library"){
-    state.clientCategory="";state.search="";publishedCatalog.page=0;publishedCatalog.sort="recent";
-    publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
-    render();void fetchPublishedCatalog();
-    requestAnimationFrame(()=>root.querySelector("#pa-client-search")?.focus());
-    return;
-  }
   if(a==="client-category"){
     if(SITE_EMBEDDED&&!canOpenAdmin()){
       const value=el.dataset.category||"";
@@ -2805,138 +2261,11 @@ root.addEventListener("click",function(event){
     }
     return;
   }
-  if(a==="catalog-select-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      state.page==="library"&&publishedCatalog.loaded&&!publishedCatalog.loading&&
-      !publishedCatalog.error&&!publishedCatalog.bulkBusy&&!officialComposer.busy){
-    try{
-      const result=selectVisibleCatalogPage(publishedCatalog.bulkSelected,publishedCatalog.items);
-      publishedCatalog.bulkSelected=result.selected;
-      publishedCatalog.bulkError="";
-      const fr=state.language==="fr";
-      publishedCatalog.bulkFeedback=(result.added?
-        (fr?result.added+" pictogramme(s) sélectionné(s) sur cette page.":
-          result.added+" pictogram(s) selected on this page."):
-        (fr?"Tous les pictogrammes possibles sont déjà sélectionnés.":
-          "All available pictograms are already selected."))+
-        (result.capacityReached?(fr?" Limite de 16 atteinte; les autres images restent disponibles.":
-          "16-item limit reached; remaining images stay available."):"");
-    }catch(error){
-      publishedCatalog.bulkError=String(error?.message||error);
-      publishedCatalog.bulkFeedback="";
-    }
-    render();
-    requestAnimationFrame(()=>root.querySelector('[data-action="catalog-select-page"]')?.focus());
-    return;
-  }
-  if(a==="catalog-bulk-toggle"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      state.page==="library"&&!publishedCatalog.loading&&!publishedCatalog.error&&
-      !publishedCatalog.bulkBusy&&!officialComposer.busy){
-    try{
-      publishedCatalog.bulkSelected=toggleCatalogChoice(publishedCatalog.bulkSelected,
-        el.dataset.id,publishedCatalog.items);
-      publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
-    }catch(error){publishedCatalog.bulkError=String(error?.message||error);}
-    render();return;
-  }
-  if(a==="catalog-bulk-move"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      state.page==="library"&&!publishedCatalog.loading&&!publishedCatalog.bulkBusy&&
-      !officialComposer.busy){
-    const id=el.dataset.id,direction=Number(el.dataset.direction);
-    try{
-      publishedCatalog.bulkSelected=moveCatalogChoice(publishedCatalog.bulkSelected,id,direction);
-      const order=[...publishedCatalog.bulkSelected.keys()],position=order.indexOf(id)+1;
-      publishedCatalog.bulkError="";
-      publishedCatalog.bulkFeedback=state.language==="fr"?
-        "Ordre de la sélection modifié : position "+position+" sur "+order.length+".":
-        "Selection order updated: position "+position+" of "+order.length+".";
-    }catch(error){
-      publishedCatalog.bulkError=String(error?.message||error);
-      publishedCatalog.bulkFeedback="";
-    }
-    render();
-    requestAnimationFrame(()=>{
-      const row=root.querySelector('.pa-catalog-order-item[data-choice-id="'+id+'"]');
-      (row?.querySelector('[data-action="catalog-bulk-move"][data-direction="'+direction+'"]:not(:disabled)')||
-       row?.querySelector('[data-action="catalog-bulk-move"]:not(:disabled)')||
-       row?.querySelector('[data-action="catalog-bulk-remove"]'))?.focus();
-    });
-    return;
-  }
-  if(a==="catalog-bulk-remove"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      state.page==="library"&&!publishedCatalog.bulkBusy){
-    try{
-      publishedCatalog.bulkSelected=removeUsedChoice(publishedCatalog.bulkSelected,el.dataset.id);
-      publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
-    }catch(error){publishedCatalog.bulkError=String(error?.message||error);}
-    render();
-    requestAnimationFrame(()=>(root.querySelector('[data-action="catalog-bulk-remove"]')||
-      root.querySelector("#pa-client-search"))?.focus());
-    return;
-  }
-  if(a==="catalog-bulk-clear"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      state.page==="library"&&!publishedCatalog.bulkBusy){
-    publishedCatalog.bulkSelected=new Map();
-    publishedCatalog.bulkError="";publishedCatalog.bulkFeedback="";
-    render();return;
-  }
-  if((a==="catalog-bulk-add"||a==="catalog-bulk-open-board")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
-      state.page==="library"&&!publishedCatalog.bulkBusy&&!officialComposer.busy&&
-      !editableDrafts.deletingKind&&!editableDrafts.copyKind){
-    const openBoard=a==="catalog-bulk-open-board",kind=openBoard?"board":el.dataset.kind;
-    if(!["routine","board"].includes(kind)||!publishedCatalog.bulkSelected.size)return;
-    const uid=authStatus.user.id,session=editableDrafts.sessionEpoch,
-      selection=publishedCatalog.bulkSelected,before=officialComposer[kind],
-      catalogTicket=publishedCatalog.request,token=++publishedCatalog.bulkRequest;
-    const current=()=>authStatus.user?.id===uid&&editableDrafts.sessionEpoch===session&&
-      publishedCatalog.bulkRequest===token&&publishedCatalog.request===catalogTicket&&
-      publishedCatalog.bulkSelected===selection&&state.page==="library"&&
-      officialComposer[kind]===before&&!officialComposer.busy&&!canOpenAdmin();
-    publishedCatalog.bulkBusy=true;publishedCatalog.bulkError="";
-    publishedCatalog.bulkFeedback=state.language==="fr"?
-      "Vérification des pictogrammes publiés…":"Checking published pictograms…";
-    render();
-    void(async()=>{
-      try{
-        // Les vignettes ne prouvent pas la publication. Relire les vrais IDs
-        // sous Auth/RLS avant UN changement de composition.
-        const plan=planUsedBatchApproval(selection,[],before,kind);
-        const rows=plan.ids.length?await loadApprovedSelection(await supabaseClient(),uid,plan.ids):[];
-        if(!current())return;
-        const result=addApprovedPage(before,rows,kind);
-        if(result.added){
-          officialComposer[kind]=result.items;
-          markDraftChanged(kind);officialComposer.error="";
-          const added=new Set(plan.ids);
-          publishedCatalog.bulkSelected=new Map([...selection].filter(([id])=>!added.has(id)));
-          if(openBoard){openVerifiedCatalogBoard();return;}
-        }
-        const fr=state.language==="fr";
-        publishedCatalog.bulkFeedback=result.added?
-          (fr?result.added+" pictogramme(s) ajouté(s) au support.":
-            result.added+" pictogram(s) added to your support.")+
-          (plan.capacityReached?(fr?" Limite du support atteinte; les autres choix restent sélectionnés.":
-            "Support capacity reached; remaining choices stay selected."):""):
-          (fr?"Aucune nouvelle image ajoutée : déjà choisie ou support complet.":
-            "No new pictograms added: already selected or support full.");
-      }catch(error){
-        if(current()){
-          publishedCatalog.bulkError=String(error?.message||error);
-          publishedCatalog.bulkFeedback="";
-        }
-      }finally{
-        if(authStatus.user?.id===uid&&publishedCatalog.bulkRequest===token){
-          publishedCatalog.bulkBusy=false;render();
-        }
-      }
-    })();return;
-  }
-  if((a==="approved-add"||a==="approved-open-board")&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+  if(a==="approved-add"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
       !singleApprovedAdd.busy&&!usedPictos.adding&&!officialComposer.busy&&
       !editableDrafts.deletingKind&&!editableDrafts.copyKind){
-    const openBoard=a==="approved-open-board",kind=openBoard?"board":el.dataset.kind,
-      page=state.page,id=el.dataset.id;
-    if(!["routine","board"].includes(kind)||!["library","used"].includes(page)||
-       (openBoard&&page!=="library"))return;
+    const kind=el.dataset.kind,page=state.page,id=el.dataset.id;
+    if(!["routine","board"].includes(kind)||!["library","used"].includes(page))return;
     const row=page==="library"?publishedCatalog.items.find(x=>x.id===id):
       usedPictos.items.map(approvedFromUsage).filter(Boolean).find(x=>x.id===id);
     if(!row)return;
@@ -2960,7 +2289,6 @@ root.addEventListener("click",function(event){
         if(!stillCurrent())return;
         officialComposer[kind]=selectApprovedItem(before,fresh,kind);
         markDraftChanged(kind);officialComposer.error="";
-        if(openBoard){openVerifiedCatalogBoard();return;}
         singleApprovedAdd.message=state.language==="fr"?
           (kind==="routine"?"Pictogramme ajouté à votre routine.":"Pictogramme ajouté à votre tableau.") :
           (kind==="routine"?"Pictogram added to your routine.":"Pictogram added to your board.");
@@ -3184,9 +2512,6 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
-  if(a==="auth-forgot"){const input=root.querySelector("#auth-email");if(input)authStatus.email=input.value.trim();authStatus.emailView="forgot";authStatus.emailError="";authStatus.emailMessage="";render();return;}
-  if(a==="auth-back-login"){const input=root.querySelector("#auth-email");if(input)authStatus.email=input.value.trim();authStatus.emailView="login";authStatus.emailError="";authStatus.emailMessage="";render();return;}
-  if(a==="auth-show-password"){const input=root.querySelector("#auth-password");if(!input)return;const at=input.selectionStart;authStatus.showPassword=!authStatus.showPassword;input.type=authStatus.showPassword?"text":"password";el.setAttribute("aria-pressed",String(authStatus.showPassword));el.setAttribute("aria-label",state.language==="fr"?(authStatus.showPassword?"Masquer le mot de passe":"Afficher le mot de passe"):(authStatus.showPassword?"Hide password":"Show password"));el.innerHTML=icon(authStatus.showPassword?"eye-off":"eye");input.focus();try{input.setSelectionRange(at,at)}catch{}return;}
   if(a==="role-retry"){if(!authStatus.user)return;authStatus.roleError="";void supabaseClient().then(c=>refreshPrivateBank(c,authStatus.user.id));return;}
   if(a==="email-link"||a==="email-reset"){
     const input=root.querySelector('#auth-email');
@@ -3210,13 +2535,7 @@ root.addEventListener("click",function(event){
     authStatus.working=true;resetPrivateBank();render();
     void logoutGoogle().then(()=>{authStatus.user=null;authStatus.roleReady=false;authStatus.working=false;state.page="home";state.adminTab="overview";render();}).catch(err=>{authStatus.working=false;notify(String(err.message||err));});return;
   }
-  if(a==="lang"){
-    state.language=el.dataset.lang;store("pictau-language",state.language);state.toast="";render();
-    if(SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&state.page==="used"&&
-       usedPictos.sort==="name")void fetchUsedPictos();
-    if(SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&state.page==="library"&&
-       publishedCatalog.sort!=="recent")void fetchPublishedCatalog();
-  }
+  if(a==="lang"){state.language=el.dataset.lang;store("pictau-language",state.language);state.toast="";render();}
   if(a==="view-picto"){
     if(!samples.some(item=>item.id===el.dataset.id))return;
     state.detailId=el.dataset.id;
@@ -3410,79 +2729,14 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
-  if(a==="admin-review-queue"){
-    if(!canOpenAdmin()||!authStatus.user)return;
-    clearTimeout(bankQueryTimer);bankQueryTimer=null;
-    clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
-    bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
-    bankFilters.sort="recent";privateBank.page=0;
-    state.page="admin";state.adminTab="bank";state.adminMenuOpen=false;
-    state.toast="";render();
-    queueAdminBankRefresh();
-    return;
-  }
-  if(a==="admin-view-published"){
-    if(!canOpenAdmin()||!authStatus.user||publishedCatalog.publishing)return;
-    clearTimeout(bankQueryTimer);bankQueryTimer=null;
-    clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
-    bankFilters.query="";bankFilters.status="published";bankFilters.theme="all";
-    bankFilters.sort="recent";privateBank.page=0;
-    publishedCatalog.publishMessage="";publishedCatalog.publishError="";
-    state.page="admin";state.adminTab="bank";render();
-    queueAdminBankRefresh();
-    return;
-  }
-  if(a==="admin-review-next"){
-    if(!canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank"||
-       bankFilters.status!=="draft"||privateBank.loading||privatePreview.loading||
-       publishedCatalog.publishing)return;
-    const drafts=privateBank.items.filter(item=>item.status==="draft");
-    if(!drafts.length)return;
-    const current=drafts.findIndex(item=>item.id===privatePreview.id);
-    void openAdminPreview(drafts[(current+1)%drafts.length].id);
-    return;
-  }
-  if(a==="test-clients-refresh"){
-    if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
-    testClients.created=null;void fetchTestClientAccounts();return;
-  }
-  if(a==="test-client-delete"){
-    if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
-    const id=el.dataset.id,email=el.dataset.email;
-    if(!testClients.items.some(item=>item.user_id===id&&item.email===email))return;
-    const typed=window.prompt(state.language==="fr"?
-      "Pour supprimer définitivement ce compte TEST et ses fichiers, recopiez son courriel : "+email:
-      "To permanently delete this TEST account and files, type its email: "+email);
-    if(typed!==email)return;
-    const uid=authStatus.user.id,ticket=++testClients.request;
-    testClients.busy=true;testClients.error="";testClients.message="";testClients.created=null;render();
-    void(async()=>{
-      try{
-        const client=await supabaseClient();
-        await deleteTestClient(client,uid,id);
-        if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-        testClients.items=testClients.items.filter(item=>item.user_id!==id);
-        testClients.message=state.language==="fr"?"Compte de test supprimé et retrait confirmé.":"Test account removed and verified.";
-      }catch(error){
-        if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
-        testClients.error=String(error?.message||error);
-      }finally{
-        if(ticket===testClients.request){testClients.busy=false;render();}
-      }
-    })();return;
-  }
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
       adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
     }
-    if(el.dataset.tab!=="bank"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
-    if(state.adminTab==="test-clients"&&el.dataset.tab!=="test-clients")testClients.created=null;
+    if(el.dataset.tab!=="bank"){bankPanel="browse";clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
-    if(state.adminTab==="test-clients"&&authStatus.user&&!testClients.loading)
-      void fetchTestClientAccounts();
     if(state.adminTab==="settings"&&authStatus.user)void fetchCaptionFeature();
-    if(state.adminTab==="templates"&&authStatus.user)void fetchAdminNamedTemplates();
     if(state.adminTab==="requests"&&authStatus.user)
       void supabaseClient().then(c=>fetchAdminRequests(c,authStatus.user.id))
        .catch(error=>{adminRequests.error=String(error?.message||error);render();});
@@ -3621,7 +2875,7 @@ root.addEventListener("click",function(event){
   if(a==="admin-theme-asset"){
     if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id))return;
     themeUI.assetId=el.dataset.id;themeUI.error="";themeUI.message="";
-    clearAdminPreview();clearDraftEditor();clearBankRename();render();return;
+    clearAdminPreview();clearDraftEditor();clearBankRename();render();focusBankInspector();return;
   }
   if(a==="admin-theme-close"){themeUI.assetId=null;render();return;}
   if(a==="admin-theme-edit-open"){
@@ -3634,6 +2888,28 @@ root.addEventListener("click",function(event){
     if(!current.includes(code)||current.length<=1||themeUI.busy)return;
     void performThemeMutation((client,uid)=>removeAssetTheme(client,uid,asset,code),
       state.language==="fr"?"Thème retiré de la fiche.":"Theme removed from asset.");
+    return;
+  }
+  if(a==="admin-bank-panel"){
+    if(!canOpenAdmin()||state.adminTab!=="bank")return;
+    if(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing)return;
+    const panel=el.dataset.panel;
+    if(!["browse","import","themes"].includes(panel)||panel===bankPanel)return;
+    if(panel!=="browse"&&!confirmDiscardBankEdits())return;
+    bankPanel=panel;
+    if(panel!=="browse"){
+      clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
+    }
+    render();
+    root.querySelector("#pa-bank-active-region")?.focus({preventScroll:true});
+    return;
+  }
+  if(a==="admin-bank-detail-close"){
+    if(!canOpenAdmin()||bankRename.busy||draftEditor.saving||publishedCatalog.publishing)return;
+    if(!confirmDiscardBankEdits())return;
+    clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
+    render();
+    root.querySelector(".pa-bank-results h2")?.scrollIntoView({block:"start",behavior:"auto"});
     return;
   }
   if(a==="admin-bank-view"){
@@ -3660,254 +2936,8 @@ root.addEventListener("click",function(event){
       finally{publishedCatalog.publishing=false;render();}
     })();return;
   }
-  if(a==="admin-template-choices-open"){
-    if(TEMPLATE_CHOICES_RELEASED)void openAdminTemplateChoices(el.dataset.id);
-    return;
-  }
-  if(a==="picto-template-remove-unpublished"){
-    if(!TEMPLATE_CHOICES_RELEASED||!canOpenAdmin()||!authStatus.user||
-       !adminTemplateChoices.assetId||!adminTemplateChoices.loaded||adminTemplateChoices.busy)return;
-    const available=new Set(adminTemplateChoices.available.filter(row=>row.is_published).map(row=>row.id));
-    const cleaned=adminTemplateChoices.selected.filter(id=>available.has(id));
-    if(cleaned.length===adminTemplateChoices.selected.length)return;
-    adminTemplateChoices.selected=cleaned;
-    adminTemplateChoices.dirty=true;
-    adminTemplateChoices.error="";
-    adminTemplateChoices.message=state.language==="fr"?
-      "Gabarits non publiés retirés de cette sélection. Enregistrez, puis confirmez pour actualiser la fiche client.":
-      "Unpublished templates removed from this selection. Save, then confirm to update the client details.";
-    render();
-    return;
-  }
-  if(a==="picto-template-stage"){
-    if(!TEMPLATE_CHOICES_RELEASED||!canOpenAdmin()||!authStatus.user||
-       !adminTemplateChoices.assetId||!adminTemplateChoices.loaded||adminTemplateChoices.busy)return;
-    const uid=authStatus.user.id,ticket=adminTemplateChoices.request;
-    adminTemplateChoices.busy=true;adminTemplateChoices.error="";render();
-    void(async()=>{
-      try{
-        const client=await supabaseClient();
-        const saved=await saveAdminPictoTemplateDraft(client,uid,{
-          catalogId:adminTemplateChoices.assetId,ids:adminTemplateChoices.selected,
-          revision:adminTemplateChoices.revision
-        });
-        if(ticket!==adminTemplateChoices.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-        adminTemplateChoices.revision=saved.revision;
-        adminTemplateChoices.dirty=false;
-        adminTemplateChoices.message=state.language==="fr"?
-          "Sélection enregistrée en privé. Confirmez pour changer la fiche client.":
-          "Selection saved privately. Confirm to change the client detail.";
-      }catch(error){
-        if(ticket===adminTemplateChoices.request)adminTemplateChoices.error=String(error?.message||error);
-      }finally{
-        if(ticket===adminTemplateChoices.request){adminTemplateChoices.busy=false;render();}
-      }
-    })();
-    return;
-  }
-  if(a==="picto-template-confirm"){
-    if(!TEMPLATE_CHOICES_RELEASED||!canOpenAdmin()||!authStatus.user||
-       !adminTemplateChoices.assetId||adminTemplateChoices.busy||adminTemplateChoices.dirty||
-       adminTemplateChoices.revision<1)return;
-    const pictoName=privateBank.items.find(row=>row.id===adminTemplateChoices.assetId)?.title_fr||"";
-    if(!window.confirm(confirmationMessage({
-      pictoName,selected:adminTemplateChoices.selected,fr:state.language==="fr"
-    })))return;
-    const uid=authStatus.user.id,ticket=adminTemplateChoices.request;
-    adminTemplateChoices.busy=true;adminTemplateChoices.error="";render();
-    void(async()=>{
-      try{
-        const client=await supabaseClient();
-        const proof=await confirmAdminPictoTemplateChoices(client,uid,{
-          catalogId:adminTemplateChoices.assetId,
-          revision:adminTemplateChoices.revision,confirmedByUser:true
-        });
-        if(ticket!==adminTemplateChoices.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-        adminTemplateChoices.confirmed=[...adminTemplateChoices.selected];
-        adminTemplateChoices.confirmedRevision=proof.confirmedRevision;
-        adminTemplateChoices.message=state.language==="fr"?
-          "Confirmation enregistrée : seuls ces gabarits sont maintenant proposés au client.":
-          "Confirmed: these are now the only customer-visible templates.";
-      }catch(error){
-        if(ticket===adminTemplateChoices.request)adminTemplateChoices.error=String(error?.message||error);
-      }finally{
-        if(ticket===adminTemplateChoices.request){adminTemplateChoices.busy=false;render();}
-      }
-    })();
-    return;
-  }
-  if(a==="approved-template-open"){
-    if(TEMPLATE_CHOICES_RELEASED)void openClientPictoTemplateChoices(el.dataset.id);
-    return;
-  }
-  if(a==="client-template-close"){closeClientPictoTemplateChoices();return;}
-  if(a==="client-template-refresh"){
-    if(TEMPLATE_CHOICES_RELEASED&&clientPictoTemplates.pictoId&&!clientPictoTemplates.busy)
-      void openClientPictoTemplateChoices(clientPictoTemplates.pictoId);
-    return;
-  }
-  if(a==="client-template-border-swatch"){
-    if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
-       clientPictoTemplates.busy||clientPictoTemplates.loading||!clientPictoTemplates.selectedId||
-       clientPictoTemplates.borderEnabled!==true)return;
-    const value=el.dataset.color;
-    if(!/^#[0-9a-f]{6}$/i.test(value||""))return;
-    clientPictoTemplates.borderColor=value.toLowerCase();
-    render();return;
-  }
-  if(a==="client-template-print"){
-    if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
-       clientPictoTemplates.loading||clientPictoTemplates.busy||officialComposer.busy||
-       pdfExportBusy||pendingGeneratedPdf)return;
-    const id=clientPictoTemplates.pictoId,chosenId=clientPictoTemplates.selectedId,
-      uid=authStatus.user.id,ticket=clientPictoTemplates.request,
-      printLanguage=state.language,printPaper=clientPictoTemplates.paper,
-      printCopies=clientPictoTemplates.copies,
-      borderPreference={colored:clientPictoTemplates.borderEnabled,
-        borderColor:clientPictoTemplates.borderColor};
-    if(!id||!chosenId||!["letter","a4"].includes(printPaper)||
-       !Number.isInteger(printCopies)||printCopies<1||printCopies>12||state.page!=="library"||
-       !clientPictoTemplates.items.some(row=>row.id===chosenId&&row.is_published)||
-       !publishedCatalog.items.some(row=>row.id===id))return;
-    const current=()=>authStatus.user?.id===uid&&
-      ticket===clientPictoTemplates.request&&clientPictoTemplates.pictoId===id&&
-      state.page==="library"&&!canOpenAdmin();
-    clientPictoTemplates.busy=true;clientPictoTemplates.error="";render();
-    void(async()=>{
-      try{
-        const client=await supabaseClient();
-        const settings=await loadConfirmedPrintSettings(client,uid,id,chosenId);
-        if(!current())return;
-        const rows=await loadApprovedSelection(client,uid,[id]);
-        if(rows.length!==1||rows[0].id!==id)
-          throw Error("Ce pictogramme n'est plus publié. Actualisez la bibliothèque.");
-        const row=rows[0],pngBlob=await downloadPublishedArtwork(client,uid,row);
-        if(!current())return;
-        // La confirmation peut avoir été révoquée pendant le téléchargement PNG.
-        // Ne pas générer une version sortie du catalogue de gabarits.
-        const latest=await loadConfirmedPrintSettings(client,uid,id,chosenId);
-        if(!current())return;
-        if(JSON.stringify(latest)!==JSON.stringify(settings))
-          throw Error("Le gabarit a changé : actualisez la fiche avant l'impression.");
-        const title=String(printLanguage==="en"?(row.title_en||row.title_fr):row.title_fr).trim().slice(0,120);
-        // Une seule personnalisation validée, utilisée par le calcul
-        // géométrique et le PDF officiel sans réduire le pictogramme.
-        const printPreset=applyClientBorderPreference(settings,borderPreference).preset;
-        const columns=fitPhysicalCopyColumns({
-          widthCm:settings.widthCm,preset:printPreset,paper:printPaper,copies:printCopies
-        });
-        const {blob,pageCount}=await createPreparedPdf({
-          items:repeatApprovedPictoForPrint(row,pngBlob,validateClientPictoCopies(printCopies)),
-          kind:"board",columns,individualBorders:true,widthCm:settings.widthCm,
-          preset:printPreset,paper:printPaper,language:printLanguage,title
-        });
-        if(!current())return;
-        pdfRecoveryError="";
-        pendingGeneratedPdf={uid,blob,pageCount,title,documentType:"board",documentId:crypto.randomUUID()};
-        await archivePdf(client,uid,blob,{title,documentType:"board",pageCount,
-          documentId:pendingGeneratedPdf.documentId});
-        if(pendingGeneratedPdf?.blob===blob)pendingGeneratedPdf=null;
-        if(!current())return;
-        resetClientPictoTemplates();
-        clientFiles.message=printLanguage==="fr"?
-          "Pictogramme imprimable enregistré dans Mes fichiers.":
-          "Printable pictogram saved in My files.";
-        state.page="files";clientFiles.page=0;clientFiles.query="";clientFiles.type="all";
-        clientFiles.sort="recent";
-        await fetchClientFiles(client,uid);
-      }catch(error){
-        if(current())clientPictoTemplates.error=String(error?.message||error);
-      }finally{
-        if(ticket===clientPictoTemplates.request&&authStatus.user?.id===uid){
-          clientPictoTemplates.busy=false;render();
-        }
-      }
-    })();
-    return;
-  }
   if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
   if(a==="close-admin-preview"){clearAdminPreview();render();return;}
-  if(a==="download-admin-proof"){
-    if(!canOpenAdmin()||!authStatus.user||privateProof.busy||
-       publishedCatalog.publishing||privatePreview.loading||!privatePreview.technical||
-       !privatePreview.asset||privatePreview.asset.status!=="draft"||
-       !privateBank.items.some(x=>x.id===privatePreview.asset.id&&x.status==="draft"))return;
-    const uid=authStatus.user.id,assetId=privatePreview.asset.id,
-      ticket=++privateProof.request,language=state.language;
-    privateProof.busy=true;privateProof.error="";privateProof.message="";render();
-    void (async()=>{
-      try{
-        const client=await supabaseClient();
-        const blob=await createPrivateDraftProof(client,uid,assetId,{
-          language,preset:{...state.currentPreset}
-        });
-        if(ticket!==privateProof.request||authStatus.user?.id!==uid||
-           !canOpenAdmin()||state.page!=="admin"||
-           privatePreview.asset?.id!==assetId)return;
-        const base=String(privatePreview.asset.title_fr||"picto").normalize("NFD")
-          .replace(/[\u0300-\u036f]/g,"").toLowerCase()
-          .replace(/[^a-z0-9_-]+/g,"-").slice(0,52)||"pictau";
-        const url=URL.createObjectURL(blob),link=document.createElement("a");
-        link.href=url;link.download="epreuve-privee-"+base+".pdf";
-        document.body.appendChild(link);link.click();link.remove();
-        setTimeout(()=>URL.revokeObjectURL(url),3000);
-        privateProof.message=language==="fr"?
-          "Épreuve PDF téléchargée localement. Aucune publication ou archive créée.":
-          "Private proof downloaded locally. Nothing published or archived.";
-      }catch(error){
-        if(ticket===privateProof.request&&authStatus.user?.id===uid)
-          privateProof.error=String(error?.message||error);
-      }finally{
-        if(ticket===privateProof.request){
-          privateProof.busy=false;
-          if(authStatus.user?.id===uid)render();
-        }
-      }
-    })();return;
-  }
-  if(a==="admin-art-rotation-reset"){
-    if(!canOpenAdmin()||!privatePreview.inkBlob||privatePreview.adjustBusy)return;
-    privatePreview.rotationDeg=0;privatePreview.adjustError="";privatePreview.adjustMessage="";
-    render();root.querySelector("#admin-art-rotation")?.focus({preventScroll:true});return;
-  }
-  if(a==="admin-art-rotation-save"){
-    if(!canOpenAdmin()||!authStatus.user||privatePreview.adjustBusy||
-       !privatePreview.inkBlob||!privatePreview.asset)return;
-    const angle=validateArtworkRotation(privatePreview.rotationDeg);
-    const asset={...privatePreview.asset},inkBlob=privatePreview.inkBlob;
-    const uid=authStatus.user.id,ticket=privatePreview.request;
-    if(!window.confirm(state.language==="fr"?
-      (angle===0?"Créer un brouillon privé avec le dessin recadré sans rotation ?":
-        "Créer un nouveau brouillon privé avec le dessin pivoté de "+angle+"° ?")+
-        " L'original sera conservé et rien ne sera publié.":
-      (angle===0?"Create a private draft with the cropped artwork and no rotation?":
-        "Create a new private draft with artwork rotated "+angle+"°?")+
-        " The original is kept and nothing is published."))return;
-    const current=()=>privatePreview.request===ticket&&privatePreview.id===asset.id&&
-      authStatus.user?.id===uid&&canOpenAdmin();
-    privatePreview.adjustBusy=true;privatePreview.adjustError="";privatePreview.adjustMessage="";render();
-    void(async()=>{
-      try{
-        const file=await makeRotatedPrivatePng(inkBlob,angle,asset.title_fr);
-        if(!current())return;
-        const client=await supabaseClient();
-        await importPrivateDraft(client,uid,file,privateInkDraftMetadata(asset,angle));
-        if(!current())return;
-        const message=state.language==="fr"?
-          (angle===0?"Dessin recadré enregistré comme nouveau brouillon privé.":"Version pivotée enregistrée comme nouveau brouillon privé.")+
-            " Original conservé; aucune publication automatique.":
-          (angle===0?"Cropped artwork saved as a new private draft.":"Rotated artwork saved as a new private draft.")+
-            " Original kept; never auto-published.";
-        privatePreview.adjustMessage=message;state.toast=message;
-        await refreshPrivateBank(client,uid);
-      }catch(error){
-        if(current())privatePreview.adjustError=String(error?.message||error);
-      }finally{
-        if(current()){privatePreview.adjustBusy=false;render();}
-      }
-    })();
-    return;
-  }
   if(a==="download-admin-preview"){
     if(!canOpenAdmin()||!privatePreview.url||!privatePreview.asset)return;
     const file=document.createElement("a");
@@ -3918,191 +2948,21 @@ root.addEventListener("click",function(event){
   if(a==="admin-edit-draft"){openDraftEditor(el.dataset.id);return;}
   if(a==="close-admin-edit"){clearDraftEditor();render();return;}
   if(a==="export-admin-proposal"){exportDraftProposal();return;}
-  if(a==="admin-draft-review-start"){
-    if(!canOpenAdmin()||!authStatus.user||privateBank.loading||
-       state.page!=="admin"||state.adminTab!=="bank")return;
-    stopDraftReviewQueue();
-    draftReviewQueue.active=true;draftReviewQueue.pending=true;
-    bankFilters.query="";bankFilters.status="draft";
-    bankFilters.theme="all";bankFilters.sort="oldest";
-    privateBank.page=0;
-    clearAdminPreview();clearDraftEditor();clearBankRename();
-    queueAdminBankRefresh();return;
-  }
-  if(a==="admin-draft-review-next"){
-    if(!draftReviewQueue.active||privatePreview.loading||
-       publishedCatalog.publishing||privateBank.loading||!canOpenAdmin())return;
-    clearAdminPreview();
-    advanceDraftReviewQueue();return;
-  }
-  if(a==="admin-draft-review-stop"){
-    if(!canOpenAdmin())return;
-    stopDraftReviewQueue();clearAdminPreview();render();return;
-  }
   if(a==="refresh-admin-bank"){
     if(!canOpenAdmin() || !authStatus.user)return;
-    stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
+    clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(a==="admin-bank-page"){
     if(!canOpenAdmin()||privateBank.loading)return;
     const lastPage=Math.max(0,Math.ceil(privateBank.total/ADMIN_BANK_PAGE_SIZE)-1);
     const next=privateBank.page+(el.dataset.direction==="next"?1:el.dataset.direction==="previous"?-1:0);
     if(next===privateBank.page||next<0||next>lastPage)return;
-    privateBank.page=next;stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
-  }
-  if(a==="admin-named-template-new"){
-    if(!canOpenAdmin()||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
-    adminNamedTemplates.selectedId=null;adminNamedTemplates.name="";
-    adminNamedTemplates.widthCm=5;adminNamedTemplates.rotationDeg=0;
-    state.currentPreset={...DEFAULT_PRESET};adminNamedTemplates.error="";adminNamedTemplates.message="";
-    render();return;
-  }
-  if(a==="admin-named-template-load"){
-    if(!canOpenAdmin()||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
-    const item=adminNamedTemplates.items.find(row=>row.id===el.dataset.id);
-    if(!item)return;
-    adminNamedTemplates.selectedId=item.id;adminNamedTemplates.name=item.name;
-    adminNamedTemplates.widthCm=item.widthCm;adminNamedTemplates.rotationDeg=item.rotationDeg;
-    state.currentPreset={...item.preset};adminNamedTemplates.error="";adminNamedTemplates.message="";
-    render();return;
-  }
-  if(a==="admin-named-template-duplicate"){
-    if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||
-       adminNamedTemplates.loading||!adminNamedTemplates.loaded)return;
-    const source=adminNamedTemplates.items.find(row=>row.id===el.dataset.id);
-    if(!source)return;
-    try{
-      const draft=prepareNamedTemplateCopy(source,adminNamedTemplates.items,state.language==="fr");
-      // Duplication LOCAL ONLY : changer la sélection pour forcer INSERT
-      // lors d'un enregistrement explicite. La source n'est jamais mise à jour.
-      adminNamedTemplates.selectedId=null;
-      adminNamedTemplates.name=draft.name;
-      adminNamedTemplates.widthCm=draft.widthCm;
-      adminNamedTemplates.rotationDeg=draft.rotationDeg;
-      state.currentPreset={...draft.preset};
-      adminNamedTemplates.error="";
-      adminNamedTemplates.message=state.language==="fr"?
-        "Copie prête en brouillon. Ajustez-la puis cliquez sur Enregistrer en brouillon.":
-        "Draft copy ready. Adjust it, then choose Save as draft.";
-      render();
-      root.querySelector('[data-input="admin-named-template-name"]')?.focus({preventScroll:true});
-    }catch(error){
-      adminNamedTemplates.error=String(error?.message||error);render();
-    }
-    return;
-  }
-  if(a==="admin-named-template-save"){
-    if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||
-       !adminNamedTemplates.loaded||adminNamedTemplates.loading)return;
-    const preview=namedTemplatePreviewState({
-      widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
-      enabled:true
-    });
-    if(!preview.valid){
-      adminNamedTemplates.error=namedTemplatePreviewCaption({
-        widthCm:adminNamedTemplates.widthCm,rotationDeg:adminNamedTemplates.rotationDeg,
-        enabled:true,fr:state.language==="fr"
-      });
-      render();return;
-    }
-    const uid=authStatus.user.id,ticket=adminNamedTemplates.request;
-    const current=adminNamedTemplates.items.find(row=>row.id===adminNamedTemplates.selectedId);
-    // Préserver le consentement de l'admin AVANT la première mutation réseau.
-    // Sans accord, aucune opération de sauvegarde ni changement d'état.
-    if(!confirmPublishedNamedTemplateEdit(current,state.language==="fr",
-      message=>window.confirm(message)))return;
-    const snapshot={id:current?.id??null,revision:current?.revision??null,
-      name:adminNamedTemplates.name,preset:{...state.currentPreset},
-      widthCm:Number(adminNamedTemplates.widthCm),rotationDeg:Number(adminNamedTemplates.rotationDeg)};
-    adminNamedTemplates.busy=true;adminNamedTemplates.error="";render();
-    void(async()=>{
-      try{
-        const client=await supabaseClient();
-        const saved=await saveAdminNamedTemplate(client,uid,snapshot);
-        if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-        const existing=adminNamedTemplates.items.findIndex(row=>row.id===saved.id);
-        if(existing<0)adminNamedTemplates.items.push(saved);
-        else adminNamedTemplates.items[existing]=saved;
-        adminNamedTemplates.items.sort((a,b)=>a.name.localeCompare(b.name,state.language));
-        adminNamedTemplates.selectedId=saved.id;adminNamedTemplates.name=saved.name;
-        adminNamedTemplates.message=saved.is_published?
-          (state.language==="fr"?
-            "Gabarit publié mis à jour. Les nouveaux PDF utilisent les réglages actuels; les PDF archivés restent inchangés.":
-            "Published template updated. New PDFs use the current settings; archived PDFs remain unchanged."):
-          (state.language==="fr"?
-            "Gabarit enregistré en privé. Une publication explicite reste nécessaire.":
-            "Template saved privately. Explicit publication is still required.");
-      }catch(error){
-        if(ticket===adminNamedTemplates.request)adminNamedTemplates.error=String(error?.message||error);
-      }finally{if(ticket===adminNamedTemplates.request){adminNamedTemplates.busy=false;render();}}
-    })();return;
-  }
-  if(a==="admin-named-template-publish"){
-    if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
-    const item=adminNamedTemplates.items.find(row=>row.id===el.dataset.id);
-    if(!item||String(item.revision)!==el.dataset.revision||
-       String(!item.is_published)!==el.dataset.publish)return;
-    const next=!item.is_published,fr=state.language==="fr";
-    if(!window.confirm(next?
-      (fr?"Publier ce gabarit pour les clients authentifiés ?":"Publish this template for signed-in clients?"):
-      (fr?"Retirer ce gabarit des modèles disponibles pour les clients ?":"Unpublish this template for clients?")))return;
-    const uid=authStatus.user.id,ticket=adminNamedTemplates.request;
-    adminNamedTemplates.busy=true;adminNamedTemplates.error="";render();
-    void(async()=>{
-      try{
-        const client=await supabaseClient();
-        const saved=await setAdminTemplatePublication(client,uid,{
-          id:item.id,revision:item.revision,published:next
-        });
-        if(ticket!==adminNamedTemplates.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-        adminNamedTemplates.items=adminNamedTemplates.items.map(row=>row.id===saved.id?saved:row);
-        adminNamedTemplates.message=fr?
-          (next?"Gabarit publié.":"Gabarit retiré des modèles publiés."):
-          (next?"Template published.":"Template unpublished.");
-      }catch(error){
-        if(ticket===adminNamedTemplates.request)adminNamedTemplates.error=String(error?.message||error);
-      }finally{if(ticket===adminNamedTemplates.request){adminNamedTemplates.busy=false;render();}}
-    })();return;
+    privateBank.page=next;clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(a==="save"){if(!validatePreset(state.currentPreset)){notify(T("unavailable"));return;}state.savedPreset={...state.currentPreset};store("pictau-preset",serializeVersionedPreset(state.savedPreset,DEFAULT_PRESET,validatePreset));notify(T("saved"));}
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
-  if(event.target.dataset.input==="admin-art-rotation"){
-    if(!canOpenAdmin()||!privatePreview.inkBlob||privatePreview.adjustBusy)return;
-    const angle=Number(event.target.value);
-    try{privatePreview.rotationDeg=validateArtworkRotation(angle);}
-    catch{return;}
-    privatePreview.adjustError="";privatePreview.adjustMessage="";
-    for(const ink of root.querySelectorAll("[data-admin-ink-preview]"))
-      ink.style.transform="rotate("+angle+"deg)";
-    const value=root.querySelector("#admin-art-rotation-value");
-    if(value)value.textContent=angle+"°";
-    const reset=root.querySelector('[data-action="admin-art-rotation-reset"]');
-    const save=root.querySelector('[data-action="admin-art-rotation-save"]');
-    if(reset)reset.disabled=angle===0;
-    if(save){
-      save.disabled=false;
-      save.textContent=angle===0?
-        (state.language==="fr"?"Créer un brouillon recadré":"Create cropped private draft"):
-        (state.language==="fr"?"Créer un brouillon avec cette rotation":"Create draft with this rotation");
-    }
-    return;
-  }
-  if(event.target.dataset.input==="admin-batch-title"){
-    const index=Number(event.target.dataset.index);
-    if(!canOpenAdmin()||batchImport.busy||!Number.isInteger(index)||
-       index<0||index>=batchImport.files.length)return;
-    batchImport.titles[index]=event.target.value;
-    batchImport.error="";
-    return;
-  }
-  if(canOpenAdmin()&&state.adminTab==="templates"&&!adminNamedTemplates.busy){
-    const field=event.target.dataset.input;
-    if(field==="admin-named-template-name"){adminNamedTemplates.name=event.target.value;return;}
-    if(field==="admin-named-template-width"){adminNamedTemplates.widthCm=event.target.value;adminLive();return;}
-    if(field==="admin-named-template-rotation"){adminNamedTemplates.rotationDeg=event.target.value;adminLive();return;}
-  }
   if(recordComposerCaption(event.target))return;
   if(recordComposerFormValue(event.target))return;
   if(event.target.closest('form[data-form="admin-bank-rename"]')&&event.target.name==="adminName"){
@@ -4134,7 +2994,6 @@ root.addEventListener("input",function(event){
     return;
   }
   if(field==="admin-bank-search" && canOpenAdmin()){
-    stopDraftReviewQueue();
     bankFilters.query=event.target.value;privateBank.page=0;
     clearAdminPreview();clearDraftEditor();clearBankRename();
     try{normalizeAdminBankFilters({...bankFilters,page:0});queueAdminBankRefresh(300);}
@@ -4150,57 +3009,7 @@ root.addEventListener("input",function(event){
   if(field==="admin-range"){const k=event.target.dataset.key;state.currentPreset[k]=Number(event.target.value);const o=document.querySelector("#out-"+k);if(o)o.textContent=fmt(state.currentPreset[k])+" "+(k==="fontPt"?"pt":k==="artPercent"?"%":"mm");adminLive();return;}
   if(event.target.dataset.field==="size"){state.widthCm=clampWidth(event.target.value);routineLive();}
 });
-root.addEventListener("change",function(event){
-  const el=event.target;
-  if(el?.dataset.input!=="test-client-plan"||!canOpenAdmin()||testClients.busy)return;
-  const id=el.dataset.id,plan=el.value;
-  if(!testClients.items.some(item=>item.user_id===id))return;
-  const uid=authStatus.user.id,ticket=++testClients.request;
-  testClients.busy=true;testClients.error="";testClients.message="";testClients.created=null;render();
-  void(async()=>{
-    try{
-      const client=await supabaseClient();
-      await setTestClientPlan(client,uid,id,plan);
-      if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-      testClients.items=testClients.items.map(item=>item.user_id===id?{...item,simulated_plan:plan}:item);
-      testClients.message=state.language==="fr"?"Forfait de simulation modifié.":"Simulation plan updated.";
-    }catch(error){
-      if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
-      testClients.error=String(error?.message||error);
-    }finally{if(ticket===testClients.request){testClients.busy=false;render();}}
-  })();
-});
 root.addEventListener("submit",function(event){
-  if(event.target.matches('form[data-form="test-clients-create"]')){
-    event.preventDefault();
-    if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
-    const data=new FormData(event.target),uid=authStatus.user.id,ticket=++testClients.request;
-    const input={label:String(data.get("label")||""),plan:String(data.get("plan")||"")};
-    testClients.busy=true;testClients.error="";testClients.message="";testClients.created=null;render();
-    void(async()=>{
-      try {
-        const client=await supabaseClient(),created=await createTestClient(client,uid,input);
-        if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
-        testClients.created=created;
-        testClients.message=state.language==="fr"?"Compte de test créé. Copiez ses identifiants maintenant.":"Test account created. Copy its credentials now.";
-        testClients.items=await listTestClients(client,uid);
-      }catch(error){
-        if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
-        testClients.error=String(error?.message||error);
-      }finally{if(ticket===testClients.request){testClients.busy=false;render();}}
-    })();return;
-  }
-  if(event.target.matches('form[data-form="draft-filter"]')){
-    event.preventDefault();
-    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||editableDrafts.busy||editableDrafts.loading)return;
-    const data=new FormData(event.target);
-    editableDrafts.query=String(data.get("query")||"").trim();
-    editableDrafts.kind=String(data.get("kind")||"all");
-    editableDrafts.sort=String(data.get("sort")||"recent");
-    editableDrafts.page=0;editableDrafts.message="";
-    void fetchEditableDrafts();return;
-  }
-  if(event.target.matches('form[data-form="email-reset"]')){event.preventDefault();if(authStatus.emailBusy)return;const input=event.target.querySelector("#auth-email");if(!input?.reportValidity())return;authStatus.email=input.value.trim();authStatus.emailBusy=true;authStatus.emailError="";authStatus.emailMessage="";render();void sendPasswordReset(authStatus.email,window.location.href).then(()=>{authStatus.emailMessage=state.language==="fr"?"Si le compte existe et que l’envoi est autorisé, vérifiez votre courriel.":"If the account exists and sending is enabled, check your email.";}).catch(()=>{authStatus.emailError=state.language==="fr"?"Envoi impossible. Veuillez réessayer plus tard.":"Unable to send. Please try again later.";}).finally(()=>{authStatus.emailBusy=false;render();});return;}
   if(event.target.matches('form[data-form="email-login"]')){
     event.preventDefault();
     if(authStatus.emailBusy||authStatus.user)return;
@@ -4246,8 +3055,6 @@ root.addEventListener("submit",function(event){
         publishedCatalog.publishMessage=state.language==="fr"?"Publication confirmée par le serveur.":"Publication confirmed by the server.";
         clearAdminPreview();
         await refreshPrivateBank(client,uid);
-        if(draftReviewQueue.active&&authStatus.user?.id===uid&&canOpenAdmin())
-          advanceDraftReviewQueue();
       }catch(error){if(authStatus.user?.id===uid)publishedCatalog.publishError=String(error?.message||error);}
       finally{publishedCatalog.publishing=false;render();}
     })();return;
@@ -4597,55 +3404,10 @@ root.addEventListener("submit",function(event){
     })();
     return;
   }
-  if(event.target.matches('form[data-form="admin-batch-import"]')){
-    event.preventDefault();
-    if(!canOpenAdmin()||!authStatus.user||batchImport.busy||privateImport.loading)return;
-    const files=[...batchImport.files],theme=batchImport.theme,titles=[...batchImport.titles];
-    if(!files.length){batchImport.error=state.language==="fr"?"Sélectionnez des PNG.":"Select PNG files.";render();return;}
-    const fr=state.language==="fr",uid=authStatus.user.id,ticket=++batchImport.request;
-    if(!window.confirm(fr?
-      "Préparer "+files.length+" brouillon(s) privé(s) avec les noms corrigés ? Aucun pictogramme ne sera publié.":
-      "Prepare "+files.length+" private draft(s) using the edited titles? No pictogram will be published."))return;
-    const current=()=>ticket===batchImport.request&&authStatus.user?.id===uid&&canOpenAdmin();
-    batchImport.busy=true;batchImport.completed=0;batchImport.total=files.length;
-    batchImport.error="";batchImport.message="";batchImport.currentName="";render();
-    void(async()=>{
-      try{
-        const client=await supabaseClient();
-        if(!current())return;
-        const report=await importPrivateDraftBatch(client,uid,files,theme,{
-          titles,isCurrent:current,
-          onProgress:({completed,name})=>{
-            if(!current())return;
-            batchImport.completed=completed;batchImport.currentName=name;render();
-          }
-        });
-        if(!current())return;
-        // Ne jamais relancer automatiquement une écriture dont le reçu est incertain.
-        batchImport.files=[];batchImport.titles=[];
-        if(report.error){
-          batchImport.error=(fr?
-            report.completed+" / "+report.total+" brouillons confirmés. Échec à « "+(report.name||files[report.failedIndex]?.name||"—")+" » : ":
-            report.completed+" / "+report.total+" drafts confirmed. Failed at “"+(report.name||files[report.failedIndex]?.name||"—")+"”: ")+report.error+
-            (fr?" Vérifiez la banque avant toute nouvelle importation.":" Check the bank before another import.");
-        }else{
-          batchImport.message=fr?
-            report.completed+" brouillons privés créés. Vérifiez et approuvez chaque fiche séparément.":
-            report.completed+" private drafts created. Review and approve each record individually.";
-        }
-        await refreshPrivateBank(client,uid);
-      }catch(error){
-        if(current())batchImport.error=String(error?.message||error);
-      }finally{
-        if(ticket===batchImport.request){batchImport.busy=false;render();}
-      }
-    })();
-    return;
-  }
   const form=event.target.closest('form[data-form="admin-import"]');
   if(!form)return;
   event.preventDefault();
-  if(!canOpenAdmin()||privateImport.loading||batchImport.busy||!authStatus.user)return;
+  if(!canOpenAdmin()||privateImport.loading||!authStatus.user)return;
   const file=privateImport.file;
   if(!file){privateImport.error=state.language==="fr"?"Sélectionnez un fichier PNG.":"Select a PNG file.";render();return;}
   const formData=new FormData(form);
@@ -4670,53 +3432,6 @@ root.addEventListener("submit",function(event){
   })();
 });
 root.addEventListener("change",function(event){
-  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="picto-template-toggle"){
-    if(!canOpenAdmin()||adminTemplateChoices.busy||!adminTemplateChoices.loaded)return;
-    const id=event.target.value;
-    if(!adminTemplateChoices.available.some(row=>row.id===id&&row.is_published))return;
-    const items=new Set(adminTemplateChoices.selected);
-    if(event.target.checked)items.add(id);else items.delete(id);
-    adminTemplateChoices.selected=[...items];
-    adminTemplateChoices.dirty=true;
-    adminTemplateChoices.message="";
-    render();
-    return;
-  }
-  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-copies"){
-    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!clientPictoTemplates.pictoId||
-       clientPictoTemplates.busy||clientPictoTemplates.loading)return;
-    try{clientPictoTemplates.copies=validateClientPictoCopies(Number(event.target.value));}
-    catch{return;}
-    return;
-  }
-  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-paper"){
-    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!clientPictoTemplates.pictoId||
-       clientPictoTemplates.busy||clientPictoTemplates.loading)return;
-    if(["letter","a4"].includes(event.target.value))
-      clientPictoTemplates.paper=event.target.value;
-    return;
-  }
-  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-select"){
-    if(clientPictoTemplates.busy||clientPictoTemplates.loading)return;
-    const row=clientPictoTemplates.items.find(t=>t.id===event.target.value&&t.is_published);
-    if(!row)return;
-    clientPictoTemplates.selectedId=row.id;
-    // Chaque nouveau modèle repart de ses propres paramètres approuvés.
-    clientPictoTemplates.borderEnabled=row.colored;
-    clientPictoTemplates.borderColor=row.border_color;
-    render();return;
-  }
-  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-border-enabled"){
-    if(clientPictoTemplates.busy||!clientPictoTemplates.selectedId)return;
-    clientPictoTemplates.borderEnabled=event.target.checked===true;
-    render();return;
-  }
-  if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-border-color"){
-    if(clientPictoTemplates.busy||!clientPictoTemplates.selectedId)return;
-    if(!/^#[0-9a-f]{6}$/i.test(event.target.value))return;
-    clientPictoTemplates.borderColor=event.target.value.toLowerCase();
-    render();return;
-  }
   if(recordComposerCaption(event.target))return;
   if(recordComposerFormValue(event.target))return;
   if(event.target.closest('form[data-form="customer-request"]')&&event.target.name==="theme"){
@@ -4728,23 +3443,6 @@ root.addEventListener("change",function(event){
   if(event.target.closest('form[data-form="admin-import"]') && event.target.name==="theme"){
     privateImport.draft.theme=event.target.value;return;
   }
-  if(event.target.dataset.field==="admin-batch-theme"){
-    if(!canOpenAdmin()||batchImport.busy)return;
-    batchImport.theme=event.target.value;return;
-  }
-  if(event.target.dataset.field==="admin-batch-files"){
-    if(!canOpenAdmin()||batchImport.busy)return;
-    const chosen=[...(event.target.files||[])];
-    try{
-      if(!chosen.length||chosen.length>MAX_PRIVATE_DRAFT_BATCH)
-        throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
-      const titles=chosen.map(file=>draftTitleFromFilename(file.name));
-      batchImport.files=chosen;batchImport.titles=titles;batchImport.error="";batchImport.message="";
-    }catch(error){
-      batchImport.files=[];batchImport.titles=[];batchImport.error=String(error?.message||error);
-    }
-    render();return;
-  }
   if(event.target.dataset.field==="admin-import-file"){
     if(!canOpenAdmin()||privateImport.loading)return;
     privateImport.file=event.target.files?.[0]||null;
@@ -4754,11 +3452,6 @@ root.addEventListener("change",function(event){
     return;
   }
   const field=event.target.dataset.field;
-  if(field==="catalog-sort"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&state.page==="library"){
-    if(!["recent","name","name_desc"].includes(event.target.value)||publishedCatalog.loading)return;
-    publishedCatalog.sort=event.target.value;publishedCatalog.page=0;
-    render();void fetchPublishedCatalog();return;
-  }
   if(field==="board-cols"){state.boardCols=boardColumnCount(event.target.value);saveDemoBoard();render();return;}
   if(field==="board-size"){state.boardWidthCm=clampWidth(event.target.value);render();return;}
   if(field==="board-paper"){state.paper=event.target.value==="a4"?"a4":"letter";render();return;}
@@ -4766,7 +3459,7 @@ root.addEventListener("change",function(event){
     if(!canOpenAdmin())return;
     const mapping={"admin-bank-status":"status","admin-bank-theme":"theme","admin-bank-sort":"sort"};
     bankFilters[mapping[field]]=event.target.value;privateBank.page=0;
-    stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
+    clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(!field)return;
   const value=event.target.value;

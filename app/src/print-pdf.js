@@ -28,11 +28,8 @@ function safeImage(item){
     return item.pngBlob;
   }
   const s=item?.image;
-  // Ces SVG d'essai sont des dessins statiques : interdire tout contenu
-  // événementiel, CSS ou animé avant de le confier au décodeur d'image.
   if(typeof s!=="string"||!/^<svg[\s>]/i.test(s)||!/<\/svg>\s*$/i.test(s)||
-    /<script|<foreignObject|<image|(?:href|src)\s*=|<!doctype|<!entity/iu.test(s)||
-    /(?:\son[a-z][a-z0-9_-]*\s*=|\sstyle\s*=|<\s*(?:style|animate[a-z]*|set|mpath|feimage)\b|url\s*\(|@import\b)/iu.test(s))
+    /<script|<foreignObject|<image|(?:href|src)\s*=|<!doctype|<!entity/iu.test(s))
     throw Error("La source vectorielle ne peut pas être intégrée au PDF.");
   return s;
 }
@@ -42,58 +39,13 @@ function dimensions(paper){
   if(!v)throw Error("Format de papier invalide.");
   return v;
 }
-// Chaque exemplaire conserve sa largeur physique. Les marges et contours
-// sont comptés AVANT de choisir un nombre de colonnes.
-export function fitPhysicalCopyColumns({widthCm,preset,paper="letter",copies=1}={}){
-  safeWidth(widthCm);
-  if(!validatePreset(preset)||typeof preset.colored!=="boolean"||
-     !Number.isInteger(copies)||copies<1||copies>12)
-    throw Error("Planche de copies invalide.");
-  const [pageW]=dimensions(paper);
-  const edge=preset.colored?scaleMetrics(preset,widthCm).separatorMm:0;
-  const cellWidth=widthCm*10+edge*2,available=pageW-20;
-  if(cellWidth>available+1e-6)
-    throw Error("Une case dépasse la largeur imprimable.");
-  const count=Math.floor((available+GAP_BOARD_MM)/(cellWidth+GAP_BOARD_MM));
-  return Math.max(1,Math.min(4,copies,count));
-}
-// Prévisualisation de la disposition physique des exemplaires, sans PNG
-// fictif ni téléchargement. Partage les mêmes colonnes, marges, bordures et
-// hauteurs que planPreparedPdf : le client connaît le nombre de feuilles AVANT
-// l'export, sans jamais réduire la taille réelle de ses pictogrammes.
-export function previewPhysicalCopySheet({widthCm,preset,paper="letter",copies=1}={}){
-  const columns=fitPhysicalCopyColumns({widthCm,preset,paper,copies});
-  const [,pageH]=dimensions(paper);
-  const {heightCm,separatorMm}=scaleMetrics(preset,widthCm);
-  const cellHeight=heightCm*10+(preset.colored?separatorMm*2:0);
-  const usableH=pageH-42;
-  if(cellHeight>usableH)throw Error("Une case dépasse la hauteur imprimable.");
-  const rowsPerPage=Math.floor((usableH+GAP_BOARD_MM)/(cellHeight+GAP_BOARD_MM));
-  if(rowsPerPage<1)throw Error("Aucune rangée imprimable sur ce papier.");
-  const rows=Math.ceil(copies/columns);
-  return Object.freeze({
-    columns,rowsPerPage,
-    pages:Math.ceil(rows/rowsPerPage),
-    firstPageCopies:Math.min(copies,columns*rowsPerPage),
-    widthMm:widthCm*10,heightMm:heightCm*10
-  });
-}
-
-export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",columns=3,separatorMode="simple",language="fr",title,individualBorders=false}){
+export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",columns=3,separatorMode="simple",language="fr",title}){
   validTitle(title);
   if(!Array.isArray(items)||!items.length||items.length>16)throw Error("Sélection PDF invalide.");
-  if(!validatePreset(preset)||
-     (preset.rotationDeg!==undefined&&
-       (typeof preset.rotationDeg!=="number"||!Number.isFinite(preset.rotationDeg)||
-         Math.abs(preset.rotationDeg)>180)))
-    throw Error("Gabarit PDF invalide.");
+  if(!validatePreset(preset))throw Error("Gabarit PDF invalide.");
   if(!["routine","board"].includes(kind))throw Error("Type PDF non pris en charge.");
-  if(typeof individualBorders!=="boolean"||(individualBorders&&kind!=="board"))
-    throw Error("Bordures individuelles invalides.");
   if(kind==="routine"&&(items.length<2||items.length>10))throw Error("Une routine contient 2 à 10 pictogrammes.");
-  // Les exemplaires identiques peuvent désormais occuper plusieurs colonnes.
-  // L'éditeur de tableaux conserve ses propres choix de disposition.
-  if(kind==="board"&&![1,2,3,4].includes(columns))throw Error("Nombre de colonnes invalide.");
+  if(kind==="board"&&![2,3,4].includes(columns))throw Error("Nombre de colonnes invalide.");
   if(!["simple","double"].includes(separatorMode))throw Error("Séparation invalide.");
   safeWidth(widthCm);
   if(!["fr","en"].includes(language))throw Error("Langue PDF invalide.");
@@ -103,12 +55,10 @@ export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",column
   const w=widthCm*10,h=heightCm*10;
   const cols=kind==="routine"?items.length:columns;
   const gap=kind==="routine"?separatorMm*(separatorMode==="double"?2:1):GAP_BOARD_MM;
-  const edge=individualBorders?(preset.colored?separatorMm:0):
-    (kind==="routine"||kind==="board"&&columns===1&&preset.colored?separatorMm:0);
-  const totalW=cols*(w+(individualBorders?edge*2:0))+(cols-1)*gap+
-    (individualBorders?0:edge*2);
+  const edge=kind==="routine"?separatorMm:0;
+  const totalW=cols*w+(cols-1)*gap+edge*2;
   if(totalW>pageW-20+1e-6)throw Error("La composition dépasse la largeur imprimable : aucune réduction automatique.");
-  const rowHeight=h+edge*2;
+  const rowHeight=h+(kind==="routine"?edge*2:0);
   const usableH=pageH-42; // titre et marges physiques, en mm
   if(rowHeight>usableH)throw Error("Une case dépasse la hauteur imprimable.");
   const rows=[];
@@ -126,7 +76,7 @@ export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",column
   if(current.length)pages.push(current);
   return {kind,title:title.trim(),language,paper,pageW,pageH,pages,
     widthMm:w,heightMm:h,bandMm,strokeMm,fontPt,gapMm:gap,edgeMm:edge,totalWidthMm:totalW,
-    separatorMode,individualBorders,columns:cols,preset:{...preset}};
+    separatorMode,preset:{...preset}};
 }
 function toBytes(s){return new TextEncoder().encode(s);}
 function concatenate(chunks){
@@ -258,40 +208,14 @@ function renderCell(ctx,item,img,x,y,plan){
     throw Error("Le libellé « "+label+" » dépasse son cadre; choisissez une case plus large.");
   ctx.fillText(label,x+w/2,innerY+(band-stroke)/2);
   const settings=normalizeArtSettings(preset);
-  // Tourner le dessin noir recadré autour de SON centre, sans changer le
-  // cadre imprimé. Les dimensions calculées correspondent à l'encre tournée.
-  const radians=(preset.rotationDeg||0)*Math.PI/180;
-  const c=Math.abs(Math.cos(radians)),sin=Math.abs(Math.sin(radians));
-  const rotatedWidth=img.inkWidth*c+img.inkHeight*sin;
-  const rotatedHeight=img.inkWidth*sin+img.inkHeight*c;
   const placement=computeArtworkBox({
     innerWidth:w-2*stroke,innerHeight:h-2*stroke,
-    upperHeight:h-2*stroke-band,inkWidth:rotatedWidth,inkHeight:rotatedHeight,
+    upperHeight:h-2*stroke-band,inkWidth:img.inkWidth,inkHeight:img.inkHeight,
     percent:settings.percent,shape:preset.shape,center:settings.center
   });
   if(placement.collides)throw Error("Le dessin dépasse la zone illustrée; ajustez son centrage.");
-  if(!radians){
-    ctx.drawImage(img.image,x+stroke+placement.left,y+stroke+placement.top,
-      placement.width,placement.height);
-  }else{
-    ctx.save();
-    ctx.translate(x+stroke+placement.left+placement.width/2,
-      y+stroke+placement.top+placement.height/2);
-    ctx.rotate(radians);
-    ctx.drawImage(img.image,-img.inkWidth*placement.scale/2,
-      -img.inkHeight*placement.scale/2,
-      img.inkWidth*placement.scale,img.inkHeight*placement.scale);
-    ctx.restore();
-  }
-}
-// Garder un cadre coloré individuel même lorsque la planche comporte
-// plusieurs colonnes; ne pas changer le dessin des routines classiques.
-export function paintIndividualCellBorder(ctx,plan,x,y){
-  if(!plan.individualBorders||plan.edgeMm<=0||!plan.preset.colored)return false;
-  ctx.fillStyle=plan.preset.color;
-  ctx.fillRect(x-plan.edgeMm,y-plan.edgeMm,
-    plan.widthMm+plan.edgeMm*2,plan.heightMm+plan.edgeMm*2);
-  return true;
+  ctx.drawImage(img.image,x+stroke+placement.left,y+stroke+placement.top,
+    placement.width,placement.height);
 }
 async function canvasPage(plan,rows,pageIndex,artwork,dpi){
   const canvas=document.createElement("canvas");
@@ -307,14 +231,13 @@ async function canvasPage(plan,rows,pageIndex,artwork,dpi){
   let y=28;
   for(const row of rows){
     let x=(plan.pageW-plan.totalWidthMm)/2+plan.edgeMm;
-    if(plan.edgeMm>0&&plan.preset.colored&&!plan.individualBorders){
+    if(plan.kind==="routine"&&plan.preset.colored){
       ctx.fillStyle=plan.preset.color;
       ctx.fillRect(x-plan.edgeMm,y-plan.edgeMm,plan.totalWidthMm,plan.heightMm+plan.edgeMm*2);
     }
     for(const item of row){
-      paintIndividualCellBorder(ctx,plan,x,y);
       renderCell(ctx,item,artwork.get(safeImage(item)),x,y,plan);
-      x+=plan.widthMm+plan.gapMm+(plan.individualBorders?plan.edgeMm*2:0);
+      x+=plan.widthMm+plan.gapMm;
     }
     y+=plan.heightMm+plan.edgeMm*2+GAP_BOARD_MM;
   }
