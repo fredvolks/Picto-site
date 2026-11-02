@@ -46,3 +46,54 @@ test("Un UPDATE sans ligne ne doit jamais annoncer une sauvegarde",async()=>{
  await assert.rejects(saveAdminSheetNames(db,uid,id,{admin_name:null,title_fr:"ancien",title_en:null},
  {adminName:"Nouveau",titleFr:"nouveau",titleEn:"new"}),/refusée|modifiée/);
 });
+
+function uncertainSave({saved=true,transport=true,published=false,sessionRevoked=false}={}){
+  let calls=0,authReads=0,assetReads=0;
+  const next={id,created_by:uid,status:"draft",published_at:published?"2026-11-02T00:00:00Z":null,
+    admin_name:"École",title_fr:saved?"école":"ancien",title_en:"school"};
+  const client={
+    auth:{async getUser(){authReads++;return {error:null,data:{user:{id:sessionRevoked&&authReads>=3?
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb":uid}}};}},
+    from(table){
+      const query={
+        eq(){return this;},is(){return this;},
+        update(){calls++;return this;},select(){return this;},
+        async maybeSingle(){
+          if(table==="pictau_admins")return {data:{user_id:uid},error:null};
+          if(calls===1&&++assetReads===1){
+            if(transport)throw new TypeError("Failed to fetch");
+            return {data:null,error:{status:403,message:"Permission denied",code:"42501"}};
+          }
+          return {data:next,error:null};
+        }
+      };
+      return query;
+    }
+  };
+  return {client,getWrites:()=>calls};
+}
+const oldNames={admin_name:"École",title_fr:"ancien",title_en:"school"};
+const newNames={adminName:"École",titleFr:"école",titleEn:"school"};
+test("Réponse réseau perdue après UPDATE : relire le brouillon, confirmer sans deuxième écriture",async()=>{
+  const {client,getWrites}=uncertainSave();
+  const result=await saveAdminSheetNames(client,uid,id,oldNames,newNames);
+  assert.equal(result.title_fr,"école");
+  assert.equal(getWrites(),1);
+});
+test("Réseau perdu et serveur non modifié : aucune fausse confirmation",async()=>{
+  const {client,getWrites}=uncertainSave({saved:false});
+  await assert.rejects(saveAdminSheetNames(client,uid,id,oldNames,newNames),/non confirmée/);
+  assert.equal(getWrites(),1);
+});
+test("Erreur définitive RLS : ne pas convertir en succès même si la relecture aurait les valeurs",async()=>{
+  const {client}=uncertainSave({transport:false});
+  await assert.rejects(saveAdminSheetNames(client,uid,id,oldNames,newNames),/Permission denied/);
+});
+test("La relecture d'un brouillon devenu publié ne vaut jamais confirmation",async()=>{
+  const {client}=uncertainSave({published:true});
+  await assert.rejects(saveAdminSheetNames(client,uid,id,oldNames,newNames),/non confirmée/);
+});
+test("Session révoquée entre écriture et relecture : ne jamais confirmer",async()=>{
+  const {client}=uncertainSave({sessionRevoked:true});
+  await assert.rejects(saveAdminSheetNames(client,uid,id,oldNames,newNames),/non confirmée/);
+});
