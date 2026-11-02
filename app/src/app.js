@@ -143,6 +143,7 @@ const themeNames = {
   en:{all:"All themes",hygiene:"Hygiene",autonomie:"Independence",alimentation:"Food",ecole:"School",loisirs:"Leisure",transport:"Transport",sensoriel:"Sensory"}
 };
 const iconPaths = {
+  users:'<circle cx="9" cy="7.5" r="3"/><path d="M3 21v-2.5a6 6 0 0 1 12 0V21M16.5 11a3.5 3.5 0 0 0 0-7M17 15a5 5 0 0 1 4 5v1"/>',
   home:'<path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-7h6v7"/>',
   library:'<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
   routine:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
@@ -1834,6 +1835,7 @@ function renderAdminWorkspace(){
     ["requests",fr?"Demandes":"Requests","file-text"],
     ["tools",fr?"Outils":"Tools","upload"],
     ["templates",fr?"Gabarits":"Templates","settings"],
+    ["test-clients",fr?"Clients de test":"Test clients","users"],
     ["settings",fr?"Paramètres":"Settings","settings"]
   ];
   const button=([tab,label,ico],compact=false)=>
