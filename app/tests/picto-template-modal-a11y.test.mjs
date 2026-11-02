@@ -110,10 +110,12 @@ test("Un nouveau rendu restaure la radio choisie et ne vole pas le focus hors du
    querySelector:()=>close
  };
  const root={querySelector:()=>dialog};
- const fn=new Function("root","templateFocusedId",body);
- fn(root,"choice-id");
+ const fn=new Function("root","templateFocusedId","templateModalScroll",
+   "templateCopiesFocused","templatePaperFocused","templateFocusedInput","templateFocusedColor",body);
+ fn(root,"choice-id",32,false,false,null,null);
  assert.equal(focusRadio,1);
  assert.equal(focusClose,0);
- fn(root,null);
+ assert.equal(dialog.scrollTop,32);
+ fn(root,null,0,false,false,null,null);
  assert.equal(focusClose,1);
 });

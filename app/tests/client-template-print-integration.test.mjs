@@ -27,7 +27,8 @@ test("Le PDF d'une case est enregistré dans Mes fichiers sans démo",()=>{
  const block=app.slice(app.indexOf('if(a==="client-template-print")'),
    app.indexOf('if(a==="admin-preview")'));
  assert.match(block,/createPreparedPdf\(\{/);
- assert.match(block,/kind:"board",columns,individualBorders:true/);
+ assert.match(block,/kind:"board",columns:layout\.columns,individualBorders:true/);
+ assert.match(block,/if\(pageCount!==layout\.pages\)/);
  assert.match(block,/const printPreset=applyPublishedImageScale/);
  assert.match(block,/archivePdf\(client,uid,blob/);
  assert.match(block,/pendingGeneratedPdf=/);

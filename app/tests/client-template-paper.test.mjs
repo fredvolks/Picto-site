@@ -66,7 +66,7 @@ test("L'intégration enregistre le format sélectionné et le valide avant PDF",
  assert.match(app,/borderEnabled:null,borderColor:null,paper:"letter"/);
  assert.match(app,/borderEnabled:f\.borderEnabled,borderColor:f\.borderColor,paper:f\.paper/);
  assert.match(app,/if\(TEMPLATE_CHOICES_RELEASED&&event\.target\.dataset\.input==="client-template-paper"\)/);
- assert.match(app,/if\(\["letter","a4"\]\.includes\(event\.target\.value\)\)/);
+ assert.match(app,/if\(!\["letter","a4"\]\.includes\(event\.target\.value\)\)return/);
  const section=app.slice(app.indexOf('if(a==="client-template-print")'),
   app.indexOf('if(a==="admin-preview")'));
  assert.match(section,/printPaper=clientPictoTemplates\.paper/);
@@ -86,17 +86,24 @@ test("Le dialogue garde le sélecteur de format dans l'ordre Tab et restaure le 
  const source=app.slice(start,end);
  let focused=null;
  const paper={focus(){focused="paper";}};
+ const copies={focus(){focused="copies";}};
  const radio={value:"choice",focus(){focused="radio";}};
  const close={focus(){focused="close";}};
- const dialog={querySelectorAll:()=>[radio],
-  querySelector:sel=>sel==="#pa-client-template-paper"?paper:close};
+ const dialog={scrollTop:0,querySelectorAll:()=>[radio],
+  querySelector:sel=>sel==="#pa-client-template-paper"?paper:
+    sel==="#pa-client-template-copies"?copies:close};
  const root={querySelector:()=>dialog};
  const run=new Function("root","templateFocusedId","templatePaperFocused",
+  "templateCopiesFocused","templateModalScroll",
   "templateFocusedInput","templateFocusedColor",source);
- run(root,null,true,null,null);
+ run(root,null,true,false,36,null,null);
  assert.equal(focused,"paper");
- run(root,"choice",false,null,null);
+ assert.equal(dialog.scrollTop,36);
+ run(root,null,false,true,70,null,null);
+ assert.equal(focused,"copies");
+ assert.equal(dialog.scrollTop,70);
+ run(root,"choice",false,false,0,null,null);
  assert.equal(focused,"radio");
- run(root,null,false,null,null);
+ run(root,null,false,false,0,null,null);
  assert.equal(focused,"close");
 });
