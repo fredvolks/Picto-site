@@ -2028,3 +2028,30 @@
  .pa-bank-review-tools .btn{width:100%;min-height:44px}
  .pa-bank-review-tools .admin-draft-review-tools{display:grid;width:100%;gap:8px}
 }
+
+/* Banque / fiche — UX honnête lorsque l'écriture des libellés est désactivée.
+   Scoped à l'écran Banque; les trois pages publiques gelées ne changent pas. */
+.pa-bank-draft-simple .admin-preview-heading{align-items:center}
+.pa-bank-draft-simple .admin-preview-heading h3{margin:0;font-size:18px;line-height:1.35}
+.pa-bank-draft-notice{margin:14px 0;padding:12px 14px;background:#f3f4f4;border-left:3px solid #4b5355;border-radius:9px;color:#24282a;font-size:14px;line-height:1.5}
+.pa-bank-draft-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+.pa-bank-draft-values>div{min-width:0;padding:12px;border:1px solid #e5e5e5;border-radius:12px;background:#fff}
+.pa-bank-draft-values dt{font-size:12px;font-weight:700;color:#606060;margin:0 0 5px}
+.pa-bank-draft-values dd{font-size:15px;font-weight:650;color:#181818;margin:0;overflow-wrap:anywhere;line-height:1.4}
+.pa-bank-draft-rename{min-height:48px;width:100%}
+.pa-bank-draft-name-help{font-size:12px;color:#656565;line-height:1.5;margin:8px 0 18px}
+.pa-bank-draft-technical{margin-top:14px;padding:0;border-top:1px solid #e3e3e3}
+.pa-bank-draft-technical>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:12px 0;font-size:13px;font-weight:650;cursor:pointer;color:#444;list-style:none}
+.pa-bank-draft-technical>summary::-webkit-details-marker{display:none}
+.pa-bank-draft-technical>summary:after{content:"+";font-size:19px}
+.pa-bank-draft-technical[open]>summary:after{content:"−"}
+.pa-bank-draft-technical>p{font-size:12px;color:#626262;line-height:1.5}
+.pa-bank-draft-technical .admin-import-form{margin-top:12px}
+@media(max-width:700px){
+  .pa-bank-draft-simple{padding:12px 0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+  .pa-bank-draft-simple .admin-preview-heading{gap:8px}
+  .pa-bank-draft-simple .admin-preview-heading h3{font-size:17px}
+  .pa-bank-draft-values{grid-template-columns:1fr;gap:7px}
+  .pa-bank-draft-values>div{padding:10px 12px}
+  .pa-bank-draft-values dd{font-size:15px}
+}
