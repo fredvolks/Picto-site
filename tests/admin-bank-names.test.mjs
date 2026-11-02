@@ -4,20 +4,20 @@ import {normalizeSheetNames,saveAdminSheetNames} from "../app/src/admin-sheet-na
 const uid="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const id="11111111-1111-4111-8111-111111111111";
 function mock({row,owner=uid,denied=false}={}){
- const calls=[];
+ const calls=[];let table="";
  const chain={
   eq(...args){calls.push(["eq",...args]);return this;},
   is(...args){calls.push(["is",...args]);return this;},
   update(payload){calls.push(["update",payload]);return this;},
   select(...args){calls.push(["select",...args]);return this;},
   async maybeSingle(){
-    return {data:denied?null:(calls.some(x=>x[0]==="update")?row:{user_id:uid}),error:null};
+    return {data:table==="pictau_admins"?{user_id:uid}:(denied?null:row),error:null};
   }
  };
  return {
   calls,
   auth:{async getUser(){return {data:{user:{id:owner}},error:null};}},
-  from(name){calls.push(["from",name]);return chain;}
+  from(name){table=name;calls.push(["from",name]);return chain;}
  };
 }
 test("Validation FR obligatoire et champ EN facultatif",()=>{
