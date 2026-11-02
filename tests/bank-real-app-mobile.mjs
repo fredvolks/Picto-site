@@ -212,8 +212,8 @@ try{
     await evaluate("window.__qaBankItems=true;document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank]').click();return true;");
     await waitFor("return !!document.querySelector('[data-action=refresh-admin-bank]')");
     await evaluate("document.querySelector('[data-action=refresh-admin-bank]').click();return true;");
-    await waitFor("return document.querySelectorAll('[data-action=admin-preview]').length>=2",14000);
-    await evaluate("document.querySelectorAll('[data-action=admin-preview]')[1].click();return true;");
+    await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
+    await evaluate("document.querySelectorAll('[data-action=admin-bank-open]')[1].click();return true;");
     await waitFor("return !!document.querySelector('.pa-bank-sheet-hero [data-pa-bank-art]')",14000);
     await waitFor("return document.querySelector('.pa-bank-sheet-hero img')?.complete && document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth>=400",14000);
     await sleep(300); // réinitialisations de rendu après chargement et réglages
