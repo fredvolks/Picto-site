@@ -1588,58 +1588,79 @@ function adminRealPreviewCaption(){
     settings.rotationDeg+"° · "+(fr?"aperçu privé":"private preview");
 }
 function renderAdminTemplate(){
+  // UI uniquement : les mêmes actions Supabase, Auth et publication que la version en place.
+  // Rotation est retirée des commandes, sans modifier les valeurs historiques enregistrées.
   const fr=state.language==="fr",p=state.currentPreset,items=privateBank.items;
   const selector='<div class="pa-real-template-asset-picker"><label for="pa-template-real-asset">'+
-    esc(fr?"Image à prévisualiser":"Artwork to preview")+'</label>'+
+    esc(fr?"Image de la Banque":"Bank image")+'</label>'+
     '<select id="pa-template-real-asset" data-input="admin-template-preview-asset">'+
-    '<option value="">'+esc(fr?"Choisir une image de la banque…":"Choose an image from the bank…")+'</option>'+
-    items.map(asset=>'<option value="'+esc(asset.id)+'"'+(privatePreview.id===asset.id?" selected":"")+'>'+
+    '<option value="">'+esc(fr?"Choisir une image…":"Choose an image…")+'</option>'+
+    items.map(asset=>'<option value="'+esc(asset.id)+'"'+(privatePreview.id===asset.id?' selected':'')+'>'+
       esc(asset.title_fr||asset.admin_name||asset.title_en||asset.id)+'</option>').join("")+'</select>'+
-    (!items.length?'<p>'+esc(fr?"Votre banque ne contient aucune image chargée. Ouvrez Banque pour en importer.":"No artwork is loaded. Open your bank to import an image.")+'</p>':'')+
-    '<button type="button" class="btn btn-light" data-action="admin-tab" data-tab="bank">'+
-      esc(fr?"Ouvrir la banque":"Open image bank")+'</button></div>';
-  return '<div class="pa-real-template-editor"><div class="page-intro"><div><h1>'+
-    esc(fr?"Mes gabarits":"My templates")+'</h1><p>'+
-    esc(fr?"Créez vos modèles, donnez-leur un nom et enregistrez-les dans votre espace Super Admin. La publication est une action distincte.":"Create and name your templates, then save them in your Super Admin account. Publishing is separate.")+
-    '</p></div></div>'+
-    renderAdminNamedTemplateBank({
-      templates:adminNamedTemplates.items,selectedId:adminNamedTemplates.selectedId,
-      name:adminNamedTemplates.name,widthCm:adminNamedTemplates.widthCm,
-      rotationDeg:adminNamedTemplates.rotationDeg,
-      busy:adminNamedTemplates.busy||!adminNamedTemplates.loaded,
-      loading:adminNamedTemplates.loading,error:adminNamedTemplates.error,
-      message:adminNamedTemplates.message,fr
-    })+
-    renderNamedTemplateHandoff({
-      templates:adminNamedTemplates.items,
-      choicesReady:TEMPLATE_CHOICES_RELEASED,
-      loading:adminNamedTemplates.loading||!adminNamedTemplates.loaded,
-      busy:adminNamedTemplates.busy,fr
-    })+
-    selector+
-    '<div class="page-two-col"><section class="panel"><h2 class="panel-title">'+
-    esc(fr?"Aperçu de mon gabarit":"My template preview")+'</h2><div id="admin-stage" class="admin-stage">'+adminPreview()+'</div>'+
-    '<p id="admin-preview-caption" class="admin-preview-caption" role="status" aria-live="polite">'+esc(adminRealPreviewCaption())+'</p>'+
-    '<div id="admin-art-feedback" class="notice admin-art-feedback" role="alert" hidden></div></section>'+
-    '<section class="panel"><h2 class="panel-title">'+esc(fr?"Réglages du gabarit":"Template settings")+'</h2>'+
-    '<p class="panel-copy">'+esc(fr?"Ces réglages seront enregistrés dans le gabarit nommé sélectionné, et non seulement dans ce navigateur.":"These settings are saved with your named template, not just in this browser.")+'</p>'+
-    '<div class="settings-grid">'+
-    '<div class="control"><label for="admin-shape">'+T("format")+'</label><select id="admin-shape" data-field="adminShape"><option value="square"'+(p.shape==="square"?" selected":"")+'>'+T("square")+'</option><option value="portrait"'+(p.shape==="portrait"?" selected":"")+'>'+T("portrait")+'</option></select></div>'+
-    '<div class="control"><label for="admin-color">'+T("color")+'</label><div class="color-select"><input id="admin-color" type="color" data-field="adminColor" value="'+p.color+'"><small>'+esc(p.color.toUpperCase())+'</small></div></div>'+
-    adminRange("artPercent",T("artPercent"),p.artPercent,30,95,1,"%")+
-    (p.shape==="square"?'<div class="control full-span"><label for="admin-square-art-center">'+T("squareArtCenter")+'</label>'+
-      '<select id="admin-square-art-center" data-field="adminSquareArtCenter">'+
-      '<option value="'+CENTER_UPPER+'"'+(p.squareCenterMode===CENTER_UPPER?' selected':'')+'>'+T("artUpper")+'</option>'+
-      '<option value="'+CENTER_WHOLE+'"'+(p.squareCenterMode===CENTER_WHOLE?' selected':'')+'>'+T("artWhole")+'</option></select></div>':"")+
-    adminRange("bandMm",T("labelBand"),p.bandMm,6,30,.5,"mm")+
-    adminRange("strokeMm",T("blackStroke"),p.strokeMm,.4,4,.2,"mm")+
-    adminRange("fontPt",T("fontSize"),p.fontPt,7,26,1,"pt")+
-    '<div class="control full-span"><label for="admin-font-color">'+T("textColor")+'</label><div class="color-select"><input id="admin-font-color" type="color" data-field="adminFontColor" value="'+(p.fontColor||"#111111")+'"><small>'+esc((p.fontColor||"#111111").toUpperCase())+'</small></div></div>'+
-    adminRange("separatorMm",T("separator"),p.separatorMm,.5,4,.1,"mm")+
-    '<label class="toggle-row full-span"><input type="checkbox" data-field="adminColored" '+(p.colored?"checked":"")+'>'+T("colored")+'</label></div>'+
-    '<div class="admin-actions"><button class="btn btn-primary" type="button" data-action="admin-named-template-save"'+
-    (adminNamedTemplates.busy||!adminNamedTemplates.loaded?' disabled':'')+'>'+
-      esc(fr?"Enregistrer ce gabarit":"Save this template")+'</button></div></section></div></div>';
+    (!items.length?'<p>'+esc(fr?"Aucune image chargée. Importez-en depuis la Banque.":"No images loaded. Import from the bank.")+'</p>':'')+
+    '<button class="btn btn-light" type="button" data-action="admin-tab" data-tab="bank">'+esc(fr?"Banque":"Bank")+'</button></div>';
+  const models=renderAdminNamedTemplateBank({
+    templates:adminNamedTemplates.items,selectedId:adminNamedTemplates.selectedId,
+    name:adminNamedTemplates.name,widthCm:adminNamedTemplates.widthCm,
+    rotationDeg:adminNamedTemplates.rotationDeg,
+    busy:adminNamedTemplates.busy||!adminNamedTemplates.loaded,
+    loading:adminNamedTemplates.loading,error:adminNamedTemplates.error,
+    message:adminNamedTemplates.message,fr
+  });
+  const actions=renderNamedTemplateHandoff({
+    templates:adminNamedTemplates.items,choicesReady:TEMPLATE_CHOICES_RELEASED,
+    loading:adminNamedTemplates.loading||!adminNamedTemplates.loaded,
+    busy:adminNamedTemplates.busy,fr
+  });
+  return '<div class="pa-real-template-editor pa-template-lite" style="--pa-lt-ratio:'+(p.shape==="portrait"?"0.75":"1")+'">'+
+    '<header class="pa-lt-head"><h1>'+esc(fr?"Gabarits":"Templates")+'</h1>'+
+    '<button class="btn btn-primary pa-lt-save" type="button" data-action="admin-named-template-save"'+
+       (adminNamedTemplates.busy||!adminNamedTemplates.loaded?' disabled':'')+'>'+
+       esc(fr?"Enregistrer":"Save")+'</button></header>'+
+    '<div class="pa-lt-top"><label class="pa-lt-name" for="pa-lt-name"><span>'+esc(fr?"Nom":"Name")+'</span>'+
+    '<input id="pa-lt-name" type="text" maxlength="80" data-input="admin-named-template-name" autocomplete="off"'+
+       ' value="'+esc(adminNamedTemplates.name)+'"'+(adminNamedTemplates.busy?' disabled':'')+'></label>'+
+    '<details class="pa-lt-manager"><summary>'+esc(fr?"Mes gabarits":"My templates")+
+      ' ('+adminNamedTemplates.items.length+')</summary><div class="pa-lt-manager-body">'+models+actions+'</div></details></div>'+
+    (adminNamedTemplates.error?'<p class="pa-lt-alert" role="alert">'+esc(adminNamedTemplates.error)+'</p>':'')+
+    (adminNamedTemplates.message?'<p class="pa-lt-message" role="status">'+esc(adminNamedTemplates.message)+'</p>':'')+
+    '<div class="pa-lt-body"><section class="pa-lt-preview" aria-label="'+esc(fr?"Aperçu du gabarit":"Template preview")+'">'+
+      selector+'<div id="admin-stage" class="admin-stage">'+adminPreview()+'</div>'+
+      '<p id="admin-preview-caption" class="admin-preview-caption" role="status" aria-live="polite">'+
+        esc(adminRealPreviewCaption())+'</p>'+
+      '<div id="admin-art-feedback" class="notice admin-art-feedback" role="alert" hidden></div></section>'+
+    '<section class="pa-lt-settings" aria-label="'+esc(fr?"Personnalisation":"Customization")+'">'+
+      '<details class="pa-lt-group" open><summary>'+esc(fr?"Format + Cadre":"Shape + Frame")+'</summary>'+
+        '<div class="pa-lt-fields">'+
+        '<div class="control"><label for="admin-shape">'+T("format")+'</label>'+
+          '<select id="admin-shape" data-field="adminShape">'+
+            '<option value="square"'+(p.shape==="square"?' selected':'')+'>'+T("square")+'</option>'+
+            '<option value="portrait"'+(p.shape==="portrait"?' selected':'')+'>'+T("portrait")+'</option></select></div>'+
+        '<div class="control"><label for="pa-lt-width">'+esc(fr?"Largeur (cm)":"Width (cm)")+'</label>'+
+          '<input id="pa-lt-width" type="number" inputmode="decimal" min="2" max="10" step=".01" data-input="admin-named-template-width"'+
+             ' value="'+esc(adminNamedTemplates.widthCm)+'"'+(adminNamedTemplates.busy?' disabled':'')+'></div>'+
+        adminRange("strokeMm",T("blackStroke"),p.strokeMm,.4,4,.2,"mm")+
+        adminRange("separatorMm",T("separator"),p.separatorMm,.5,4,.1,"mm")+
+        '<div class="control"><label for="admin-color">'+T("color")+'</label>'+
+          '<div class="color-select"><input id="admin-color" type="color" data-field="adminColor" value="'+p.color+'">'+
+          '<small>'+esc(p.color.toUpperCase())+'</small></div></div>'+
+        '<label class="toggle-row"><input type="checkbox" data-field="adminColored" '+(p.colored?'checked':'')+'>'+T("colored")+'</label>'+
+        '</div></details>'+
+      '<details class="pa-lt-group"><summary>'+esc(fr?"Image":"Image")+'</summary><div class="pa-lt-fields">'+
+        adminRange("artPercent",T("artPercent"),p.artPercent,30,95,1,"%")+
+        (p.shape==="square"?'<div class="control"><label for="admin-square-art-center">'+T("squareArtCenter")+'</label>'+
+          '<select id="admin-square-art-center" data-field="adminSquareArtCenter">'+
+            '<option value="'+CENTER_UPPER+'"'+(p.squareCenterMode===CENTER_UPPER?' selected':'')+'>'+T("artUpper")+'</option>'+
+            '<option value="'+CENTER_WHOLE+'"'+(p.squareCenterMode===CENTER_WHOLE?' selected':'')+'>'+T("artWhole")+'</option></select></div>':'')+
+        '</div></details>'+
+      '<details class="pa-lt-group"><summary>'+esc(fr?"Texte":"Text")+'</summary><div class="pa-lt-fields">'+
+        adminRange("bandMm",T("labelBand"),p.bandMm,6,30,.5,"mm")+
+        adminRange("fontPt",T("fontSize"),p.fontPt,7,26,1,"pt")+
+        '<div class="control"><label for="admin-font-color">'+T("textColor")+'</label>'+
+          '<div class="color-select"><input id="admin-font-color" type="color" data-field="adminFontColor" value="'+
+            (p.fontColor||"#111111")+'"><small>'+esc((p.fontColor||"#111111").toUpperCase())+'</small></div></div>'+
+        '</div></details>'+
+    '</section></div></div>';
 }
 function renderAdmin(){
   const fr=state.language==="fr";
