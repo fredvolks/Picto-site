@@ -1859,3 +1859,20 @@
 .admin-png-variant .color-shell{flex-shrink:0}
 .admin-png-variant .admin-png-cell{max-width:none}
 @media(max-width:490px){.admin-png-variant-grid{grid-template-columns:minmax(0,1fr);gap:10px}.admin-png-variant{padding:10px}.admin-png-variant figcaption{min-height:0}}
+
+/* Super Admin — gestion limitée aux comptes explicitement marqués TEST. */
+.admin-test-clients{max-width:1100px;margin-inline:auto}
+.admin-test-create{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr) auto;align-items:end;gap:14px;margin:22px 0}
+.admin-test-create .control{margin:0;min-width:0}
+.admin-test-create input,.admin-test-create select,.admin-test-row select{width:100%;min-height:44px}
+.admin-test-create .btn,.admin-test-row .btn{min-height:44px}
+.admin-test-list{display:grid;gap:10px;margin-top:16px}
+.admin-test-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px;border:1px solid var(--line,#d9dfdc);border-radius:14px;background:#fff}
+.admin-test-identity{display:flex;flex-direction:column;gap:4px;min-width:0}
+.admin-test-identity small{overflow-wrap:anywhere}
+.admin-test-plan{display:grid;gap:5px;min-width:0}
+.admin-test-plan label{font-size:.83rem}
+.admin-test-note{font-size:.89rem;color:var(--muted,#617168);line-height:1.6}
+.admin-test-credentials{margin:16px 0;padding:16px;border:2px solid #46766f;border-radius:14px;background:#f2f8f6}
+.admin-test-credentials code{overflow-wrap:anywhere;user-select:all;line-height:1.8}
+@media(max-width:760px){.admin-test-create,.admin-test-row{grid-template-columns:minmax(0,1fr)}.admin-test-create .btn,.admin-test-row .btn{width:100%}}
