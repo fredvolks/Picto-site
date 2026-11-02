@@ -2410,3 +2410,32 @@
   .pa-bank-sheet-hero{height:clamp(130px,22dvh,180px)}
   .pa-bank-sheet-hero.pa-bank-adjust-hero{height:clamp(125px,21dvh,168px)}
 }
+
+
+/* Vrai éditeur de gabarits Super Admin : la banque enregistrée passe avant
+   l'aperçu et jamais une image de démonstration dans cet espace. */
+.pa-real-template-editor{min-width:0}
+.pa-real-template-editor>.page-intro{margin-bottom:12px}
+.pa-real-template-editor>.admin-named-templates{margin:14px 0}
+.pa-real-template-asset-picker{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;
+  padding:14px 16px;margin:0 0 16px;border:1px solid #dfe6e2;background:#fff;border-radius:14px}
+.pa-real-template-asset-picker label{font-size:13px;font-weight:700;width:100%}
+.pa-real-template-asset-picker select{min-height:44px;min-width:0;flex:1 1 230px;
+  border:1px solid #c9d5cb;border-radius:10px;padding:9px 12px;color:#243d31;background:#fff}
+.pa-real-template-asset-picker p{width:100%;font-size:13px;margin:0;color:#576b60}
+.pa-real-template-editor .page-two-col{grid-template-columns:minmax(0,1fr) minmax(290px,.95fr)}
+.pa-real-template-editor .admin-stage{min-height:270px;max-height:440px;padding:18px;overflow:auto}
+.pa-real-template-editor .admin-stage .picto{width:var(--width,5cm);height:var(--height,5cm);flex:none}
+.pa-real-template-editor .admin-stage img[data-pictau-ink]{display:block;width:100%;
+  height:100%;object-fit:contain;max-width:100%;max-height:100%}
+.pa-real-template-editor .pa-real-template-empty{text-align:center;max-width:320px;
+  color:#526459;font-size:14px;padding:20px}
+.pa-real-template-editor .pa-real-template-empty svg{width:28px;height:28px;margin:0 auto 10px}
+.pa-real-template-editor .pa-real-template-empty p{margin:0}
+.pa-real-template-editor .admin-actions{margin-top:20px}
+@media(max-width:850px){
+  .pa-real-template-editor .page-two-col{grid-template-columns:minmax(0,1fr)}
+  .pa-real-template-editor .admin-stage{min-height:230px;max-height:390px;padding:12px}
+  .pa-real-template-editor .panel{padding:15px}
+  .pa-real-template-asset-picker{padding:12px}
+}
