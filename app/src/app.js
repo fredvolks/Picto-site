@@ -4488,6 +4488,28 @@ root.addEventListener("click",function(event){
     if(next===privateBank.page||next<0||next>lastPage)return;
     privateBank.page=next;stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
+  if(a==="admin-named-template-refresh"){
+    if(!canOpenAdmin()||!authStatus.user||adminNamedTemplates.loading||
+       adminNamedTemplates.busy||state.adminTab!=="templates")return;
+    void fetchAdminNamedTemplates();return;
+  }
+  if(a==="admin-named-template-starter"){
+    if(!canOpenAdmin()||!adminNamedTemplates.loaded||adminNamedTemplates.busy||
+       adminNamedTemplates.items.length||adminNamedTemplates.name||
+       adminNamedTemplates.selectedId!==null||state.adminTab!=="templates")return;
+    const shape=el.dataset.shape;
+    if(shape!=="square"&&shape!=="portrait")return;
+    adminNamedTemplates.selectedId=null;
+    adminNamedTemplates.name=shape==="square"?
+      (state.language==="fr"?"Carré 5 cm":"Square 5 cm"):
+      (state.language==="fr"?"Rectangle haut 5 cm":"Tall rectangle 5 cm");
+    adminNamedTemplates.widthCm=5;adminNamedTemplates.rotationDeg=0;
+    state.currentPreset={...DEFAULT_PRESET,shape};
+    adminNamedTemplates.error="";adminNamedTemplates.message="";
+    render();
+    root.querySelector("#pa-named-template-name")?.focus({preventScroll:true});
+    return;
+  }
   if(a==="admin-named-template-new"){
     if(!canOpenAdmin()||adminNamedTemplates.busy||!adminNamedTemplates.loaded)return;
     adminNamedTemplates.selectedId=null;adminNamedTemplates.name="";

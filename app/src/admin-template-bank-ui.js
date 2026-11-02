@@ -69,8 +69,15 @@ export function renderAdminNamedTemplateBank({
  return '<section class="admin-named-templates" aria-label="'+esc(tr[0])+'">'
   +'<h2>'+esc(tr[0])+'</h2>'
   +(loading?'<p role="status">'+esc(fr?"Chargement des gabarits…":"Loading templates…")+'</p>':"")
-  +(error?'<p role="alert">'+esc(error)+'</p>':"")
+  +(error?'<p role="alert">'+esc(error)+'</p><button type="button" class="admin-named-template-retry" data-action="admin-named-template-refresh"'+(loading?' disabled':'')+'>'+esc(fr?"Réessayer le chargement":"Retry loading")+'</button>':"")
   +(message?'<p role="status">'+esc(message)+'</p>':"")
+  +(!loading&&!busy&&!error&&!templates.length&&selectedId===null&&!name?
+    '<div class="admin-named-template-first" role="group" aria-label="'+esc(fr?"Créer mon premier gabarit":"Create my first template")+'">'+
+    '<strong>'+esc(fr?"Aucun gabarit encore enregistré":"No templates saved yet")+'</strong>'+
+    '<p>'+esc(fr?"Choisissez une forme pour préparer votre premier modèle. Vous pourrez ajuster les dimensions et l’image avant de cliquer sur Enregistrer; rien n’est publié automatiquement.":"Choose a shape to prepare your first template. Adjust its dimensions and artwork before saving; nothing is published automatically.")+'</p>'+
+    '<div class="admin-named-template-first-actions">'+
+    '<button type="button" data-action="admin-named-template-starter" data-shape="square">'+esc(fr?"Préparer un carré":"Prepare a square")+'</button>'+
+    '<button type="button" data-action="admin-named-template-starter" data-shape="portrait">'+esc(fr?"Préparer un rectangle haut":"Prepare a tall rectangle")+'</button></div></div>':"")
   +'<div class="admin-named-template-fields">'
   +'<div><label for="pa-named-template-name">'+esc(tr[2])+'</label>'
   +'<input id="pa-named-template-name" type="text" maxlength="80" data-input="admin-named-template-name" '
