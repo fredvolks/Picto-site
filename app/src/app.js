@@ -42,7 +42,7 @@ import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCapt
 import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
-import {createPreparedPdf,fitPhysicalCopyColumns} from "./print-pdf.js";
+import {createPreparedPdf,fitPhysicalCopyColumns,previewPhysicalCopySheet} from "./print-pdf.js";
 import {loadConfirmedPrintSettings,loadPublishedImageScale,applyPublishedImageScale,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
@@ -873,6 +873,19 @@ async function openClientPictoTemplateChoices(id){
     const client=await supabaseClient();
     const rows=await listClientPictoTemplateChoices(client,uid,id);
     const approvedScale=await loadPublishedImageScale(client,uid,id);
+    if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||canOpenAdmin())return;
+    // L'image doit être le vrai PNG approuvé, jamais la vignette fictive
+    // de la bibliothèque pendant son chargement différé.
+    if(!publishedCatalog.imageUrls.has(id)){
+      const approved=await loadApprovedSelection(client,uid,[id]);
+      if(approved.length!==1||approved[0].id!==id)
+        throw Error("Ce pictogramme n'est plus publié. Actualisez la bibliothèque.");
+      const blob=await downloadPublishedArtwork(client,uid,approved[0]);
+      if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||
+         canOpenAdmin())return;
+      if(!publishedCatalog.imageUrls.has(id))
+        publishedCatalog.imageUrls.set(id,URL.createObjectURL(blob));
+    }
     if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||canOpenAdmin())return;
     clientPictoTemplates.items=rows;
     clientPictoTemplates.scalePercent=approvedScale;
@@ -2728,6 +2741,8 @@ function render(){
   const templateFocusedColor=templateActive?.dataset?.action==="client-template-border-swatch"?
     templateActive.dataset.color:null;
   const templatePaperFocused=templateActive?.dataset?.input==="client-template-paper";
+  const templateCopiesFocused=templateActive?.dataset?.input==="client-template-copies";
+  const templateModalScroll=root.querySelector(".pa-template-dialog")?.scrollTop??0;
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
   document.documentElement.lang=state.language;
   if(!canOpenAdmin() && state.page==="admin")state.page="library";
@@ -2768,9 +2783,11 @@ function render(){
   // chargement réseau, sélection d'une radio ou traduction FR/EN.
   const templateDialog=root.querySelector(".pa-template-dialog");
   if(templateDialog){
+    templateDialog.scrollTop=templateModalScroll;
     const radio=templateFocusedId?[...templateDialog.querySelectorAll('[data-input="client-template-select"]')]
       .find(el=>el.value===templateFocusedId):null;
-    const focused=((typeof templatePaperFocused!=="undefined"&&templatePaperFocused)?templateDialog.querySelector("#pa-client-template-paper"):null)||radio||
+    const focused=(templateCopiesFocused?templateDialog.querySelector("#pa-client-template-copies"):null)||
+      (templatePaperFocused?templateDialog.querySelector("#pa-client-template-paper"):null)||radio||
       ((typeof templateFocusedInput!=="undefined"&&templateFocusedInput)?templateDialog.querySelector('[data-input="'+templateFocusedInput+'"]'):null)||
       ((typeof templateFocusedColor!=="undefined"&&templateFocusedColor)?templateDialog.querySelector('[data-action="client-template-border-swatch"][data-color="'+templateFocusedColor+'"]'):null);
     (focused||templateDialog.querySelector('[data-action="client-template-close"]'))
@@ -4253,15 +4270,17 @@ root.addEventListener("click",function(event){
         // géométrique et le PDF officiel sans réduire le pictogramme.
         const printPreset=applyPublishedImageScale(
           applyClientBorderPreference(settings,borderPreference),approvedScale).preset;
-        const columns=fitPhysicalCopyColumns({
+        const layout=previewPhysicalCopySheet({
           widthCm:settings.widthCm,preset:printPreset,paper:printPaper,copies:printCopies
         });
         const {blob,pageCount}=await createPreparedPdf({
           items:repeatApprovedPictoForPrint(row,pngBlob,validateClientPictoCopies(printCopies)),
-          kind:"board",columns,individualBorders:true,widthCm:settings.widthCm,
+          kind:"board",columns:layout.columns,individualBorders:true,widthCm:settings.widthCm,
           preset:printPreset,paper:printPaper,language:printLanguage,title
         });
         if(!current())return;
+        if(pageCount!==layout.pages)
+          throw Error("La planche PDF ne correspond pas à l'aperçu. Aucune copie n'a été archivée.");
         pdfRecoveryError="";
         pendingGeneratedPdf={uid,blob,pageCount,title,documentType:"board",documentId:crypto.randomUUID()};
         await archivePdf(client,uid,blob,{title,documentType:"board",pageCount,
@@ -5394,14 +5413,14 @@ root.addEventListener("change",function(event){
        clientPictoTemplates.busy||clientPictoTemplates.loading)return;
     try{clientPictoTemplates.copies=validateClientPictoCopies(Number(event.target.value));}
     catch{return;}
-    return;
+    render();return;
   }
   if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-paper"){
     if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!clientPictoTemplates.pictoId||
        clientPictoTemplates.busy||clientPictoTemplates.loading)return;
-    if(["letter","a4"].includes(event.target.value))
-      clientPictoTemplates.paper=event.target.value;
-    return;
+    if(!["letter","a4"].includes(event.target.value))return;
+    clientPictoTemplates.paper=event.target.value;
+    render();return;
   }
   if(TEMPLATE_CHOICES_RELEASED&&event.target.dataset.input==="client-template-select"){
     if(clientPictoTemplates.busy||clientPictoTemplates.loading)return;
