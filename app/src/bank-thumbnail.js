@@ -1,32 +1,51 @@
-// Normaliser uniquement la MINIATURE privée en mémoire, sans jamais modifier le PNG source.
-// Le recadrage suit l'encre réelle (et non les marges blanches variables du fichier).
+// Uniquement pour l'affichage privé Banque > Images : l'original n'est jamais modifié.
+// Calibrer la taille du dessin noir (pas seulement du carré ni des marges PNG).
 import {inspectPngBlob} from "./admin-review.js";
-import {createLocalInkCrop} from "./png-ink.js";
+import {findInkBoundsRGBA,MAX_SCAN_SIDE,MAX_DECODE_PIXELS,MAX_PNG_CROP_BYTES} from "./png-ink.js";
 
-export const BANK_THUMBNAIL_PIXELS=216; // 3x le cadre CSS de 72px : net sur écran haute densité.
-export const BANK_INK_MAX_PIXELS=174; // Le dessin le plus long occupe ~58px sur un carré de 72px.
+export const BANK_THUMBNAIL_PIXELS=216; // 3x le cadre CSS 72px, net sur écran haute densité.
+export const BANK_INK_MAX_PIXELS=174; // Le côté dominant du dessin mesure environ 58px à l'écran.
 
 export async function createNormalizedBankThumbnail(originalBlob){
-  // Limites de taille et de décodage déjà contrôlées par createLocalInkCrop.
+  // Un aperçu téléchargé reste local en mémoire; aucune écriture dans Storage.
   const metadata=await inspectPngBlob(originalBlob);
-  const {blob:cropped}=await createLocalInkCrop(originalBlob,metadata);
+  const {width,height}=metadata;
+  if(originalBlob.size>MAX_PNG_CROP_BYTES||
+     width*height>MAX_DECODE_PIXELS||
+     !["image/png","application/octet-stream",""].includes(originalBlob.type))
+    throw new Error("Miniature PNG trop grande ou format non accepté.");
   if(typeof createImageBitmap!=="function"||typeof document==="undefined")
-    throw new Error("Miniature locale indisponible dans ce navigateur.");
-  const bitmap=await createImageBitmap(cropped);
+    throw new Error("Décodage PNG local indisponible.");
+  const bitmap=await createImageBitmap(originalBlob);
   try{
-    if(!bitmap.width||!bitmap.height)throw new Error("Miniature décodée invalide.");
+    if(bitmap.width!==width||bitmap.height!==height)
+      throw new Error("Dimensions décodées non conformes au PNG.");
+    const factor=Math.min(1,MAX_SCAN_SIDE/Math.max(width,height));
+    const sw=Math.max(1,Math.round(width*factor));
+    const sh=Math.max(1,Math.round(height*factor));
+    const scan=document.createElement("canvas");scan.width=sw;scan.height=sh;
+    const scanner=scan.getContext("2d",{willReadFrequently:true});
+    if(!scanner)throw new Error("Analyse d'encre indisponible.");
+    scanner.drawImage(bitmap,0,0,sw,sh);
+    const ink=findInkBoundsRGBA(scanner.getImageData(0,0,sw,sh).data,sw,sh);
+    if(!ink)throw new Error("Aucun trait sombre trouvé.");
+    // Un pixel de marge par côté protège l'anticrénelage, sans garder les
+    // grandes marges blanches variables des fichiers originaux.
+    const left=Math.max(0,ink.x-1),top=Math.max(0,ink.y-1);
+    const right=Math.min(sw,ink.x+ink.width+1);
+    const bottom=Math.min(sh,ink.y+ink.height+1);
+    const sx=left*width/sw,sy=top*height/sh;
+    const sourceWidth=(right-left)*width/sw,sourceHeight=(bottom-top)*height/sh;
+    const scale=BANK_INK_MAX_PIXELS/Math.max(sourceWidth,sourceHeight);
+    const outWidth=sourceWidth*scale,outHeight=sourceHeight*scale;
     const surface=document.createElement("canvas");
     surface.width=surface.height=BANK_THUMBNAIL_PIXELS;
     const ctx=surface.getContext("2d");
     if(!ctx)throw new Error("Rendu de miniature indisponible.");
-    // Centre le dessin et conserve son rapport largeur/hauteur.
-    const scale=Math.min(BANK_INK_MAX_PIXELS/bitmap.width,BANK_INK_MAX_PIXELS/bitmap.height);
-    const width=bitmap.width*scale,height=bitmap.height*scale;
-    ctx.fillStyle="#fff";
-    ctx.fillRect(0,0,surface.width,surface.height);
-    ctx.imageSmoothingEnabled=true;
-    ctx.imageSmoothingQuality="high";
-    ctx.drawImage(bitmap,(surface.width-width)/2,(surface.height-height)/2,width,height);
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,surface.width,surface.height);
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+    ctx.drawImage(bitmap,sx,sy,sourceWidth,sourceHeight,
+      (surface.width-outWidth)/2,(surface.height-outHeight)/2,outWidth,outHeight);
     return await new Promise((resolve,reject)=>{
       surface.toBlob(blob=>blob?resolve(blob):reject(new Error("Miniature PNG indisponible.")),"image/png");
     });
