@@ -696,6 +696,59 @@ const privateImport={file:null,loading:false,error:"",message:"",request:0,draft
 const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",request:0};
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
+const privateNamedGallery={items:[],assetId:null,loaded:false,loading:false,error:"",request:0};
+const bankImageSheet={tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+  loading:false,busy:false,error:"",message:"",request:0};
+function bankScaleWarning(fr=true){
+  if(!privateNamedGallery.loaded||!privateNamedGallery.items.length||!privatePreview.id)return "";
+  try{
+    const templates=privateNamedGallery.items.map(row=>({
+      id:row.id,name:row.name,shape:row.preset.shape,art_percent:row.preset.artPercent
+    }));
+    const rows=previewImageInTemplates({assetId:privatePreview.id,
+      scalePercent:bankImageSheet.scalePercent,templates});
+    const count=rows.filter(x=>x.status==="needs-review").length;
+    return count?(fr?count+" gabarit(s) à vérifier avant publication.":count+" template(s) need review before publishing."):"";
+  }catch{return fr?"Aperçus à vérifier avant publication.":"Preview requires review before publishing.";}
+}
+async function loadBankImageScale(assetId,uid,previewTicket){
+  const ticket=++bankImageSheet.request;
+  bankImageSheet.loading=true;bankImageSheet.loaded=false;bankImageSheet.error="";render();
+  try{
+    const client=await supabaseClient();
+    const row=await readAdminImageAdjustment(client,uid,assetId);
+    if(ticket!==bankImageSheet.request||previewTicket!==privatePreview.request||
+       privatePreview.id!==assetId||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    Object.assign(bankImageSheet,{scalePercent:row.scalePercent,revision:row.revision,
+      available:row.available,loaded:true});
+  }catch(error){
+    if(ticket===bankImageSheet.request&&privatePreview.id===assetId)
+      bankImageSheet.error=String(error?.message||error);
+  }finally{
+    if(ticket===bankImageSheet.request&&privatePreview.id===assetId){
+      bankImageSheet.loading=false;render();
+    }
+  }
+}
+async function loadBankNamedGallery(assetId,uid,previewTicket){
+  const ticket=++privateNamedGallery.request;
+  Object.assign(privateNamedGallery,{items:[],assetId,loaded:false,loading:true,error:""});
+  try{
+    const client=await supabaseClient();
+    const rows=await listAdminNamedTemplates(client,uid);
+    if(ticket!==privateNamedGallery.request||previewTicket!==privatePreview.request||
+       privatePreview.id!==assetId||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    privateNamedGallery.items=rows;privateNamedGallery.loaded=true;
+  }catch(error){
+    if(ticket===privateNamedGallery.request&&privatePreview.id===assetId)
+      privateNamedGallery.error=String(error?.message||error);
+  }finally{
+    if(ticket===privateNamedGallery.request&&privatePreview.id===assetId){
+      privateNamedGallery.loading=false;render();
+    }
+  }
+}
+
 const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
   dirty:false,error:"",message:"",request:0};
@@ -963,6 +1016,10 @@ function clearAdminPreview(){
   privatePreview.id=null;privatePreview.asset=null;privatePreview.url=null;
   privatePreview.inkUrl=null;privatePreview.inkBlob=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
   privatePreview.rotationDeg=0;privatePreview.adjustBusy=false;privatePreview.adjustError="";privatePreview.adjustMessage="";
+  bankImageSheet.request++;privateNamedGallery.request++;
+  Object.assign(bankImageSheet,{tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+    loading:false,busy:false,error:"",message:""});
+  Object.assign(privateNamedGallery,{items:[],assetId:null,loaded:false,loading:false,error:""});
   privatePreview.loading=false;privatePreview.error="";
 }
 async function openAdminPreview(assetId){
@@ -981,6 +1038,8 @@ async function openAdminPreview(assetId){
     catch(error){cropError=String(error?.message||error);}
     if(request!==privatePreview.request||authStatus.user?.id!==userId||!canOpenAdmin())return;
     privatePreview.asset=result.asset;privatePreview.technical=technical;
+    void loadBankImageScale(assetId,userId,request);
+    void loadBankNamedGallery(assetId,userId,request);
     privatePreview.url=URL.createObjectURL(result.blob);
     privatePreview.inkInfo=crop;privatePreview.inkError=cropError;
     if(crop){privatePreview.inkBlob=crop.blob;privatePreview.inkUrl=URL.createObjectURL(crop.blob);}
