@@ -21,6 +21,7 @@ import {loadPrivateAdminPreview} from "./admin-preview.js";
 import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
+import {createNormalizedBankThumbnail} from "./bank-thumbnail.js";
 import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
@@ -872,7 +873,14 @@ function startBankThumbDownloads(){
         const {blob}=await loadPrivateAdminPreview(client,uid,id);
         if(bankThumbs.epoch!==epoch||!canOpenAdmin()||authStatus.user?.id!==uid||
           !privateBank.items.some(item=>item.id===id))return;
-        const url=URL.createObjectURL(blob);bankThumbs.urls.set(id,url);
+        // Normalisation locale : le PNG source et les fichiers Supabase ne changent jamais.
+        // Si l'analyse échoue, la miniature source reste affichable.
+        let previewBlob=blob;
+        try{previewBlob=await createNormalizedBankThumbnail(blob);}
+        catch{/* Dégradation douce : miniature originale conservée. */}
+        if(bankThumbs.epoch!==epoch||!canOpenAdmin()||authStatus.user?.id!==uid||
+          !privateBank.items.some(item=>item.id===id))return;
+        const url=URL.createObjectURL(previewBlob);bankThumbs.urls.set(id,url);
         for(const node of root.querySelectorAll(".admin-bank-thumb")){
           if(node.dataset.thumbId!==id)continue;
           const image=node.querySelector("img[data-private-thumb]");
