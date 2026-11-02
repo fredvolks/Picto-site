@@ -1963,54 +1963,96 @@ function renderAdmin(){
       sheetTabs.map(([key,label])=>'<button type="button" data-action="pa-bank-sheet-tab" data-tab="'+key+
         '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>';
     const sheetTitle=selectedAsset?(selectedAsset.admin_name||selectedAsset.title_fr||"—"):"";
+    const currentNames=bankImageSheet.names||{adminName:sheetTitle,
+      titleFr:selectedAsset?.title_fr||"",titleEn:selectedAsset?.title_en||""};
     const sheetTop=selectedAsset?'<header class="pa-bank-sheet-head">'+
-      '<button type="button" class="btn btn-light" data-action="admin-bank-detail-close">'+esc(fr?"← Retour aux images":"← Back to images")+'</button>'+
+      '<button type="button" class="btn btn-light" data-action="admin-bank-detail-close">'+esc(fr?"← Retour":"← Back")+'</button>'+
       '<h2 id="pa-bank-inspector-title" tabindex="-1">'+esc(sheetTitle)+'</h2>'+
-      '<span class="admin-chip">'+esc(selectedAsset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span></header>'+
-      (privatePreview.loading?'<p role="status">'+esc(fr?"Chargement sécurisé de l’image…":"Loading private picture…")+'</p>':"")+
-      (privatePreview.error?'<p role="alert">'+esc(privatePreview.error)+'</p>':"")+
-      (privatePreview.url?'<figure class="pa-bank-sheet-hero"><img alt="'+esc(chosenLabel)+'" src="'+esc(privatePreview.url)+'"></figure>':"")+
-      sheetNav:"";
-    const sheetNames=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Nom":"Name")+'">'+
-      '<div class="pa-bank-sheet-fields">'+
-      '<div><small>'+esc(fr?"Nom de la banque":"Bank name")+'</small><strong>'+esc(sheetTitle)+'</strong></div>'+
-      '<div><small>'+esc(fr?"Nom français":"French name")+'</small><strong>'+esc(selectedAsset.title_fr||"—")+'</strong></div>'+
-      '<div><small>'+esc(fr?"Nom anglais":"English name")+'</small><strong>'+esc(selectedAsset.title_en||"—")+'</strong></div></div>'+
-      '<div class="pa-bank-sheet-actions">'+
-      '<button type="button" class="btn btn-light" data-action="admin-rename" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier le nom de banque":"Edit bank name")+'</button>'+
-      (selectedAsset.status==="draft"&&selectedAsset.created_by===authStatus.user?.id?
-        '<button type="button" class="btn btn-light" data-action="admin-edit-draft" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier les noms FR/EN":"Edit FR/EN names")+'</button>':"")+'</div>'+
-      renameForm+draftEditBody+'</section>':"";
-    const sheetAdjust=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Ajuster":"Adjust")+'">'+
-      '<h3>'+esc(fr?"Taille de ce dessin seulement":"Size of this artwork only")+'</h3>'+
-      '<p>'+esc(fr?"100 % = taille du template. Le réglage individuel ne modifie pas les autres pictogrammes ni les modèles.":"100% = template size. The adjustment does not change other images or templates.")+'</p>'+
-      '<div class="pa-bank-sheet-range"><label for="pa-bank-scale">'+esc(fr?"Agrandir / rapetisser":"Enlarge / shrink")+
-      ' : <output id="pa-bank-scale-value">'+bankImageSheet.scalePercent+' %</output></label>'+
+      '<span class="admin-chip">'+esc(selectedAsset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span>'+
+      '<button type="button" class="btn btn-primary pa-bank-head-save" data-action="pa-bank-save-open"'+
+      (!bankImageSheet.loaded||bankImageSheet.busy||!privatePreview.url?' disabled':'')+'>'+
+        esc(fr?"Enregistrer":"Save")+'</button></header>'+
+      (privatePreview.loading?'<p role="status">'+esc(fr?"Chargement de l’image…":"Loading image…")+'</p>':'')+
+      (privatePreview.error?'<p role="alert">'+esc(privatePreview.error)+'</p>':'')+
+      (privatePreview.url?'<figure class="pa-bank-sheet-hero'+(bankImageSheet.tab==="adjust"?' pa-bank-adjust-hero':'')+'"'+
+        (bankImageSheet.tab==="adjust"?' tabindex="0" role="img" aria-label="'+esc(fr?
+          "Déplacer le dessin au doigt, à la souris ou avec les flèches":
+          "Move the drawing by touch, mouse or arrow keys")+'"':'')+'>'+
+        '<img data-pa-bank-art alt="'+esc(chosenLabel)+'" src="'+esc(privatePreview.inkUrl||privatePreview.url)+'">'+
+        (bankImageSheet.tab==="adjust"?'<span class="pa-bank-drag-icon" aria-hidden="true">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg></span>':"")+'</figure>':"")+
+      sheetNav+'<p class="pa-bank-scale-unsaved" role="status"'+(bankSheetDirty()?"":' hidden')+'>'+
+      esc(fr?"Modifications non enregistrées":"Unsaved changes")+'</p>':"";
+    const sheetNames=selectedAsset?'<section class="pa-bank-sheet-panel pa-bank-name-panel" aria-label="'+esc(fr?"Nom":"Name")+'">'+
+      '<form data-form="pa-bank-sheet-names" class="pa-bank-names-form">'+
+      '<div class="pa-bank-names-field"><label for="pa-bank-name">'+esc(fr?"Nom dans la banque":"Bank name")+'</label>'+
+      '<input id="pa-bank-name" data-input="pa-bank-name" name="adminName" maxlength="120" value="'+esc(currentNames.adminName)+'" autocomplete="off"></div>'+
+      '<div class="pa-bank-names-field"><label for="pa-bank-name-fr">'+esc(fr?"Français":"French")+'</label>'+
+      '<input id="pa-bank-name-fr" data-input="pa-bank-name-fr" name="titleFr" maxlength="100" required value="'+esc(currentNames.titleFr)+'" autocomplete="off"></div>'+
+      '<div class="pa-bank-names-field"><label for="pa-bank-name-en">'+esc(fr?"Anglais":"English")+'</label>'+
+      '<div class="pa-bank-names-en"><input id="pa-bank-name-en" data-input="pa-bank-name-en" name="titleEn" maxlength="100" value="'+esc(currentNames.titleEn)+'" autocomplete="off">'+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-suggest-en">'+esc(fr?"Suggérer":"Suggest")+'</button></div></div>'+
+      (selectedAsset.status==="published"?'<p class="pa-bank-name-help">'+esc(fr?
+        "Pour changer le texte d’une image publiée, enregistrez comme nouveau brouillon.":
+        "To change published labels, save as a new private draft.")+'</p>':"")+
+      (bankImageSheet.error?'<p role="alert" class="admin-import-alert">'+esc(bankImageSheet.error)+'</p>':'')+
+      (bankImageSheet.message?'<p role="status" class="admin-import-success">'+esc(bankImageSheet.message)+'</p>':'')+
+      '</form></section>':"";
+    const sheetGallery=privatePreview.inkUrl&&privatePreview.asset?
+       '<div class="pa-bank-scale-stage" data-base-scale="'+bankImageSheet.scalePercent+'">'+
+       (privateNamedGallery.loading?'<p role="status">'+esc(fr?"Chargement des templates…":"Loading templates…")+'</p>':'')+
+       (privateNamedGallery.error?'<p role="alert">'+esc(privateNamedGallery.error)+'</p>':'')+
+       (privateNamedGallery.loaded&&privateNamedGallery.assetId===privatePreview.asset.id?
+         renderPrivateInkNamedGallery({asset:privatePreview.asset,inkUrl:privatePreview.inkUrl,
+           rotationDeg:bankImageSheet.rotationDeg,templates:privateNamedGallery.items,
+           fr,customPicto,scaleMetrics,fmtRaw,artScalePercent:bankImageSheet.scalePercent}):"")+'</div>':
+       '<p role="status">'+esc(fr?"Les aperçus apparaîtront après le chargement de l’image.":"Previews appear once the image loads.")+'</p>';
+    const sheetAdjust=selectedAsset?'<section class="pa-bank-sheet-panel pa-bank-adjust-panel" aria-label="'+esc(fr?"Ajuster":"Adjust")+'">'+
+      '<div class="pa-bank-adjust-fixed">'+
+      '<div class="pa-bank-adjust-control"><label for="pa-bank-scale">'+esc(fr?"Grosseur":"Size")+
+      ' <output id="pa-bank-scale-value" for="pa-bank-scale">'+bankImageSheet.scalePercent+' %</output></label>'+
       '<input type="range" id="pa-bank-scale" data-input="pa-bank-scale" min="60" max="140" step="5" value="'+bankImageSheet.scalePercent+'"'+
-      (!bankImageSheet.loaded||bankImageSheet.busy?' disabled':'')+'>'+
-      '<div class="pa-bank-sheet-range-actions"><button type="button" class="btn btn-light" data-action="pa-bank-scale-reset"'+
-        (bankImageSheet.busy||bankImageSheet.scalePercent===100?' disabled':'')+'>'+esc(fr?"Réinitialiser à 100 %":"Reset to 100%")+'</button>'+
-      '<button type="button" class="btn btn-primary" data-action="pa-bank-scale-save"'+
-        (!bankImageSheet.loaded||!bankImageSheet.available||bankImageSheet.busy||selectedAsset.status!=="draft"?' disabled':'')+'>'+
-        esc(fr?"Enregistrer pour cette image":"Save for this image")+'</button></div></div>'+
-      (bankImageSheet.loading?'<p role="status">'+esc(fr?"Vérification des réglages…":"Checking adjustments…")+'</p>':"")+
+        (!bankImageSheet.loaded||bankImageSheet.busy?' disabled':'')+'></div>'+
+      '<div class="pa-bank-adjust-control"><label for="pa-bank-rotation">'+esc(fr?"Rotation":"Rotation")+
+      ' <output id="pa-bank-rotation-value" for="pa-bank-rotation">'+bankImageSheet.rotationDeg+'°</output></label>'+
+      '<input type="range" id="pa-bank-rotation" data-input="pa-bank-rotation" min="-180" max="180" step="1" value="'+bankImageSheet.rotationDeg+'"'+
+        (!bankImageSheet.loaded||bankImageSheet.busy?' disabled':'')+'></div>'+
+      '<div class="pa-bank-adjust-actions">'+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-scale-reset"'+(bankImageSheet.busy?' disabled':'')+'>'+esc(fr?"Réinitialiser":"Reset")+'</button>'+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-mirror" aria-pressed="'+bankImageSheet.mirrorHorizontal+'"'+(bankImageSheet.busy?' disabled':'')+'>'+esc(fr?"Miroir horizontal":"Horizontal flip")+'</button></div>'+
+      (bankImageSheet.loading?'<p role="status">'+esc(fr?"Chargement des réglages…":"Loading adjustments…")+'</p>':'')+
       (!bankImageSheet.loading&&bankImageSheet.loaded&&!bankImageSheet.available?
-        '<p role="status">'+esc(fr?"Sauvegarde indisponible : actualisez la fiche.":"Saving unavailable: refresh the record.")+'</p>':"")+
-      (bankImageSheet.error?'<p role="alert">'+esc(bankImageSheet.error)+'</p>':"")+
-      (bankImageSheet.message?'<p role="status">'+esc(bankImageSheet.message)+'</p>':"")+
-      '<p id="pa-bank-scale-warning" role="status" class="pa-bank-scale-warning">'+esc(bankScaleWarning(fr))+'</p>'+
-      '<div class="pa-bank-scale-stage" data-base-scale="'+bankImageSheet.scalePercent+'" style="--pictau-image-scale:1">'+privateInkCard+'</div>'+
-      '<details class="pa-bank-secondary-details"><summary>'+esc(fr?"Vérifier et publier / informations techniques":"Review, publish and technical details")+'</summary>'+
-      privatePreviewBody+'</details></section>':"";
+        '<p role="status">'+esc(fr?"Sauvegarde indisponible : vérifier Supabase.":"Saving unavailable: verify Supabase.")+'</p>':"")+
+      (bankImageSheet.error?'<p role="alert">'+esc(bankImageSheet.error)+'</p>':'')+
+      (bankImageSheet.message?'<p role="status">'+esc(bankImageSheet.message)+'</p>':'')+
+      '<p id="pa-bank-scale-warning" role="status" class="pa-bank-scale-warning">'+esc(bankScaleWarning(fr))+'</p></div>'+
+      '<h3 class="pa-bank-gallery-title">'+esc(fr?"Templates":"Templates")+'</h3>'+
+      '<div class="pa-bank-adjust-gallery" role="region" tabindex="0" aria-label="'+esc(fr?
+        "Galerie de templates défilante":"Scrollable template gallery")+'">'+sheetGallery+'</div></section>':"";
     const chosenThemes=selectedAsset?(themeUI.links[selectedAsset.id]||[selectedAsset.theme]):[];
     const sheetClassify=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Classer":"Classify")+'">'+
       '<h3>'+esc(fr?"Thèmes du pictogramme":"Pictogram themes")+'</h3>'+
       '<p>'+chosenThemes.map(code=>esc(themeLabel(code))).join(" · ")+'</p>'+
       '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+
       themeAssetPanel+'</section>':"";
+    const sheetSaveDialog=selectedAsset&&bankImageSheet.saveOpen?'<div class="pa-bank-save-overlay">'+
+      '<section class="pa-bank-save-dialog" role="dialog" aria-modal="true" aria-labelledby="pa-bank-save-title">'+
+      '<h3 id="pa-bank-save-title">'+esc(fr?"Enregistrer les modifications":"Save changes")+'</h3>'+
+      '<p>'+esc(fr?"Comment conserver ce pictogramme ?":"How do you want to save this pictogram?")+'</p>'+
+      '<button type="button" class="pa-bank-save-option" data-action="pa-bank-save-new"'+(bankImageSheet.busy||!bankImageSheet.available?' disabled':'')+'>'+
+      '<strong>'+esc(fr?"Enregistrer comme nouveau brouillon":"Save as new draft")+'</strong>'+
+      '<span>'+esc(fr?"Conserve l’original. Crée une nouvelle fiche privée.":"Keeps the original. Creates a new private record.")+'</span></button>'+
+      '<button type="button" class="pa-bank-save-option" data-action="pa-bank-save-overwrite"'+
+        (selectedAsset.status!=="draft"||selectedAsset.created_by!==authStatus.user?.id||bankImageSheet.busy||!bankImageSheet.available?' disabled':'')+'>'+
+      '<strong>'+esc(fr?"Mettre à jour le brouillon existant":"Update existing draft")+'</strong>'+
+      '<span>'+esc(fr?"Enregistre les noms et réglages, après confirmation.":"Saves names and adjustments after confirmation.")+'</span></button>'+
+      (selectedAsset.status==="published"?'<p>'+esc(fr?"Pour une image publiée, créez un nouveau brouillon.":"Published images require a new draft.")+'</p>':"")+
+      (bankImageSheet.error?'<p role="alert">'+esc(bankImageSheet.error)+'</p>':'')+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-save-close">'+esc(fr?"Annuler":"Cancel")+'</button>'+
+      '</section></div>':"";
     const sheet=selectedAsset?'<section class="admin-surface pa-bank-sheet">'+sheetTop+
       (bankImageSheet.tab==="adjust"?sheetAdjust:bankImageSheet.tab==="classify"?sheetClassify:sheetNames)+
-      '</section>':"";
+      sheetSaveDialog+'</section>':"";
     const screen=bankPanel==="import"?importForm:bankPanel==="themes"?themeManagement:
       (bankSelectionId&&selectedAsset?sheet:
       '<div class="pa-bank-workspace'+(hasInspector?' has-inspector':'')+'">'+results+inspector+info+'</div>');
