@@ -2484,3 +2484,43 @@
  .pa-template-next,.pa-bank-customer-templates{padding:12px;margin:12px 0}
  .pa-template-next button,.pa-bank-customer-templates>button{width:100%}
 }
+
+
+/* Mes fichiers — priorité à Aperçu et Réimprimer l'original.
+   Les actions secondaires restent présentes, accessibles, sans colonnes mobiles surchargées. */
+@media screen{
+  .files-entry-actions{align-items:start;gap:10px}
+  .files-entry-primary{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+  .files-entry-primary>.btn{min-height:44px;min-width:116px;font-size:14px}
+  .files-entry-more{min-width:154px;max-width:100%}
+  .files-entry-more>summary{
+    min-height:44px;display:flex;align-items:center;justify-content:center;
+    gap:7px;padding:9px 12px;border:1px solid #a1b7ab;border-radius:10px;
+    background:#fff;color:#294939;font-size:14px;font-weight:650;
+    cursor:pointer;list-style:none;white-space:normal;text-align:center
+  }
+  .files-entry-more>summary::-webkit-details-marker{display:none}
+  .files-entry-more>summary::after{content:"⌄";font-size:17px;line-height:1}
+  .files-entry-more[open]>summary::after{content:"⌃"}
+  .files-entry-more>summary:focus-visible{outline:3px solid #294939;outline-offset:2px}
+  .files-entry-more-actions{
+    display:flex;flex-direction:column;gap:8px;margin-top:8px;
+    padding:8px;background:#f5f9f6;border:1px solid #e0e9e2;border-radius:10px
+  }
+  .files-entry-more-actions>.btn{min-height:44px;min-width:0;width:100%;
+    font-size:13px;white-space:normal;line-height:1.35}
+}
+@media screen and (max-width:780px){
+  .files-entry-actions{display:grid;grid-template-columns:minmax(0,1fr);justify-content:stretch}
+  .files-entry-primary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .files-entry-primary>.btn{min-width:0;width:100%;grid-column:auto}
+  .files-entry-primary>.btn:first-child{grid-column:auto}
+  .files-entry-more{grid-column:1/-1;width:100%}
+  .files-entry-more>summary{width:100%}
+  .files-entry-more-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media screen and (max-width:380px){
+  .files-entry-primary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .files-entry-primary>.btn{font-size:12px;padding:8px 5px;overflow-wrap:anywhere}
+  .files-entry-more-actions{grid-template-columns:minmax(0,1fr)}
+}
