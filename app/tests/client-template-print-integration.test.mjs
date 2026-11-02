@@ -20,6 +20,7 @@ test("L'impression revérifie le serveur après téléchargement du PNG",()=>{
  assert.match(block,/loadApprovedSelection\(client,uid,\[id\]\)/);
  assert.match(block,/downloadPublishedArtwork\(client,uid,row\)/);
  assert.match(block,/JSON\.stringify\(latest\)!==JSON\.stringify\(settings\)/);
+ assert.equal((block.match(/loadPublishedImageScale\(client,uid,id\)/g)||[]).length,2);
  assert.match(block,/if\(!current\(\)\)return;/);
 });
 test("Le PDF d'une case est enregistré dans Mes fichiers sans démo",()=>{
@@ -27,7 +28,7 @@ test("Le PDF d'une case est enregistré dans Mes fichiers sans démo",()=>{
    app.indexOf('if(a==="admin-preview")'));
  assert.match(block,/createPreparedPdf\(\{/);
  assert.match(block,/kind:"board",columns,individualBorders:true/);
- assert.match(block,/const printPreset=applyClientBorderPreference/);
+ assert.match(block,/const printPreset=applyPublishedImageScale/);
  assert.match(block,/archivePdf\(client,uid,blob/);
  assert.match(block,/pendingGeneratedPdf=/);
  assert.match(block,/state\.page="files"/);
@@ -41,7 +42,7 @@ test("Le dessin PNG tourne autour du centre sans toucher au cadre",()=>{
  assert.match(print,/ctx\.restore\(\)/);
 });
 test("Le module d\u0027impression reste fermé sans les tables réelles",()=>{
- assert.match(app,/import .*loadConfirmedPrintSettings,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint/);
+ assert.match(app,/import .*loadConfirmedPrintSettings,loadPublishedImageScale,applyPublishedImageScale,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint/);
  assert.match(app,/let TEMPLATE_CHOICES_RELEASED=false/);
 });
 
