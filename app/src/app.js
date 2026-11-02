@@ -812,6 +812,7 @@ let bankView=["list","small","medium"].includes(load("pictau-admin-bank-view",de
 let bankPanel="browse"; // Images d’abord; ajout et thèmes dans des vues dédiées.
 let bankSelectionId=null; // Une fiche à la fois sur mobile.
 let bankFiltersExpanded=!window.matchMedia("(max-width: 700px)").matches;
+let bankToolsExpanded=!window.matchMedia("(max-width: 700px)").matches;
 const bankRename={id:null,expected:null,value:"",busy:false,error:"",message:"",request:0};
 function clearBankRename(){
   bankRename.request++;bankRename.id=null;bankRename.expected=null;bankRename.value="";
@@ -1788,7 +1789,7 @@ function renderAdmin(){
       +inspectorQuickActions+inspectorContent+'</aside>':"";
     const results='<section class="admin-surface pa-bank-results">'
       +'<div class="pa-bank-results-header"><div><h2>'+esc(fr?"Mes images":"My images")+'</h2><p>'+esc(fr?"Rechercher, ouvrir ou classer un pictogramme.":"Search, open or classify a pictogram.")+'</p></div>'
-      +draftReviewAction+'<button type="button" class="btn btn-light btn-small" data-action="refresh-admin-bank"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
+      +'<button type="button" class="btn btn-light btn-small" data-action="refresh-admin-bank"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
       +(!privatePreview.id&&publishedCatalog.publishMessage?
         '<div class="admin-publish-confirmation" role="status" aria-live="polite">'
         +'<p>'+esc(publishedCatalog.publishMessage)+'</p>'
@@ -1796,7 +1797,9 @@ function renderAdmin(){
         +icon("check","btn-icon")+esc(fr?'Voir les pictogrammes publiés':'View published pictograms')
         +'</button></div>':"")
       +(privateBank.error?'<p role="alert">'+esc(fr?"Impossible de lire la banque privée.":"Unable to load private bank.")+'</p>':"")
-      +filters+reviewQueueTools+bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
+      +filters
+      +'<details class="pa-bank-review-tools"'+(bankToolsExpanded?" open":"")+'><summary data-action="admin-bank-tools-toggle">'+esc(fr?"Actions avancées":"Advanced actions")+'</summary><div>'+draftReviewAction+reviewQueueTools+'</div></details>'
+      +bankViewControls+(!privateBank.loading&&!privateBank.error?bankSummary:"")
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
       +(!privateBank.loading&&!privateBank.error?pagination:"")+'</section>';
     const screen=bankPanel==="import"?importForm:bankPanel==="themes"?themeManagement:
@@ -3691,6 +3694,7 @@ root.addEventListener("click",function(event){
     return;
   }
   if(a==="admin-bank-filters-toggle"){bankFiltersExpanded=!bankFiltersExpanded;return;}
+  if(a==="admin-bank-tools-toggle"){bankToolsExpanded=!bankToolsExpanded;return;}
   if(a==="admin-bank-open"){
     if(!canOpenAdmin()||state.adminTab!=="bank"||!privateBank.items.some(item=>item.id===el.dataset.id))return;
     if(!confirmDiscardBankEdits())return;
