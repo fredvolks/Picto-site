@@ -41,7 +41,7 @@ test("Tous les filtres correspondent aux codes acceptés par le catalogue offici
 });
 test("L'application n'interroge pas la table des thèmes privés pour afficher les catégories",()=>{
  const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
- assert.match(app,/import \{listActiveClientCategories,CLIENT_CATEGORIES,clientCategoryLabel\} from "\.\/client-categories\.js";/);
+ assert.match(app,/import \{CLIENT_CATEGORIES,clientCategoryLabel\} from "\.\/client-categories\.js";/);
  assert.doesNotMatch(app,/const CLIENT_CATEGORIES=\[/,
    "Une seule source de catégories affichées");
  assert.match(app,/CLIENT_CATEGORIES\.map\(/);
