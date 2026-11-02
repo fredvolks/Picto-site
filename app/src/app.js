@@ -5,7 +5,7 @@ import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEma
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters,planNextPrivateDraftReview} from "./admin-bank.js";
 import {listTestClients,createTestClient,setTestClientPlan,deleteTestClient} from "./test-clients.js";
 import {renderTestClients} from "./test-clients-ui.js";
-import {listActiveClientCategories,CLIENT_CATEGORIES,clientCategoryLabel} from "./client-categories.js";
+import {CLIENT_CATEGORIES,clientCategoryLabel} from "./client-categories.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy} from "./admin-template-bank.js";
 import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption,confirmPublishedNamedTemplateEdit} from "./admin-template-bank-ui.js";
