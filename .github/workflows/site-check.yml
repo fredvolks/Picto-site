@@ -12,7 +12,7 @@ jobs:
         with:
           node-version: "22"
       - run: node --check src/site.js && node --check app/src/app.js && node --check app/src/admin-sheet-names.js && node --check app/src/image-adjustments.js && node --check app/src/bank-sheet-adjust.js
-      - run: node --test tests/site.test.mjs tests/admin-bank-names.test.mjs
+      - run: node --test tests/site.test.mjs tests/admin-bank-names.test.mjs tests/admin-bank-theme-copy.test.mjs
       - name: Émuler la fiche Banque sur Samsung, petit écran et tablette
         run: node tests/bank-hero-mobile.mjs
       - name: Captures de la fiche Banque

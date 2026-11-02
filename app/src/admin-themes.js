@@ -115,3 +115,25 @@ export async function mergeThemes(client,uid,source,target){
   await requireAdmin(client,uid);
   return{source,target,merged:true};
 }
+
+/** Préserve les catégories secondaires d'une image lors d'une copie privée.
+ * Le thème principal est déjà lié par le trigger INSERT de pictau_assets.
+ * Toute association est écrite sous les mêmes vérifications Auth/RLS qu'un ajout manuel.
+ */
+export async function copyAdditionalAssetThemes(client,uid,newAssetId,primaryTheme,sourceCodes){
+  if(!UUID.test(newAssetId||""))throw Error("Identifiant de copie invalide.");
+  validateThemeCode(primaryTheme);
+  if(!Array.isArray(sourceCodes)||sourceCodes.length>MAX_THEMES_PER_ASSET)
+    throw Error("Associations de la fiche source invalides.");
+  const unique=new Set();
+  for(const code of sourceCodes){
+    validateThemeCode(code);
+    if(unique.has(code))throw Error("Thèmes source en double : actualisez la banque.");
+    unique.add(code);
+  }
+  const extras=[...unique].filter(code=>code!==primaryTheme);
+  // La copie est déjà créée avant ce transfert : tout échec doit être affiché,
+  // jamais masqué par une confirmation de sauvegarde globale.
+  for(const code of extras)await addAssetTheme(client,uid,newAssetId,code);
+  return extras;
+}
