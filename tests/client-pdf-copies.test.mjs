@@ -101,7 +101,11 @@ test("Le circuit client garde la double revalidation du gabarit et une archive u
  assert.match(section,/TEMPLATE_CHOICES_RELEASED/);
  assert.match(section,/SITE_EMBEDDED/);
  assert.match(section,/!authStatus.user/);
- assert.match(section,/fitPhysicalCopyColumns/);
+ assert.match(section,/const layout=previewPhysicalCopySheet\(/);
+ assert.match(section,/columns:layout\.columns/);
+ assert.match(section,/if\(pageCount!==layout\.pages\)/);
+ assert.ok(section.indexOf('if(pageCount!==layout.pages)')<section.indexOf('await archivePdf('),
+   "N'archiver que si la pagination correspond à l'aperçu");
  assert.match(section,/individualBorders:true/);
  assert.match(section,/repeatApprovedPictoForPrint/);
  assert.equal((section.match(/loadConfirmedPrintSettings\(client,uid,id,chosenId\)/g)||[]).length,2);
