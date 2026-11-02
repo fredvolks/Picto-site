@@ -54,6 +54,7 @@ export async function readAssetThemes(){return {};}
 export async function createTheme(){throw Error("No admin mutations in QA");}
 export async function editThemeLabels(){throw Error("No admin mutations in QA");}
 export async function addAssetTheme(){throw Error("No admin mutations in QA");}
+export async function copyAdditionalAssetThemes(){throw Error("No admin mutations in QA");}
 export async function removeAssetTheme(){throw Error("No admin mutations in QA");}
 export async function mergeThemes(){throw Error("No admin mutations in QA");}`;
 const captionStub=String.raw`let enabled=false;
