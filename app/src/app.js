@@ -737,11 +737,14 @@ function syncBankSheetPreview(){
   const top=sheet.getBoundingClientRect().top;
   if(top>=0&&Number.isFinite(top))
     sheet.style.height=Math.max(330,Math.floor(window.innerHeight-top-9))+"px";
-  sheet.style.setProperty("--pa-art-x",bankImageSheet.offsetX+"%");
-  sheet.style.setProperty("--pa-art-y",bankImageSheet.offsetY+"%");
-  sheet.style.setProperty("--pa-art-angle",bankImageSheet.rotationDeg+"deg");
-  sheet.style.setProperty("--pa-art-mirror",bankImageSheet.mirrorHorizontal?-1:1);
-  sheet.style.setProperty("--pa-art-scale",bankImageSheet.scalePercent/100);
+  const isAdjust=Boolean(sheet.querySelector(".pa-bank-adjust-hero"));
+  // Nom/Classer affichent toujours le PNG entier, sans retouches visuelles.
+  // Ajuster affiche les paramètres enregistrés; Réinitialiser restaure la vue entière.
+  sheet.style.setProperty("--pa-art-x",isAdjust?bankImageSheet.offsetX+"%":"0%");
+  sheet.style.setProperty("--pa-art-y",isAdjust?bankImageSheet.offsetY+"%":"0%");
+  sheet.style.setProperty("--pa-art-angle",isAdjust?bankImageSheet.rotationDeg+"deg":"0deg");
+  sheet.style.setProperty("--pa-art-mirror",isAdjust&&bankImageSheet.mirrorHorizontal?-1:1);
+  sheet.style.setProperty("--pa-art-scale",isAdjust?bankImageSheet.scalePercent/100:1);
   for(const image of sheet.querySelectorAll(".pa-bank-adjust-gallery [data-admin-ink-preview]")){
     const angle=privatePreview.rotationDeg+bankImageSheet.rotationDeg+Number(image.dataset.templateRotation||0);
     image.style.transform="translate("+bankImageSheet.offsetX+"%, "+bankImageSheet.offsetY+
@@ -964,6 +967,20 @@ function confirmDiscardBankEdits(){
 function focusBankInspector(){
   const heading=root.querySelector("#pa-bank-inspector-title");
   if(!heading)return;
+  const sheet=heading.closest(".pa-bank-sheet");
+  if(sheet){
+    // Sur mobile, scrollIntoView(heading) masquait l'en-tête de la fiche
+    // et le haut du dessin sous la barre Banque sticky.
+    const bar=root.querySelector(".admin-topbar");
+    const barHeight=bar&&["sticky","fixed"].includes(getComputedStyle(bar).position)
+      ?bar.getBoundingClientRect().height:0;
+    const top=sheet.getBoundingClientRect().top;
+    const desired=Math.max(0,window.scrollY+top-barHeight-8);
+    window.scrollTo({top:desired,behavior:"instant"});
+    syncBankSheetPreview();
+    heading.focus({preventScroll:true});
+    return;
+  }
   heading.scrollIntoView({block:"start",behavior:"auto"});
   heading.focus({preventScroll:true});
 }
@@ -1113,7 +1130,9 @@ async function openAdminPreview(assetId){
     if(request!==privatePreview.request||authStatus.user?.id!==userId)return;
     privatePreview.error=String(error?.message||error);
   }finally{
-    if(request===privatePreview.request){privatePreview.loading=false;render();}
+    if(request===privatePreview.request){
+      privatePreview.loading=false;render();focusBankInspector();
+    }
   }
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
@@ -1983,7 +2002,7 @@ function renderAdmin(){
         (bankImageSheet.tab==="adjust"?' tabindex="0" role="img" aria-label="'+esc(fr?
           "Déplacer le dessin au doigt, à la souris ou avec les flèches":
           "Move the drawing by touch, mouse or arrow keys")+'"':'')+'>'+
-        '<img data-pa-bank-art alt="'+esc(chosenLabel)+'" src="'+esc(privatePreview.inkUrl||privatePreview.url)+'">'+
+        '<img data-pa-bank-art alt="'+esc(chosenLabel)+'" src="'+esc(privatePreview.url)+'">'+
         (bankImageSheet.tab==="adjust"?'<span class="pa-bank-drag-icon" aria-hidden="true">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg></span>':"")+'</figure>':"")+
       sheetNav+'<p class="pa-bank-scale-unsaved" role="status"'+(bankSheetDirty()?"":' hidden')+'>'+
