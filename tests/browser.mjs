@@ -624,16 +624,22 @@ try{
   assert.match(publicForm.price,/9,99/,"Tarif mensuel actuel");
   console.log("PASS connexion publique → création de compte Design 3");
   // Banque > Images : contrôle du vrai CSS sur mobile / tablette / PC.
+   // Régression Samsung : l'ancien CSS pouvait rester en cache et masquer Ouvrir.
+   // Le bouton est un enfant direct de la carte, hors du conteneur masqué.
+   const bankSource=await readFile(resolve(root,"app/src/app.js"),"utf8");
+   assert.match(bankSource,/style="display:inline-flex!important;visibility:visible!important/);
+   assert.match(bankSource,/data-action="admin-bank-open"/);
   // Fiche factice seulement : aucune connexion Super Admin ou image privée.
   await command("Page.navigate",{url:base+"/app/index.html"});
   await waitFor("return document.readyState==='complete' && !!document.querySelector('link[href=\"./src/styles.css\"]')");
   await evaluate(
     "document.body.innerHTML='<main class=\"pa-bank-results\"><div class=\"admin-bank-grid admin-bank-view-list\"></div></main>';"
+    +"const legacyStyle=document.createElement('style');legacyStyle.textContent='.pa-bank-results .admin-bank-item .pa-bank-card-open{display:none!important}.pa-bank-results .admin-bank-item-actions{display:none!important}';document.head.appendChild(legacyStyle);"
     +"const grid=document.querySelector('.admin-bank-grid');"
     +"for(let i=0;i<3;i++){"
     +"const card=document.createElement('article');"
     +"card.className='admin-bank-card admin-bank-item';"
-    +"card.innerHTML='<span class=\"admin-bank-thumb\"><img data-private-thumb alt=\"\"></span><div class=\"admin-bank-item-meta\"><strong>Picto '+(i+1)+'</strong></div><div class=\"admin-bank-item-actions\"><button type=\"button\" class=\"btn btn-primary btn-small pa-bank-card-open\" data-action=\"admin-bank-open\">Ouvrir</button></div>';"
+    +"card.innerHTML='<span class=\"admin-bank-thumb\"><img data-private-thumb alt=\"\"></span><div class=\"admin-bank-item-meta\"><strong>Picto '+(i+1)+'</strong></div><button type=\"button\" class=\"btn btn-primary btn-small pa-bank-card-open\" style=\"display:inline-flex!important;visibility:visible!important;min-height:44px;min-width:76px;grid-column:auto!important;justify-self:end;align-self:center;align-items:center;justify-content:center\" data-action=\"admin-bank-open\">Ouvrir</button>';"
     +"const img=card.querySelector('img');"
     +"const dims=[[80,80],[160,80],[80,160]][i];"
     +"img.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"'+dims[0]+'\" height=\"'+dims[1]+'\" viewBox=\"0 0 '+dims[0]+' '+dims[1]+'\"><path fill=\"black\" d=\"M0 0h40v40H0z\"/></svg>');"
