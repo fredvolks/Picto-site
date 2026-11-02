@@ -2109,3 +2109,103 @@
     grid-template-columns:var(--pa-bank-thumbnail-size) minmax(0,1fr) auto!important;
   }
 }
+
+
+
+/* Banque Super Admin — fiche directe maquette 5, référence UI banque existante.
+   Isolé à .pa-bank-sheet : aucune modification aux pages client verrouillées. */
+.pa-bank-sheet{max-width:880px;margin:0 auto 18px;padding:clamp(14px,2.5vw,28px);
+  border-color:#e4e9e3;background:#fff;min-width:0}
+.pa-bank-sheet-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;margin-bottom:16px}
+.pa-bank-sheet-head .btn{min-height:44px;flex:0 0 auto}
+.pa-bank-sheet-head h2{font-size:clamp(18px,3.8vw,24px);line-height:1.25;
+  letter-spacing:-.025em;min-width:0;flex:1 1 180px;overflow-wrap:anywhere;margin:0}
+.pa-bank-sheet-head .admin-chip{flex:0 0 auto}
+.pa-bank-sheet-hero{width:100%;min-height:150px;max-height:270px;
+  margin:0 0 16px;border:1px solid #e8ece7;border-radius:14px;
+  background:#f9faf8;display:grid;place-items:center;padding:18px}
+.pa-bank-sheet-hero img{display:block;width:auto;height:auto;max-width:100%;
+  max-height:235px;object-fit:contain}
+.pa-bank-sheet-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;padding:5px;background:#f1f4f0;border-radius:12px;margin:12px 0 20px}
+.pa-bank-sheet-tab{border:0;border-radius:9px;background:transparent;
+  color:#4c594e;font-size:14px;font-weight:700;min-width:0;min-height:44px;
+  padding:9px 6px;line-height:1.35}
+.pa-bank-sheet-tab.active{background:white;color:#26382d;
+  box-shadow:0 1px 5px rgba(20,40,25,.1)}
+.pa-bank-sheet-tab:focus-visible{outline:3px solid #2f6a4b;outline-offset:2px}
+.pa-bank-sheet-panel{min-width:0;display:grid;gap:12px}
+.pa-bank-sheet-panel>h3{font-size:17px;margin:0;color:#273a2e}
+.pa-bank-sheet-panel>p{line-height:1.55;font-size:13px;color:#5c695e;margin:0}
+.pa-bank-sheet-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px}
+.pa-bank-sheet-fields>div{background:#f8faf8;border:1px solid #e4e9e3;
+  border-radius:12px;padding:15px;min-width:0}
+.pa-bank-sheet-fields small{font-size:12px;color:#69766c;display:block;margin-bottom:7px}
+.pa-bank-sheet-fields strong{font-size:15px;display:block;overflow-wrap:anywhere;color:#25372c}
+.pa-bank-sheet-actions,.pa-bank-sheet-range-actions{display:flex;flex-wrap:wrap;gap:10px}
+.pa-bank-sheet-actions .btn,.pa-bank-sheet-range-actions .btn{
+  min-height:44px;max-width:100%;white-space:normal}
+.pa-bank-sheet-range{border:1px solid #e0e8e1;background:#fafcfa;
+  border-radius:14px;padding:clamp(14px,2.5vw,22px);display:grid;gap:14px}
+.pa-bank-sheet-range label{font-size:15px;font-weight:800;color:#243a2d}
+.pa-bank-sheet-range output{font-variant-numeric:tabular-nums}
+.pa-bank-sheet-range input[type="range"]{width:100%;accent-color:#356d50;
+  min-height:44px;touch-action:pan-y}
+.pa-bank-scale-warning:empty{display:none}
+.pa-bank-scale-warning:not(:empty){color:#824a16;background:#fff7e6;
+  border:1px solid #e9c78a;border-radius:9px;padding:10px 12px}
+.pa-bank-scale-stage{min-width:0}
+.pa-bank-scale-stage [data-admin-ink-preview]{scale:var(--pictau-image-scale,1);
+  transform-origin:center;transition:scale .12s ease-out}
+.pa-bank-scale-stage>.admin-private-preview{margin:0;padding:0;border:0;background:transparent}
+.pa-bank-scale-stage .admin-preview-heading,.pa-bank-scale-stage .admin-preview-image,
+.pa-bank-scale-stage .admin-preview-download{display:none}
+.pa-bank-scale-stage .admin-png-named-grid{max-height:none;overflow:visible;
+  scrollbar-gutter:auto}
+.pa-bank-sheet .admin-bank-rename,.pa-bank-sheet .admin-draft-editor{
+  border-color:#e4e9e3;background:#f9faf9}
+@media(max-width:560px){
+  .pa-bank-sheet{padding:12px}
+  .pa-bank-sheet-head{gap:9px}
+  .pa-bank-sheet-head>.btn{width:100%;justify-content:center}
+  .pa-bank-sheet-head h2{flex-basis:70%;font-size:18px}
+  .pa-bank-sheet-hero{min-height:124px;max-height:224px;padding:12px}
+  .pa-bank-sheet-hero img{max-height:198px}
+  .pa-bank-sheet-tabs{gap:4px;margin:10px 0 14px}
+  .pa-bank-sheet-tab{font-size:13px}
+  .pa-bank-sheet-fields{grid-template-columns:minmax(0,1fr)}
+  .pa-bank-sheet-actions,.pa-bank-sheet-range-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+  .pa-bank-sheet-actions .btn,.pa-bank-sheet-range-actions .btn{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  .pa-bank-scale-stage [data-admin-ink-preview]{transition:none}
+}
+
+.pa-bank-secondary-details{border:1px solid #e2eae2;border-radius:12px;padding:12px 14px;
+  background:#fcfdfb;margin:10px 0;min-width:0}
+.pa-bank-secondary-details summary{font-size:14px;font-weight:750;min-height:44px;
+  display:flex;align-items:center;cursor:pointer;list-style-position:inside}
+.pa-bank-secondary-details summary:focus-visible{outline:3px solid #377753;outline-offset:2px}
+.pa-bank-secondary-details>p{font-size:12px;line-height:1.55}
+
+
+/* Banque v5 : les anciennes commandes de la liste et l'ancien panneau
+   sont remplacés sans changer les autres espaces ou pages protégées. */
+.pa-bank-results .admin-bank-item .admin-bank-item-actions{width:auto;justify-self:end;min-width:90px}
+.pa-bank-results .admin-bank-item .admin-bank-item-actions .btn{width:100%;min-height:44px;font-size:13px}
+.pa-bank-results .admin-bank-item .pa-bank-card-open{position:static;max-width:100%;min-width:90px}
+.pa-bank-sheet .admin-png-named-section{margin:14px 0;padding:12px;border:1px solid #d5e1d8;border-radius:12px;background:#f8faf8;min-width:0}
+.pa-bank-sheet .admin-png-named-section h4{margin:0 0 10px}
+.pa-bank-sheet .admin-png-named-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,205px),1fr));gap:12px;max-height:720px;overflow:auto;min-width:0;padding:4px}
+.pa-bank-sheet .admin-png-named-grid .admin-png-variant{min-width:0}
+.pa-bank-sheet .admin-png-named-grid .admin-png-variant figcaption{min-height:0;overflow-wrap:anywhere}
+.pa-bank-sheet .admin-png-named-grid .admin-png-variant figcaption strong{font-weight:750}
+.pa-bank-sheet .admin-png-named-grid .admin-named-preview-status{font-weight:600;font-size:11px}
+.pa-bank-sheet .admin-png-named-grid .admin-png-variant figcaption small{display:block;color:#527262}
+.pa-bank-sheet .pa-bank-secondary-details .admin-png-template{display:none}
+.pa-bank-sheet .pa-bank-secondary-details .admin-preview-image{display:none}
+.pa-bank-sheet .pa-bank-secondary-details .admin-preview-heading{display:none}
+@media(max-width:560px){
+ .pa-bank-results .admin-bank-item .admin-bank-item-actions{width:auto}
+ .pa-bank-sheet .admin-png-named-grid{grid-template-columns:minmax(0,1fr)}
+}
