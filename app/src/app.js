@@ -12,7 +12,7 @@ import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePrev
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
 
-import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
+import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,copyAdditionalAssetThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
 import {importPrivateDraft,validateDraftMetadata,importPrivateDraftBatch,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
 import {editPrivateDraftMetadata} from "./admin-draft-edit.js";
 import {assessDraftQuality} from "./admin-quality.js";
@@ -4269,6 +4269,10 @@ root.addEventListener("click",function(event){
         const client=await supabaseClient();
         let targetId=originalId;
         if(!overwrite){
+          // Lire les vraies catégories avant de dupliquer le brouillon privé.
+          const linked=await readAssetThemes(client,uid,[originalId]);
+          const sourceThemeCodes=linked[originalId];
+          if(!current())return;
           const response=await fetch(privatePreview.url);
           if(!response.ok)throw Error("Copie du PNG privé impossible.");
           const blob=await response.blob();
@@ -4288,6 +4292,10 @@ root.addEventListener("click",function(event){
             admin_name:found.data.admin_name??null,
             title_fr:found.data.title_fr,title_en:found.data.title_en??null
           },names);
+          if(!current())return;
+          // Le trigger conserve déjà le thème principal du nouveau brouillon.
+          await copyAdditionalAssetThemes(client,uid,targetId,original.theme,sourceThemeCodes);
+          if(!current())return;
         }else{
           const savedNames=await saveAdminSheetNames(client,uid,originalId,expected,names);
           if(!current())return;
