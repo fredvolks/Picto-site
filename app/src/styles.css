@@ -1954,3 +1954,64 @@
 .admin-test-credentials{margin:16px 0;padding:16px;border:2px solid #46766f;border-radius:14px;background:#f2f8f6}
 .admin-test-credentials code{overflow-wrap:anywhere;user-select:all;line-height:1.8}
 @media(max-width:760px){.admin-test-create,.admin-test-row{grid-template-columns:minmax(0,1fr)}.admin-test-create .btn,.admin-test-row .btn{width:100%}}
+
+
+/* Banque Super Admin — mobile-first minimal: une recherche, une ligne par image, une fiche. */
+.pa-bank-card-open{display:none}
+.pa-bank-more-filters{grid-column:1/-1;min-width:0}
+.pa-bank-more-filters summary{list-style:none;cursor:pointer;display:none}
+.pa-bank-more-filters summary::-webkit-details-marker{display:none}
+.pa-bank-filter-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.pa-bank-detail-actions{display:none}
+.pa-bank-card-status{display:none}
+@media(max-width:700px){
+  .pa-bank-shell{gap:10px}
+  .pa-bank-mode-nav{max-width:none;width:100%;margin:0;padding:3px;gap:3px;background:#f4f4f4;border:0;border-radius:12px}
+  .pa-bank-mode{font-size:12px;padding:10px 4px;min-height:44px}
+  .pa-bank-results{padding:12px 10px!important;border:0!important;box-shadow:none!important;background:transparent!important}
+  .pa-bank-results-header{margin-bottom:10px}
+  .pa-bank-results-header h2{font-size:20px;margin:0}
+  .pa-bank-results-header p{display:none}
+  .pa-bank-results-header .btn{min-height:44px;font-size:12px;padding:7px 10px}
+  .pa-bank-results .admin-bank-controls{display:flex!important;flex-direction:column;gap:8px}
+  .pa-bank-results .admin-bank-query{width:100%}
+  .pa-bank-results .admin-bank-query label{font-size:13px;font-weight:700}
+  .pa-bank-results .admin-bank-query input{height:48px;min-height:48px;font-size:16px}
+  .pa-bank-more-filters{width:100%}
+  .pa-bank-more-filters summary{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;min-height:44px;border:1px solid #dedede;border-radius:12px;background:#fff;color:#222;font-size:13px;font-weight:700}
+  .pa-bank-more-filters summary:after{content:"+";font-size:19px;font-weight:500}
+  .pa-bank-more-filters[open] summary:after{content:"−"}
+  .pa-bank-filter-fields{grid-template-columns:1fr!important;gap:9px;margin-top:10px;padding:12px;background:#f9f9f9;border:1px solid #e9e9e9;border-radius:12px}
+  .pa-bank-results .admin-bank-view-controls{display:none!important}
+  .pa-bank-results .admin-bank-summary{margin:10px 0 10px;color:#616161}
+  .pa-bank-results .admin-bank-grid{display:flex!important;flex-direction:column!important;gap:7px!important}
+  .pa-bank-results .admin-bank-item{
+    width:100%;display:grid!important;grid-template-columns:56px minmax(0,1fr) auto!important;
+    align-items:center!important;justify-items:stretch!important;text-align:left!important;
+    gap:9px!important;padding:9px!important;margin:0!important;border:1px solid #e5e5e5!important;
+    background:#fff!important;border-radius:13px!important;box-shadow:none!important;
+  }
+  .pa-bank-results .admin-bank-thumb{width:56px!important;height:56px!important;min-height:56px!important;max-width:56px!important;margin:0!important}
+  .pa-bank-results .admin-bank-item-meta{align-self:center;min-width:0;width:100%}
+  .pa-bank-results .admin-bank-item-meta strong{margin:0;font-size:13px;line-height:1.25;max-height:2.5em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .pa-bank-results .admin-bank-item-meta .admin-bank-secondary,
+  .pa-bank-results .admin-bank-item-meta small{display:none!important}
+  .pa-bank-results .pa-bank-card-status{display:block;margin-top:5px;color:#646464;font-size:11px}
+  .pa-bank-results .admin-bank-item-actions{display:none!important}
+  .pa-bank-card-open{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:66px;padding:7px 10px;border:1px solid #161616;border-radius:10px;background:#fff;color:#161616;font:700 12px "DM Sans",system-ui,sans-serif;cursor:pointer}
+  .pa-bank-card-open:focus-visible{outline:3px solid #111;outline-offset:2px}
+  .pa-bank-workspace.has-inspector .pa-bank-results{display:none!important}
+  .pa-bank-workspace.has-inspector .pa-bank-inspector{width:100%;border:0;padding:12px 0;background:transparent;box-shadow:none;max-height:none}
+  .pa-bank-inspector-header{gap:8px}
+  .pa-bank-inspector-header h3{font-size:16px;overflow-wrap:anywhere}
+  .pa-bank-inspector-header .btn{min-height:44px}
+  .pa-bank-detail-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:16px}
+  .pa-bank-detail-actions button{width:100%;min-height:48px;border:1px solid #ddd;border-radius:12px;text-align:left;background:#fff;color:#171717;font:700 14px "DM Sans",system-ui,sans-serif;padding:10px 14px;cursor:pointer}
+  .pa-bank-detail-actions button:focus-visible{outline:3px solid #111;outline-offset:3px}
+  .pa-bank-results .admin-bank-pagination{margin-top:14px}
+}
+@media(max-width:350px){
+ .pa-bank-results .admin-bank-item{grid-template-columns:48px minmax(0,1fr) auto!important;gap:7px!important;padding:7px!important}
+ .pa-bank-results .admin-bank-thumb{width:48px!important;height:48px!important;min-height:48px!important}
+ .pa-bank-card-open{min-width:60px;padding:6px;font-size:11px}
+}

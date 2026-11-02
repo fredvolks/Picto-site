@@ -810,6 +810,8 @@ function themeLabel(code,lang=state.language){
 const defaultBankView=window.matchMedia("(max-width: 700px)").matches?"list":"small";
 let bankView=["list","small","medium"].includes(load("pictau-admin-bank-view",defaultBankView))?load("pictau-admin-bank-view",defaultBankView):defaultBankView;
 let bankPanel="browse"; // Images d’abord; ajout et thèmes dans des vues dédiées.
+let bankSelectionId=null; // Une fiche à la fois sur mobile.
+let bankFiltersExpanded=!window.matchMedia("(max-width: 700px)").matches;
 const bankRename={id:null,expected:null,value:"",busy:false,error:"",message:"",request:0};
 function clearBankRename(){
   bankRename.request++;bankRename.id=null;bankRename.expected=null;bankRename.value="";
@@ -1457,9 +1459,11 @@ function renderAdmin(){
   const visibleAssets=privateBank.items;
   // Le choix des thèmes ne doit pas dépendre d'une seule page de résultats.
   const bankThemes=[...new Set(["autres","hygiene","autonomie","alimentation","ecole","loisirs","socialisation","consignes","etapes","transport","sensoriel","objets","lieux",bankFilters.theme,...privateBank.items.map(asset=>asset.theme),...themeUI.items.filter(x=>!x.merged_into).map(x=>x.code)].filter(v=>typeof v==="string"&&v&&v!=="all"&&!themeUI.items.some(t=>t.code===v&&t.merged_into)))].sort((a,b)=>a.localeCompare(b,"fr-CA"));
+  const extraBankFilters=[bankFilters.status!=="all",bankFilters.theme!=="all",bankFilters.sort!=="recent"].filter(Boolean).length;
   const filters='<div class="admin-bank-controls" role="search">'
-    +'<div class="control admin-bank-query"><label for="admin-bank-search">'+esc(fr?"Rechercher dans toute la banque":"Search the full bank")+'</label>'
-    +'<input id="admin-bank-search" data-input="admin-bank-search" type="search" value="'+esc(bankFilters.query)+'" placeholder="'+esc(fr?"Nom administratif ou FR/EN, thème":"Admin or FR/EN name, theme")+'" autocomplete="off"></div>'
+    +'<div class="control admin-bank-query"><label for="admin-bank-search">'+esc(fr?"Rechercher une image":"Find an image")+'</label>'
+    +'<input id="admin-bank-search" data-input="admin-bank-search" type="search" value="'+esc(bankFilters.query)+'" placeholder="'+esc(fr?"Nom de l’image…":"Image name…")+'" autocomplete="off"></div>'
+    +'<details class="pa-bank-more-filters"'+(bankFiltersExpanded?" open":"")+'><summary data-action="admin-bank-filters-toggle">'+esc(fr?"Filtres":"Filters")+(extraBankFilters?' · '+extraBankFilters:'')+'</summary><div class="pa-bank-filter-fields">'
     +'<div class="control"><label for="admin-bank-status">'+esc(fr?"Statut":"Status")+'</label><select id="admin-bank-status" data-field="admin-bank-status">'
     +[['all',fr?"Tous":"All"],['draft',fr?"Brouillons":"Drafts"],['published',fr?"Publiés":"Published"]].map(([key,label])=>'<option value="'+key+'"'+(bankFilters.status===key?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
     +'<div class="control"><label for="admin-bank-theme">'+esc(fr?"Thème":"Theme")+'</label><select id="admin-bank-theme" data-field="admin-bank-theme">'
@@ -1468,7 +1472,7 @@ function renderAdmin(){
     +'<option value="recent"'+(bankFilters.sort==="recent"?' selected':'')+'>'+esc(fr?"Importation récente":"Recent imports")+'</option>'
     +'<option value="oldest"'+(bankFilters.sort==="oldest"?' selected':'')+'>'+esc(fr?"Importation ancienne":"Oldest imports")+'</option>'
     +'<option value="name"'+(bankFilters.sort==="name"?' selected':'')+'>'+esc(fr?"Nom affiché A–Z":"Displayed name A–Z")+'</option>'
-    +'<option value="name_desc"'+(bankFilters.sort==="name_desc"?' selected':'')+'>'+esc(fr?"Nom affiché Z–A":"Displayed name Z–A")+'</option></select></div></div>';
+    +'<option value="name_desc"'+(bankFilters.sort==="name_desc"?' selected':'')+'>'+esc(fr?"Nom affiché Z–A":"Displayed name Z–A")+'</option></select></div></div></details></div>';
   const bankViewControls='<div class="admin-bank-view-controls" role="group" aria-label="'+esc(fr?"Affichage des actifs":"Asset display mode")+'">'
     +[["list",fr?"Liste":"List"],["small",fr?"Vignettes":"Thumbnails"],["medium",fr?"Grandes":"Large"]]
       .map(([value,label])=>'<button type="button" data-action="admin-bank-view" data-view="'+value+'" class="btn btn-light btn-small'+(bankView===value?' is-active':'')+'" aria-pressed="'+(bankView===value)+'">'+esc(label)+'</button>').join("")
@@ -1494,7 +1498,7 @@ function renderAdmin(){
     +'<span role="status">'+esc(fr?("Fiches "+firstItem+"–"+lastItem+" sur "+privateBank.total+" · page "+(privateBank.page+1)+"/"+(lastPage+1))
       :("Records "+firstItem+"–"+lastItem+" of "+privateBank.total+" · page "+(privateBank.page+1)+"/"+(lastPage+1)))+'</span>'
     +'<button type="button" class="btn btn-light btn-small" data-action="admin-bank-page" data-direction="next"'+(privateBank.page>=lastPage||privateBank.loading?' disabled':'')+'>'+esc(fr?"Suivant":"Next")+'</button></nav>';
-  const selectedBankId=bankRename.id||themeUI.assetId||privatePreview.id||draftEditor.id;
+  const selectedBankId=bankSelectionId||bankRename.id||themeUI.assetId||privatePreview.id||draftEditor.id;
   const realAssets=visibleAssets.map(asset=>{
     const label=state.language==="en"?(asset.title_en||asset.title_fr):asset.title_fr;
     const adminName=asset.admin_name||asset.title_fr||"—";
@@ -1505,6 +1509,7 @@ function renderAdmin(){
       +renderBankThumb(asset)
       +'<div class="admin-bank-item-meta"><strong title="'+esc(adminName)+'">'+esc(adminName)+'</strong>'
       +'<span class="admin-bank-secondary">'+esc(fr?"Texte FR/EN : ":"Caption FR/EN: ")+esc(label||"—")+'</span>'
+      +'<span class="pa-bank-card-status">'+esc(asset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span>'
       +'<small>'+assignedThemes.map(t=>esc(themeLabel(t))).join(" · ")+' · '+esc(asset.status||"draft")+'</small>'
       +'<small>'+esc(fr?"Importé : ":"Imported: ")+esc(date)+'</small></div>'
       +'<div class="admin-bank-item-actions"><button type="button" class="btn btn-light btn-small admin-preview-button" data-action="admin-preview" data-id="'+esc(asset.id)+'"'
@@ -1512,7 +1517,7 @@ function renderAdmin(){
       +'<button type="button" class="btn btn-light btn-small" data-action="admin-rename" data-id="'+esc(asset.id)+'">'+esc(fr?"Nom banque":"Bank name")+'</button>'
       +'<button type="button" class="btn btn-light btn-small" data-action="admin-theme-asset" data-id="'+esc(asset.id)+'">'+esc(fr?"Thèmes":"Themes")+'</button>'
       +(asset.status==="draft"&&asset.created_by===authStatus.user?.id?'<button type="button" class="btn btn-light btn-small" data-action="admin-edit-draft" data-id="'+esc(asset.id)+'">'+icon("check","btn-icon")+esc(fr?"Textes / fiche":"Text / record")+'</button>':"")
-      +'</div></article>';
+      +'</div><button type="button" class="pa-bank-card-open" data-action="admin-bank-open" data-id="'+esc(asset.id)+'"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Ouvrir":"Open")+'</button></article>';
   }).join("");
   const realBankBody=privateBank.loading
     ? '<p role="status">'+esc(fr?"Chargement de la banque…":"Loading bank…")+'</p>'
@@ -1767,11 +1772,20 @@ function renderAdmin(){
       +bankModes.map(([mode,label])=>'<button type="button" class="pa-bank-mode'+(bankPanel===mode?' is-active':'')+'" data-action="admin-bank-panel" data-panel="'+mode+'" aria-pressed="'+(bankPanel===mode)+'"'+(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing||draftReviewQueue.active?' disabled':'')+'>'+esc(label)+'</button>').join("")
       +'</nav>';
     const inspectorContent=renameForm+themeAssetPanel+privatePreviewBody+draftEditBody;
-    const hasInspector=Boolean(inspectorContent);
+    const selectedAsset=privateBank.items.find(item=>item.id===bankSelectionId);
+    const inspectorQuickActions=selectedAsset&&!inspectorContent?
+      '<div class="pa-bank-detail-actions" role="group" aria-label="'+esc(fr?"Actions sur l’image":"Image actions")+'">'
+      +'<button type="button" data-action="admin-preview" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Voir l’image":"View image")+'</button>'
+      +'<button type="button" data-action="admin-rename" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Changer le nom":"Edit name")+'</button>'
+      +'<button type="button" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Classer par thème":"Change themes")+'</button>'
+      +(selectedAsset.status==="draft"&&selectedAsset.created_by===authStatus.user?.id?
+        '<button type="button" data-action="admin-edit-draft" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier la fiche":"Edit record")+'</button>':"")
+      +'</div>':"";
+    const hasInspector=Boolean(inspectorContent||inspectorQuickActions);
     const inspector=hasInspector?'<aside class="pa-bank-inspector" aria-label="'+esc(fr?"Fiche sélectionnée":"Selected asset")+'">'
-      +'<div class="pa-bank-inspector-header"><h3 tabindex="-1" id="pa-bank-inspector-title">'+esc(fr?"Fiche du pictogramme":"Pictogram details")+'</h3>'
-      +'<button type="button" class="btn btn-light btn-small" data-action="admin-bank-detail-close"'+(bankRename.busy||draftEditor.saving||publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?"Fermer":"Close")+'</button></div>'
-      +inspectorContent+'</aside>':"";
+      +'<div class="pa-bank-inspector-header"><h3 tabindex="-1" id="pa-bank-inspector-title">'+esc(selectedAsset?(selectedAsset.admin_name||selectedAsset.title_fr||"—"):(fr?"Fiche du pictogramme":"Pictogram details"))+'</h3>'
+      +'<button type="button" class="btn btn-light btn-small" data-action="admin-bank-detail-close"'+(bankRename.busy||draftEditor.saving||publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?"Retour":"Back")+'</button></div>'
+      +inspectorQuickActions+inspectorContent+'</aside>':"";
     const results='<section class="admin-surface pa-bank-results">'
       +'<div class="pa-bank-results-header"><div><h2>'+esc(fr?"Mes images":"My images")+'</h2><p>'+esc(fr?"Rechercher, ouvrir ou classer un pictogramme.":"Search, open or classify a pictogram.")+'</p></div>'
       +draftReviewAction+'<button type="button" class="btn btn-light btn-small" data-action="refresh-admin-bank"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Actualiser":"Refresh")+'</button></div>'
@@ -3516,7 +3530,7 @@ root.addEventListener("click",function(event){
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
       adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
     }
-    if(el.dataset.tab!=="bank"){bankPanel="browse";clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
+    if(el.dataset.tab!=="bank"){bankPanel="browse";bankSelectionId=null;clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     if(state.adminTab==="test-clients"&&el.dataset.tab!=="test-clients")testClients.created=null;
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
     if(state.adminTab==="test-clients"&&authStatus.user&&!testClients.loading)
@@ -3676,6 +3690,14 @@ root.addEventListener("click",function(event){
       state.language==="fr"?"Thème retiré de la fiche.":"Theme removed from asset.");
     return;
   }
+  if(a==="admin-bank-filters-toggle"){bankFiltersExpanded=!bankFiltersExpanded;return;}
+  if(a==="admin-bank-open"){
+    if(!canOpenAdmin()||state.adminTab!=="bank"||!privateBank.items.some(item=>item.id===el.dataset.id))return;
+    if(!confirmDiscardBankEdits())return;
+    bankSelectionId=el.dataset.id;
+    clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
+    render();focusBankInspector();return;
+  }
   if(a==="admin-bank-panel"){
     if(!canOpenAdmin()||state.adminTab!=="bank")return;
     if(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing)return;
@@ -3684,7 +3706,7 @@ root.addEventListener("click",function(event){
     if(panel!=="browse"&&!confirmDiscardBankEdits())return;
     bankPanel=panel;
     if(panel!=="browse"){
-      clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
+      bankSelectionId=null;clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
     }
     render();
     root.querySelector("#pa-bank-active-region")?.focus({preventScroll:true});
@@ -3693,7 +3715,7 @@ root.addEventListener("click",function(event){
   if(a==="admin-bank-detail-close"){
     if(!canOpenAdmin()||bankRename.busy||draftEditor.saving||publishedCatalog.publishing)return;
     if(!confirmDiscardBankEdits())return;
-    clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
+    bankSelectionId=null;clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
     render();
     root.querySelector(".pa-bank-results h2")?.scrollIntoView({block:"start",behavior:"auto"});
     return;
