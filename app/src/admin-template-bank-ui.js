@@ -114,3 +114,34 @@ export function renderAdminNamedTemplateBank({
    ).join("")+'</ul>')
   +'</section>';
 }
+
+
+/**
+ * Action suivante après publication d'un modèle : récupérer les vrais
+ * pictogrammes déjà publiés. Aucune fiche fictive, aucun changement de droits.
+ */
+export function renderNamedTemplateHandoff({
+ templates=[],choicesReady=false,loading=false,busy=false,fr=true
+}={}){
+ if(!Array.isArray(templates)||templates.some(t=>!t||typeof t.is_published!=="boolean"))
+   throw Error("État des gabarits non vérifié.");
+ if(loading)return "";
+ const published=templates.filter(t=>t.is_published).length;
+ if(!published)return '<section class="pa-template-next" aria-label="'+esc(fr?"Étape suivante":"Next step")+'">'+
+   '<h3>'+esc(fr?"Ensuite : rendre un gabarit disponible":"Next: make a template available")+'</h3>'+
+   '<p>'+esc(fr?
+     "Enregistrez d’abord votre gabarit, puis utilisez Publier. Les clients ne verront aucun gabarit avant que vous le confirmiez aussi sur une fiche de pictogramme publiée.":
+     "Save your template first, then publish it. Customers will not see it until you also confirm it on a published pictogram.")+'</p></section>';
+ return '<section class="pa-template-next" aria-label="'+esc(fr?"Étape suivante":"Next step")+'">'+
+   '<h3>'+esc(fr?"Associer vos gabarits aux pictogrammes":"Assign templates to pictograms")+'</h3>'+
+   '<p>'+esc(fr?
+     "Vos gabarits publiés ne sont pas encore associés automatiquement aux images. Ouvrez les pictogrammes publiés, choisissez les modèles à montrer, enregistrez puis confirmez la sélection.":
+     "Published templates are not automatically linked to images. Open published pictograms, choose the templates to offer, save and confirm the selection.")+'</p>'+
+   (choicesReady?
+     '<button type="button" class="btn btn-primary" data-action="admin-template-go-published"'+(busy?' disabled':'')+'>'+
+       esc(fr?"Choisir les pictogrammes publiés":"Choose published pictograms")+'</button>':
+     '<p role="status">'+esc(fr?
+       "L’association aux fiches clientes n’est pas encore vérifiée sur ce serveur. Aucun gabarit n’est activé automatiquement.":
+       "Customer template assignment is not verified on this server. Nothing is automatically activated.")+'</p>')+
+   '</section>';
+}

@@ -2460,3 +2460,27 @@
   .admin-named-template-first-actions{grid-template-columns:minmax(0,1fr)}
   .admin-named-template-first-actions button{width:100%;font-size:16px}
 }
+
+
+/* Passage explicite du gabarit publié à la fiche pictogramme cliente.
+   Aucun aperçu de démonstration ni activation silencieuse de publication. */
+.pa-template-next,.pa-bank-customer-templates{
+  padding:16px;margin:14px 0 18px;border:1px solid #d0dfd5;
+  border-radius:14px;background:#f5f9f6;color:#294939;
+}
+.pa-template-next h3,.pa-bank-customer-templates h3{
+  font-size:17px;line-height:1.35;margin:0 0 8px;
+}
+.pa-template-next p,.pa-bank-customer-templates>p{
+  margin:0 0 12px;font-size:14px;line-height:1.5;
+}
+.pa-template-next button,.pa-bank-customer-templates>button{
+  min-height:44px;max-width:100%;white-space:normal;text-align:center;
+}
+.pa-bank-customer-templates .pa-admin-template-choices{
+  margin-top:16px;background:#fff;border-radius:12px;
+}
+@media(max-width:520px){
+ .pa-template-next,.pa-bank-customer-templates{padding:12px;margin:12px 0}
+ .pa-template-next button,.pa-bank-customer-templates>button{width:100%}
+}

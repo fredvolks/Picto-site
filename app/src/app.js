@@ -8,7 +8,7 @@ import {renderTestClients} from "./test-clients-ui.js";
 import {CLIENT_CATEGORIES,clientCategoryLabel} from "./client-categories.js";
 import {renameAdminAsset} from "./admin-asset-name.js";
 import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy} from "./admin-template-bank.js";
-import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption,confirmPublishedNamedTemplateEdit} from "./admin-template-bank-ui.js";
+import {renderAdminNamedTemplateBank,renderNamedTemplateHandoff,namedTemplatePreviewState,namedTemplatePreviewCaption,confirmPublishedNamedTemplateEdit} from "./admin-template-bank-ui.js";
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
 
@@ -1597,6 +1597,12 @@ function renderAdminTemplate(){
       loading:adminNamedTemplates.loading,error:adminNamedTemplates.error,
       message:adminNamedTemplates.message,fr
     })+
+    renderNamedTemplateHandoff({
+      templates:adminNamedTemplates.items,
+      choicesReady:TEMPLATE_CHOICES_RELEASED,
+      loading:adminNamedTemplates.loading||!adminNamedTemplates.loaded,
+      busy:adminNamedTemplates.busy,fr
+    })+
     selector+
     '<div class="page-two-col"><section class="panel"><h2 class="panel-title">'+
     esc(fr?"Aperçu de mon gabarit":"My template preview")+'</h2><div id="admin-stage" class="admin-stage">'+adminPreview()+'</div>'+
@@ -1714,7 +1720,12 @@ function renderAdmin(){
   }).join("");
   const realBankBody=privateBank.loading
     ? '<p role="status">'+esc(fr?"Chargement de la banque…":"Loading bank…")+'</p>'
-    : realAssets||'<p role="status">'+esc(privateBank.total?(fr?"Cette page ne contient plus de fiches. Revenez à la page précédente.":"This page has no records; go to the previous page."):(fr?"Aucune fiche ne correspond à votre recherche.":"No records match your search."))+'</p>';
+    : realAssets||'<p role="status">'+esc(privateBank.total?
+      (fr?"Cette page ne contient plus de fiches. Revenez à la page précédente.":"This page has no records; go to the previous page."):
+      bankFilters.status==="published"?
+        (fr?"Aucun pictogramme publié. Choisissez Brouillons dans le filtre Statut, ouvrez une image puis approuvez-la pour la proposer aux clients.":
+          "No published pictograms. Choose Drafts in the Status filter, open an image and approve it to offer to customers."):
+        (fr?"Aucune fiche ne correspond à votre recherche.":"No records match your search."))+'</p>';
   const chosen=privateBank.items.find(item=>item.id===privatePreview.id);
   const chosenLabel=chosen?(state.language==="en"?(chosen.title_en||chosen.title_fr):chosen.title_fr):"";
   const review=privatePreview.asset&&privatePreview.technical
@@ -1808,7 +1819,7 @@ function renderAdmin(){
       +'<button type="button" class="btn btn-light" data-action="admin-draft-review-next"'
       +(privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'
       +esc(fr?"Brouillon suivant sans publier":"Next draft without publishing")+'</button></div>':"")
-    +privateInkCard+reviewHtml+privateProofControls+adminTemplatePanel
+    +privateInkCard+reviewHtml+privateProofControls
     +(publishedCatalog.publishError?'<p role="alert" class="admin-import-alert">'+esc(publishedCatalog.publishError)+'</p>':'')
     +(publishedCatalog.publishMessage?'<p role="status" class="admin-import-success">'+esc(publishedCatalog.publishMessage)+'</p>':'')
     +(privatePreview.asset&&privatePreview.technical&&chosen.status==="draft"
@@ -2096,8 +2107,27 @@ function renderAdmin(){
     const sheetClassify=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Classer":"Classify")+'">'+
       '<h3>'+esc(fr?"Thèmes du pictogramme":"Pictogram themes")+'</h3>'+
       '<p>'+chosenThemes.map(code=>esc(themeLabel(code))).join(" · ")+'</p>'+
-      '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+
-      themeAssetPanel+'</section>':"";
+      '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+
+        esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+themeAssetPanel+
+      (selectedAsset.status==="published"?
+        '<div class="pa-bank-customer-templates"><h3>'+esc(fr?"Gabarits proposés aux clients":"Templates offered to customers")+'</h3>'+
+        '<p>'+esc(fr?
+          "Choisissez les gabarits de cette image publiée. Enregistrez la sélection puis confirmez : rien ne change pour les clients avant votre confirmation.":
+          "Choose templates for this published image. Save the selection, then confirm it: customers see no changes before confirmation.")+'</p>'+
+        (TEMPLATE_CHOICES_RELEASED?
+          '<button type="button" class="btn btn-primary" data-action="admin-template-choices-open" data-id="'+esc(selectedAsset.id)+'"'+
+          (adminTemplateChoices.loading||adminTemplateChoices.busy?' disabled':'')+'>'+
+            esc(fr?"Choisir les gabarits":"Choose templates")+'</button>':
+          '<p role="status">'+esc(fr?
+            "Le serveur n’a pas confirmé les choix de gabarits. Aucune association n’a été activée.":
+            "The server has not verified template choices. No assignment has been activated.")+'</p>')+
+        (chosen?.id===selectedAsset.id?adminTemplatePanel:"")+'</div>':"")+
+      (chosen?.id===selectedAsset.id?
+        '<details class="pa-bank-sheet-tools"><summary>'+esc(fr?"Vérifier et publier":"Review and publish")+'</summary>'+
+        privatePreviewBody+'</details>':
+        '<button type="button" class="btn btn-light" data-action="admin-preview" data-id="'+esc(selectedAsset.id)+'">'+
+          esc(fr?"Charger le dossier privé":"Load private record")+'</button>')+
+      '</section>':"";
     const sheetSaveDialog=selectedAsset&&bankImageSheet.saveOpen?'<div class="pa-bank-save-overlay">'+
       '<section class="pa-bank-save-dialog" role="dialog" aria-modal="true" aria-labelledby="pa-bank-save-title">'+
       '<h3 id="pa-bank-save-title">'+esc(fr?"Enregistrer les modifications":"Save changes")+'</h3>'+
@@ -4064,6 +4094,26 @@ root.addEventListener("click",function(event){
       }catch(error){publishedCatalog.publishError=String(error?.message||error);}
       finally{publishedCatalog.publishing=false;render();}
     })();return;
+  }
+  if(a==="admin-template-go-published"){
+    if(!canOpenAdmin()||!authStatus.user||!TEMPLATE_CHOICES_RELEASED||
+       state.adminTab!=="templates"||adminNamedTemplates.busy||
+       adminNamedTemplates.loading||!adminNamedTemplates.loaded||
+       !adminNamedTemplates.items.some(t=>t.is_published))return;
+    bankPanel="browse";bankSelectionId=null;
+    bankFilters.query="";bankFilters.status="published";bankFilters.theme="all";
+    bankFilters.sort="recent";privateBank.page=0;
+    state.adminTab="bank";state.adminMenuOpen=false;
+    clearAdminPreview();clearBankThumbs();render();
+    const uid=authStatus.user.id;
+    void supabaseClient().then(client=>{
+      if(authStatus.user?.id===uid&&canOpenAdmin()&&state.adminTab==="bank")
+        return refreshPrivateBank(client,uid);
+    }).catch(error=>{
+      if(authStatus.user?.id!==uid||!canOpenAdmin()||state.adminTab!=="bank")return;
+      privateBank.error=String(error?.message||error);render();
+    });
+    return;
   }
   if(a==="admin-template-choices-open"){
     if(TEMPLATE_CHOICES_RELEASED)void openAdminTemplateChoices(el.dataset.id);
