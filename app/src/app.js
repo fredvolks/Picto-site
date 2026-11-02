@@ -3546,7 +3546,9 @@ root.addEventListener("click",function(event){
   }
   if(a==="files-rename-open"){
     if(!authStatus.user||!clientFiles.items.some(doc=>doc.id===el.dataset.id))return;
-    clientFiles.renameId=el.dataset.id;clientFiles.error="";render();return;
+    clientFiles.renameId=el.dataset.id;clientFiles.error="";render();
+    root.querySelector("#rename-"+el.dataset.id)?.focus({preventScroll:false});
+    return;
   }
   if(a==="files-rename-cancel"){clientFiles.renameId=null;render();return;}
   if(["files-reprint","files-download"].includes(a)&&authStatus.user&&!clientFiles.busy){
