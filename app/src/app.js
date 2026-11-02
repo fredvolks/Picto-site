@@ -4177,32 +4177,116 @@ root.addEventListener("click",function(event){
        !["name","adjust","classify"].includes(el.dataset.tab))return;
     bankImageSheet.tab=el.dataset.tab;render();return;
   }
-  if(a==="pa-bank-scale-reset"){
-    if(!canOpenAdmin()||!bankSelectionId||bankImageSheet.busy)return;
-    bankImageSheet.scalePercent=100;bankImageSheet.error="";bankImageSheet.message="";
-    render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});return;
+  if(a==="pa-bank-suggest-en"){
+    if(!canOpenAdmin()||!bankImageSheet.names)return;
+    const suggestion=suggestEnglishTitle(bankImageSheet.names.titleFr);
+    if(suggestion){
+      bankImageSheet.names.titleEn=suggestion;
+      const input=root.querySelector("#pa-bank-name-en");if(input)input.value=suggestion;
+      syncBankSheetPreview();
+    }else{
+      bankImageSheet.message=state.language==="fr"?
+        "Aucune traduction proposée : entrez l’anglais manuellement.":
+        "No suggestion available: enter the English name manually.";
+      render();
+    }return;
   }
-  if(a==="pa-bank-scale-save"){
-    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||
-       !bankImageSheet.available||bankImageSheet.busy||
-       !privateBank.items.some(row=>row.id===privatePreview.id&&row.status==="draft"))return;
-    const assetId=privatePreview.id,uid=authStatus.user.id;
-    const scalePercent=bankImageSheet.scalePercent,revision=bankImageSheet.revision;
+  if(a==="pa-bank-scale-reset"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    Object.assign(bankImageSheet,{scalePercent:100,rotationDeg:0,offsetX:0,offsetY:0,
+      mirrorHorizontal:false,error:"",message:""});
+    render();root.querySelector('[data-action="pa-bank-scale-reset"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-mirror"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    bankImageSheet.mirrorHorizontal=!bankImageSheet.mirrorHorizontal;
+    bankImageSheet.error="";bankImageSheet.message="";
+    render();root.querySelector('[data-action="pa-bank-mirror"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-save-open"||a==="pa-bank-scale-save"){
+    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||bankImageSheet.busy)return;
+    bankImageSheet.saveOpen=true;bankImageSheet.error="";
+    render();root.querySelector('[data-action="pa-bank-save-new"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-save-close"){
+    if(bankImageSheet.busy)return;
+    bankImageSheet.saveOpen=false;bankImageSheet.error="";
+    render();root.querySelector('[data-action="pa-bank-save-open"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-save-overwrite"||a==="pa-bank-save-new"){
+    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||!bankImageSheet.available||
+       bankImageSheet.busy||bankImageSheet.createdDraft||!privatePreview.asset||!privatePreview.url)return;
+    const originalId=privatePreview.id,uid=authStatus.user.id;
+    const original=privateBank.items.find(x=>x.id===originalId);
+    if(!original||!bankImageSheet.names||!bankImageSheet.savedNames)return;
+    const overwrite=a==="pa-bank-save-overwrite";
+    if(overwrite&&(original.status!=="draft"||original.created_by!==uid))return;
+    if(overwrite&&!window.confirm(state.language==="fr"?
+       "Mettre à jour le brouillon existant ? Les noms et réglages seront remplacés.":
+       "Update the existing draft? Names and adjustments will be replaced."))return;
+    const names={...bankImageSheet.names};
+    if(!names.titleFr.trim()){
+      bankImageSheet.error=state.language==="fr"?"Le nom français est obligatoire.":"French name is required.";
+      render();return;
+    }
+    let adjustments;
+    try{adjustments=bankSheetAdjustment();}catch(error){bankImageSheet.error=String(error?.message||error);render();return;}
+    const revision=bankImageSheet.revision,expected={...bankImageSheet.savedNames};
     const ticket=++bankImageSheet.request,previewTicket=privatePreview.request;
     bankImageSheet.busy=true;bankImageSheet.error="";bankImageSheet.message="";render();
     void(async()=>{
-      const current=()=>bankImageSheet.request===ticket&&
-        privatePreview.id===assetId&&privatePreview.request===previewTicket&&
-        authStatus.user?.id===uid&&canOpenAdmin();
+      const current=()=>bankImageSheet.request===ticket&&privatePreview.id===originalId&&
+        privatePreview.request===previewTicket&&authStatus.user?.id===uid&&canOpenAdmin();
       try{
         const client=await supabaseClient();
-        const saved=await saveAdminImageAdjustment(client,uid,{assetId,scalePercent,revision});
+        let targetId=originalId;
+        if(!overwrite){
+          const response=await fetch(privatePreview.url);
+          if(!response.ok)throw Error("Copie du PNG privé impossible.");
+          const blob=await response.blob();
+          if(!current())return;
+          const sourceFile=new File([blob],"picto-nouveau-brouillon.png",{type:"image/png"});
+          const added=await importPrivateDraft(client,uid,sourceFile,
+            {titleFr:names.titleFr,titleEn:names.titleEn,theme:original.theme});
+          if(!current())return;
+          const found=await client.from("pictau_assets")
+            .select("id,created_by,status,admin_name,title_fr,title_en")
+            .eq("image_path",added.imagePath).maybeSingle();
+          if(found.error||!found.data||found.data.created_by!==uid||found.data.status!=="draft")
+            throw Error("Brouillon créé : identifiant à vérifier dans la Banque.");
+          targetId=found.data.id;
+          bankImageSheet.createdDraft=targetId;
+          await saveAdminSheetNames(client,uid,targetId,{
+            admin_name:found.data.admin_name??null,
+            title_fr:found.data.title_fr,title_en:found.data.title_en??null
+          },names);
+        }else{
+          const savedNames=await saveAdminSheetNames(client,uid,originalId,expected,names);
+          if(!current())return;
+          bankImageSheet.savedNames={admin_name:savedNames.admin_name,
+            title_fr:savedNames.title_fr,title_en:savedNames.title_en};
+          privateBank.items=privateBank.items.map(x=>x.id===originalId?
+            {...x,admin_name:savedNames.admin_name,title_fr:savedNames.title_fr,
+              title_en:savedNames.title_en}:x);
+        }
+        const saved=await saveAdminImageAdjustment(client,uid,{
+          assetId:targetId,...adjustments,revision:overwrite?revision:null
+        });
         if(!current())return;
-        bankImageSheet.scalePercent=saved.scalePercent;bankImageSheet.revision=saved.revision;
+        if(overwrite)Object.assign(bankImageSheet,{
+          savedAdjust:{...adjustments},revision:saved.revision
+        });else bankImageSheet.createdDraft=null;
+        bankImageSheet.saveOpen=false;
         bankImageSheet.message=state.language==="fr"?
-          "Taille enregistrée pour cette image uniquement.":"Size saved for this image only.";
-      }catch(error){if(current())bankImageSheet.error=String(error?.message||error);}
-      finally{if(current()){bankImageSheet.busy=false;render();}}
+          (overwrite?"Noms et ajustements enregistrés dans Supabase.":"Nouveau brouillon privé enregistré dans Supabase."):
+          (overwrite?"Names and adjustments saved in Supabase.":"New private draft saved in Supabase.");
+        if(!overwrite)await refreshPrivateBank(client,uid);
+      }catch(error){
+        if(current())bankImageSheet.error=String(error?.message||error)+
+          (bankImageSheet.createdDraft?(state.language==="fr"?
+           " Une copie existe peut-être déjà : vérifiez la Banque avant de réessayer.":
+           "A copy may already exist; check the bank before retrying."):"");
+      }finally{if(current()){bankImageSheet.busy=false;render();}}
     })();return;
   }
 
