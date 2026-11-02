@@ -3,6 +3,10 @@ import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters,planNextPrivateDraftReview} from "./admin-bank.js";
+import {listTestClients,createTestClient,setTestClientPlan,deleteTestClient} from "./test-clients.js";
+import {renderTestClients} from "./test-clients-ui.js";
+import {listActiveClientCategories} from "./client-categories.js";
+import {renameAdminAsset} from "./admin-asset-name.js";
 import {listAdminNamedTemplates,saveAdminNamedTemplate,setAdminTemplatePublication,prepareNamedTemplateCopy} from "./admin-template-bank.js";
 import {renderAdminNamedTemplateBank,namedTemplatePreviewState,namedTemplatePreviewCaption,confirmPublishedNamedTemplateEdit} from "./admin-template-bank-ui.js";
 import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPictoTemplateChoices,listClientPictoTemplateChoices} from "./picto-template-choices.js";
@@ -174,6 +178,7 @@ let clientNavigationEpoch=0;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 let pdfRecoveryBusy=false,pdfRecoveryRequest=0,pdfRecoveryError="";
+const testClients={items:[],loaded:false,loading:false,busy:false,error:"",message:"",created:null,request:0};
 const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",emailView:"login",showPassword:false,error:""};
 function emptyComposerSettings(){
   return {routine:{title:null,widthCm:"3",paper:"letter",columns:"3"},
@@ -948,7 +953,25 @@ async function openAdminPreview(assetId){
   }
 }
 function canOpenAdmin(){return !PUBLIC_DEMO && Boolean(authStatus.user && privateBank.allowed);}
+async function fetchTestClientAccounts() {
+  if(!canOpenAdmin()||!authStatus.user)return;
+  const uid=authStatus.user.id,ticket=++testClients.request;
+  testClients.loading=true;testClients.error="";render();
+  try {
+    const client=await supabaseClient(),items=await listTestClients(client,uid);
+    if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+    testClients.items=items;testClients.loaded=true;
+  }catch(error){
+    if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
+    testClients.error=String(error?.message||error);testClients.loaded=false;
+  }finally{
+    if(ticket===testClients.request){testClients.loading=false;render();}
+  }
+}
 function resetPrivateBank(){
+  testClients.request++;testClients.items=[];testClients.loaded=false;
+  testClients.loading=false;testClients.busy=false;testClients.error="";
+  testClients.message="";testClients.created=null;
   resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();resetClientPictoTemplates();
   templateChoicesProbe++;TEMPLATE_CHOICES_RELEASED=false;
   stopDraftReviewQueue();
@@ -1380,7 +1403,7 @@ function renderAdminTemplate(){
 function renderAdmin(){
   const fr=state.language==="fr";
   const sectionNames=fr?{
-    overview:"Vue d'ensemble",bank:"Banque",requests:"Demandes",tools:"Outils",templates:"Gabarits",
+    overview:"Vue d'ensemble",bank:"Banque",requests:"Demandes",tools:"Outils",templates:"Gabarits",testClients:"Clients de test",
     heading:"Espace de gestion",description:"Un endroit simple pour organiser les pictogrammes et préparer les supports visuels.",
     status:"ACCÈS ADMIN VÉRIFIÉ",sample:"Illustrations de démonstration",samples:"Images de test",privateBank:"Banque privée Supabase",
     privateInfo:"Aperçus d’images privées et propositions de corrections locales. La sauvegarde Supabase attend une politique de sécurité approuvée. Aucune publication.",
@@ -1392,7 +1415,7 @@ function renderAdmin(){
     edit:"Ouvrir les gabarits",soon:"À connecter",noReal:"Aucun actif réel n'est chargé dans cette maquette",
     mustBePrivate:"L'accès à la banque réelle sera réservé aux comptes super admin authentifiés."
   }:{
-    overview:"Overview",bank:"Library",requests:"Requests",tools:"Tools",templates:"Templates",
+    overview:"Overview",bank:"Library",requests:"Requests",tools:"Tools",templates:"Templates",testClients:"Test clients",
     heading:"Management workspace",description:"A simple place to organize pictograms and prepare visual materials.",
     status:"VERIFIED ADMIN ACCESS",sample:"Sample illustrations",samples:"Sample images",privateBank:"Private Supabase bank",
     privateInfo:"Private image previews and local correction proposals. Supabase saving awaits approval of a security policy. No publishing.",
@@ -1734,9 +1757,13 @@ function renderAdmin(){
       +'<a class="btn btn-primary" href="https://github.com/fredvolks/pictogram/tree/setup/prompt-maitre-projet-picto/chrome-extension" target="_blank" rel="noopener noreferrer">'+esc(sectionNames.openExtension)+' ↗</a></article>'
       +'<article class="admin-tool"><span class="admin-tool-icon">'+icon("upload")+'</span><h3>'+esc(sectionNames.toolLibrary)+'</h3><p>'+esc(sectionNames.toolLibrarySub)+'</p><button type="button" class="btn btn-light" data-action="admin-tab" data-tab="bank">'+esc(fr?"Ouvrir la banque":"Open bank")+'</button></article>'
       +'<article class="admin-tool"><span class="admin-tool-icon">'+icon("settings")+'</span><h3>'+esc(sectionNames.toolGabarit)+'</h3><p>'+esc(sectionNames.toolGabaritSub)+'</p><button class="btn btn-light" data-action="admin-tab" data-tab="templates">'+esc(sectionNames.edit)+'</button></article></div></section>'+info;
+  }else if(state.adminTab==="test-clients"){
+    body=renderTestClients({fr,items:testClients.items,busy:testClients.busy,
+      loading:testClients.loading,error:testClients.error,message:testClients.message,
+      created:testClients.created});
   }else body=renderAdminTemplate();
   return '<div class="admin-ui"><div class="admin-ui-title"><div><div class="eyebrow">'+esc(sectionNames.status)+'</div><h1>'+esc(sectionNames.heading)+'</h1><p>'+esc(sectionNames.description)+'</p></div></div>'
-    +'<nav class="admin-tabs" aria-label="'+esc(fr?"Sections administrateur":"Admin sections")+'">'+tab("overview",sectionNames.overview,"home")+tab("bank",sectionNames.bank,"library")+tab("requests",sectionNames.requests,"library")+tab("tools",sectionNames.tools,"settings")+tab("templates",sectionNames.templates,"routine")+'</nav>'
+    +'<nav class="admin-tabs" aria-label="'+esc(fr?"Sections administrateur":"Admin sections")+'">'+tab("overview",sectionNames.overview,"home")+tab("bank",sectionNames.bank,"library")+tab("requests",sectionNames.requests,"library")+tab("tools",sectionNames.tools,"settings")+tab("templates",sectionNames.templates,"routine")+tab("test-clients",sectionNames.testClients,"settings")+'</nav>'
     +body+'</div>';
 }
 
@@ -3413,13 +3440,45 @@ root.addEventListener("click",function(event){
     void openAdminPreview(drafts[(current+1)%drafts.length].id);
     return;
   }
+  if(a==="test-clients-refresh"){
+    if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
+    testClients.created=null;void fetchTestClientAccounts();return;
+  }
+  if(a==="test-client-delete"){
+    if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
+    const id=el.dataset.id,email=el.dataset.email;
+    if(!testClients.items.some(item=>item.user_id===id&&item.email===email))return;
+    const typed=window.prompt(state.language==="fr"?
+      "Pour supprimer définitivement ce compte TEST et ses fichiers, recopiez son courriel : "+email:
+      "To permanently delete this TEST account and files, type its email: "+email);
+    if(typed!==email)return;
+    const uid=authStatus.user.id,ticket=++testClients.request;
+    testClients.busy=true;testClients.error="";testClients.message="";testClients.created=null;render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        await deleteTestClient(client,uid,id);
+        if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+        testClients.items=testClients.items.filter(item=>item.user_id!==id);
+        testClients.message=state.language==="fr"?"Compte de test supprimé et retrait confirmé.":"Test account removed and verified.";
+      }catch(error){
+        if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
+        testClients.error=String(error?.message||error);
+      }finally{
+        if(ticket===testClients.request){testClients.busy=false;render();}
+      }
+    })();return;
+  }
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
       adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
     }
     if(el.dataset.tab!=="bank"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
+    if(state.adminTab==="test-clients"&&el.dataset.tab!=="test-clients")testClients.created=null;
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
+    if(state.adminTab==="test-clients"&&authStatus.user&&!testClients.loading)
+      void fetchTestClientAccounts();
     if(state.adminTab==="settings"&&authStatus.user)void fetchCaptionFeature();
     if(state.adminTab==="templates"&&authStatus.user)void fetchAdminNamedTemplates();
     if(state.adminTab==="requests"&&authStatus.user)
@@ -4089,7 +4148,47 @@ root.addEventListener("input",function(event){
   if(field==="admin-range"){const k=event.target.dataset.key;state.currentPreset[k]=Number(event.target.value);const o=document.querySelector("#out-"+k);if(o)o.textContent=fmt(state.currentPreset[k])+" "+(k==="fontPt"?"pt":k==="artPercent"?"%":"mm");adminLive();return;}
   if(event.target.dataset.field==="size"){state.widthCm=clampWidth(event.target.value);routineLive();}
 });
+root.addEventListener("change",function(event){
+  const el=event.target;
+  if(el?.dataset.input!=="test-client-plan"||!canOpenAdmin()||testClients.busy)return;
+  const id=el.dataset.id,plan=el.value;
+  if(!testClients.items.some(item=>item.user_id===id))return;
+  const uid=authStatus.user.id,ticket=++testClients.request;
+  testClients.busy=true;testClients.error="";testClients.message="";testClients.created=null;render();
+  void(async()=>{
+    try{
+      const client=await supabaseClient();
+      await setTestClientPlan(client,uid,id,plan);
+      if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+      testClients.items=testClients.items.map(item=>item.user_id===id?{...item,simulated_plan:plan}:item);
+      testClients.message=state.language==="fr"?"Forfait de simulation modifié.":"Simulation plan updated.";
+    }catch(error){
+      if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
+      testClients.error=String(error?.message||error);
+    }finally{if(ticket===testClients.request){testClients.busy=false;render();}}
+  })();
+});
 root.addEventListener("submit",function(event){
+root.addEventListener("submit",function(event){
+  if(event.target.matches('form[data-form="test-clients-create"]')){
+    event.preventDefault();
+    if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
+    const data=new FormData(event.target),uid=authStatus.user.id,ticket=++testClients.request;
+    const input={label:String(data.get("label")||""),plan:String(data.get("plan")||"")};
+    testClients.busy=true;testClients.error="";testClients.message="";testClients.created=null;render();
+    void(async()=>{
+      try {
+        const client=await supabaseClient(),created=await createTestClient(client,uid,input);
+        if(ticket!==testClients.request||authStatus.user?.id!==uid||!canOpenAdmin())return;
+        testClients.created=created;
+        testClients.message=state.language==="fr"?"Compte de test créé. Copiez ses identifiants maintenant.":"Test account created. Copy its credentials now.";
+        testClients.items=await listTestClients(client,uid);
+      }catch(error){
+        if(ticket!==testClients.request||authStatus.user?.id!==uid)return;
+        testClients.error=String(error?.message||error);
+      }finally{if(ticket===testClients.request){testClients.busy=false;render();}}
+    })();return;
+  }
   if(event.target.matches('form[data-form="draft-filter"]')){
     event.preventDefault();
     if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||editableDrafts.busy||editableDrafts.loading)return;
