@@ -2439,3 +2439,24 @@
   .pa-real-template-editor .panel{padding:15px}
   .pa-real-template-asset-picker{padding:12px}
 }
+
+
+/* Premier vrai gabarit : choix explicite de forme sans écrire ni publier.
+   Contrôles Super Admin uniquement, aucune règle dans les pages gelées. */
+.admin-named-template-first{border:1px solid #cfdfd5;border-radius:14px;
+  padding:16px;margin:8px 0 18px;background:#f5f9f6;color:#294939}
+.admin-named-template-first strong{font-size:16px;line-height:1.35}
+.admin-named-template-first p{font-size:13px;line-height:1.55;margin:8px 0 12px;max-width:66ch}
+.admin-named-template-first-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.admin-named-template-first-actions button,.admin-named-template-retry{
+  min-height:44px;padding:10px 13px;border:1px solid #294939;border-radius:10px;
+  color:#294939;background:#fff;font-size:14px;font-weight:700;
+  cursor:pointer;white-space:normal;text-align:center}
+.admin-named-template-first-actions button:focus-visible,
+.admin-named-template-retry:focus-visible{outline:3px solid #294939;outline-offset:2px}
+.admin-named-template-retry{margin:10px 0}
+@media(max-width:520px){
+  .admin-named-template-first{padding:13px}
+  .admin-named-template-first-actions{grid-template-columns:minmax(0,1fr)}
+  .admin-named-template-first-actions button{width:100%;font-size:16px}
+}
