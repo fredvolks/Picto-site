@@ -1,5 +1,5 @@
 import {previewPhysicalCopySheet} from "./print-pdf.js";
-import {namedTemplatePrintSettings,applyClientBorderPreference} from "./client-template-print.js";
+import {namedTemplatePrintSettings,applyClientBorderPreference,applyPublishedImageScale} from "./client-template-print.js";
 
 // Affichage des gabarits pour un pictogramme : composants FR/EN sans accès réseau.
 // Le pilote doit brancher les actions à src/picto-template-choices.js UNIQUEMENT
@@ -34,13 +34,13 @@ function ensureList(templates){
    new Set(templates.map(t=>t.id)).size!==templates.length)
    throw Error("Liste de gabarits invalide. Actualisez la fiche.");
 }
-function renderMiniPreview(t,{artworkUrl=null,pictoName=""}={}){
+function renderMiniPreview(t,{artworkUrl=null,pictoName="",artScalePercent=100}={}){
  // Le gabarit est enregistré pour une cellule de référence de 5 cm.
  // La largeur choisie redimensionne tous les millimètres de la même façon.
  // Ainsi, les proportions de la bande et des traits ne changent pas avec la taille.
  const heightRatio=t.shape==="portrait"?1.35:1;
  const bandPercent=(Number(t.band_mm)*2/heightRatio).toFixed(2);
- const artPercent=Number(t.art_percent);
+ const artPercent=Math.round(Number(t.art_percent)*artScalePercent)/100;
  const lineWidth=(Number(t.stroke_mm)*2).toFixed(2);
  const separatorWidth=(Number(t.separator_mm)*2).toFixed(2);
  const fontSize=(Number(t.font_pt)*0.65).toFixed(2);
@@ -127,9 +127,12 @@ export const CLIENT_BORDER_PALETTE=Object.freeze([
 ]);
 export function renderClientPictoTemplateOptions({
  pictoName="",templates=[],fr=true,selectedId=null,artworkUrl=null,busy=false,
- borderEnabled=null,borderColor=null,paper="letter",copies=1
+ borderEnabled=null,borderColor=null,paper="letter",copies=1,artScalePercent=100
 }={}){
  if(!["letter","a4"].includes(paper))throw Error("Format de papier invalide.");
+ if(!Number.isInteger(artScalePercent)||artScalePercent<60||artScalePercent>140||
+    (artScalePercent-60)%5!==0)
+   throw Error("Taille du dessin approuvé invalide.");
  if(typeof copies!=="number"||!Number.isInteger(copies)||copies<1||copies>12)
    throw Error("Nombre d'exemplaires invalide (1 à 12).");
  ensureList(templates);
@@ -147,9 +150,10 @@ export function renderClientPictoTemplateOptions({
  let layout=null;
  if(selected){
    try{
-     const settings=applyClientBorderPreference(namedTemplatePrintSettings(selected),{
-       colored,borderColor:edge
-     });
+     const settings=applyPublishedImageScale(
+       applyClientBorderPreference(namedTemplatePrintSettings(selected),{
+         colored,borderColor:edge
+       }),artScalePercent);
      layout=previewPhysicalCopySheet({
        widthCm:settings.widthCm,preset:settings.preset,paper,copies
      });
@@ -171,8 +175,8 @@ export function renderClientPictoTemplateOptions({
      '<small>'+escapeHtml(fr?"Schéma de placement seulement : le PNG et le rendu final sont préservés dans le PDF.":"Layout diagram only: the original PNG and final artwork are preserved in the PDF.")+'</small></div>'+
    '</section>':
    '<p role="alert" class="pa-template-print-error">'+escapeHtml(fr?
-     "Calcul de disposition indisponible : actualisez la fiche. Aucun PDF ne sera créé.":
-     "Layout calculation unavailable: refresh this item. No PDF will be created.")+'</p>';
+     "Aperçu impossible : le dessin peut dépasser ce gabarit. Choisissez un autre modèle ou demandez un ajustement. Aucun PDF ne sera créé.":
+     "Preview unavailable: the artwork may overflow this template. Choose another template or request an adjustment. No PDF will be created.")+'</p>';
  const swatches=CLIENT_BORDER_PALETTE.map(c=>
    '<button type="button" class="pa-client-border-swatch" data-action="client-template-border-swatch" data-color="'+c+
      '" aria-label="'+escapeHtml((fr?"Couleur du contour ":"Border color ")+c)+
@@ -204,7 +208,7 @@ export function renderClientPictoTemplateOptions({
        return '<label class="pa-template-choice"><input type="radio" name="picto-client-template" '+
          'data-input="client-template-select" value="'+escapeHtml(t.id)+'"'+
          (selectedId===t.id?" checked":"")+(busy?" disabled":"")+' />'+
-         renderMiniPreview(preview,{artworkUrl,pictoName})+
+         renderMiniPreview(preview,{artworkUrl,pictoName,artScalePercent})+
          '<span>'+heading(t,fr)+'</span>'+
          '<small>'+escapeHtml(t.colored?(fr?"Contour prévu par le gabarit":"Template border"):
            (fr?"Sans contour initial":"No default border"))+'</small></label>';
