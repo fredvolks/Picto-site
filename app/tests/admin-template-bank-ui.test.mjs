@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {renderAdminNamedTemplateBank,confirmPublishedNamedTemplateEdit} from "../src/admin-template-bank-ui.js";
+import {renderAdminNamedTemplateBank,renderNamedTemplateHandoff,confirmPublishedNamedTemplateEdit} from "../src/admin-template-bank-ui.js";
 const ID="00000000-0000-4000-8000-000000000123";
 const row={id:ID,name:"Routine école",revision:3,is_published:false};
 test("Le vrai Super Admin peut créer plusieurs gabarits nommés sans publication automatique",()=>{
@@ -166,4 +166,40 @@ test("Premier modèle : pas d'écriture Supabase sans Enregistrer",async()=>{
  assert.match(section,/shape!=="square"&&shape!=="portrait"/);
  assert.doesNotMatch(section,/supabaseClient\(|\.insert\(|\.rpc\(/);
  assert.match(app,/if\(a==="admin-named-template-refresh"\)/);
+});
+
+
+test("Les gabarits publiés proposent de choisir les vraies fiches clients",()=>{
+ const empty=renderNamedTemplateHandoff({templates:[],fr:true,choicesReady:true});
+ assert.match(empty,/Enregistrez d’abord votre gabarit/);
+ assert.doesNotMatch(empty,/admin-template-go-published/);
+ const ready=renderNamedTemplateHandoff({templates:[{is_published:true}],choicesReady:true});
+ assert.match(ready,/admin-template-go-published/);
+ assert.match(ready,/enregistrez puis confirmez/);
+ const blocked=renderNamedTemplateHandoff({templates:[{is_published:true}],choicesReady:false});
+ assert.doesNotMatch(blocked,/admin-template-go-published/);
+ assert.match(blocked,/n’est pas encore vérifiée/);
+});
+
+test("Le site public Maquette Banque donne accès direct aux choix dans Classer",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+ const start=app.indexOf('const sheetClassify=selectedAsset?');
+ const end=app.indexOf('const sheetSaveDialog=',start);
+ assert.ok(start>=0&&end>start);
+ const sheet=app.slice(start,end);
+ assert.ok(sheet.includes('pa-bank-customer-templates'));
+ assert.ok(sheet.includes('admin-template-choices-open'));
+ assert.ok(sheet.includes('adminTemplatePanel'));
+ assert.ok(sheet.includes('privatePreviewBody'));
+ assert.ok(sheet.includes('Le serveur n’a pas confirmé les choix'));
+ // Aucun choix publié avant l'action de confirmation existante.
+ const action=app.split('if(a==="admin-template-go-published"){')[1]
+   ?.split('if(a==="admin-template-choices-open"){')[0];
+ assert.ok(action);
+ assert.ok(action.includes('bankFilters.status="published"'));
+ assert.ok(action.includes('bankPanel="browse"'));
+ assert.ok(action.includes('refreshPrivateBank(client,uid)'));
+ assert.doesNotMatch(action,/\.insert\(|\.update\(|\.delete\(|\.rpc\(/);
+ assert.ok(app.includes('Aucun pictogramme publié'));
 });
