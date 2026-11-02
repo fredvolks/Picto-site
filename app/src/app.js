@@ -882,7 +882,8 @@ function openBankRename(id){
   if(!asset)return;
   clearBankRename();bankRename.id=id;bankRename.expected=asset.admin_name??null;
   bankRename.value=asset.admin_name||asset.title_fr||"";
-  clearAdminPreview();clearDraftEditor();render();focusBankInspector();
+  if(privatePreview.id!==id)clearAdminPreview();
+  bankImageSheet.tab="name";clearDraftEditor();render();focusBankInspector();
 }
 function hasUnsavedBankEdits(){
   const renamed=privateBank.items.find(item=>item.id===bankRename.id);
@@ -984,8 +985,8 @@ function openDraftEditor(assetId){
   if(!canOpenAdmin()||draftEditor.saving)return;
   const item=privateBank.items.find(asset=>asset.id===assetId);
   if(!item||item.status!=="draft"||item.created_by!==authStatus.user?.id)return;
-  clearDraftEditor();clearAdminPreview();
-  draftEditor.id=item.id;
+  clearDraftEditor();if(privatePreview.id!==assetId)clearAdminPreview();
+  bankImageSheet.tab="name";draftEditor.id=item.id;
   draftEditor.original={title_fr:item.title_fr,title_en:item.title_en??null,theme:item.theme};
   draftEditor.form={titleFr:item.title_fr,titleEn:item.title_en||"",theme:item.theme};
   render();focusBankInspector();
@@ -1584,12 +1585,7 @@ function renderAdmin(){
       +'<span class="pa-bank-card-status">'+esc(asset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span>'
       +'<small>'+assignedThemes.map(t=>esc(themeLabel(t))).join(" · ")+' · '+esc(asset.status||"draft")+'</small>'
       +'<small>'+esc(fr?"Importé : ":"Imported: ")+esc(date)+'</small></div>'
-      +'<div class="admin-bank-item-actions"><button type="button" class="btn btn-light btn-small admin-preview-button" data-action="admin-preview" data-id="'+esc(asset.id)+'"'
-      +(privatePreview.loading?' disabled':'')+'>'+icon("search","btn-icon")+esc(fr?"Aperçu privé":"Private preview")+'</button>'
-      +'<button type="button" class="btn btn-light btn-small" data-action="admin-rename" data-id="'+esc(asset.id)+'">'+esc(fr?"Nom banque":"Bank name")+'</button>'
-      +'<button type="button" class="btn btn-light btn-small" data-action="admin-theme-asset" data-id="'+esc(asset.id)+'">'+esc(fr?"Thèmes":"Themes")+'</button>'
-      +(asset.status==="draft"&&asset.created_by===authStatus.user?.id?'<button type="button" class="btn btn-light btn-small" data-action="admin-edit-draft" data-id="'+esc(asset.id)+'">'+icon("check","btn-icon")+esc(fr?"Textes / fiche":"Text / record")+'</button>':"")
-      +'</div><button type="button" class="pa-bank-card-open" data-action="admin-bank-open" data-id="'+esc(asset.id)+'"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Ouvrir":"Open")+'</button></article>';
+      +'<div class="admin-bank-item-actions"><button type="button" class="btn btn-primary btn-small pa-bank-card-open" data-action="admin-bank-open" data-id="'+esc(asset.id)+'"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Ouvrir":"Open")+'</button></div></article>';
   }).join("");
   const realBankBody=privateBank.loading
     ? '<p role="status">'+esc(fr?"Chargement de la banque…":"Loading bank…")+'</p>'
@@ -1614,9 +1610,19 @@ function renderAdmin(){
     return '<div class="admin-png-template"><h4>'+esc(fr?"Comparer le vrai dessin dans trois formats":"Compare the actual artwork in three formats")+'</h4>'
       +renderPrivateInkComparison({
         asset,inkUrl:privatePreview.inkUrl,rotationDeg:privatePreview.rotationDeg,
-        preset:state.currentPreset,fr,customPicto,scaleMetrics,fmtRaw
+        preset:state.currentPreset,fr,customPicto,scaleMetrics,fmtRaw,
+        artScalePercent:bankImageSheet.scalePercent
       })
-      +'<div class="admin-art-rotation">'
+      +'<section class="admin-png-named-section"><h4>'+esc(fr?"Dans mes templates enregistrés":"Inside my saved templates")+'</h4>'
+      +(privateNamedGallery.loading?'<p role="status">'+esc(fr?"Chargement des templates…":"Loading templates…")+'</p>':"")
+      +(privateNamedGallery.error?'<p role="alert">'+esc(privateNamedGallery.error)+'</p>':"")
+      +(privateNamedGallery.loaded&&privateNamedGallery.assetId===asset.id?
+        renderPrivateInkNamedGallery({
+          asset,inkUrl:privatePreview.inkUrl,rotationDeg:privatePreview.rotationDeg,
+          templates:privateNamedGallery.items,fr,customPicto,scaleMetrics,fmtRaw,
+          artScalePercent:bankImageSheet.scalePercent
+        }):"")+'</section>'
+      +'<div class="admin-art-rotation">
       +'<label for="admin-art-rotation">'+esc(fr?"Faire pivoter le dessin (centre de l\u2019encre)":"Rotate artwork (ink center)")+' : <output id="admin-art-rotation-value" for="admin-art-rotation">'+privatePreview.rotationDeg+'°</output></label>'
       +'<input id="admin-art-rotation" data-input="admin-art-rotation" type="range" min="-180" max="180" step="1" value="'+privatePreview.rotationDeg+'"'+(privatePreview.adjustBusy?' disabled':'')+' />'
       +'<div class="admin-art-rotation-actions">'
@@ -3766,7 +3772,8 @@ root.addEventListener("click",function(event){
   if(a==="admin-theme-asset"){
     if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id))return;
     themeUI.assetId=el.dataset.id;themeUI.error="";themeUI.message="";
-    clearAdminPreview();clearDraftEditor();clearBankRename();render();focusBankInspector();return;
+    if(privatePreview.id!==el.dataset.id)clearAdminPreview();
+    bankImageSheet.tab="classify";clearDraftEditor();clearBankRename();render();focusBankInspector();return;
   }
   if(a==="admin-theme-close"){themeUI.assetId=null;render();return;}
   if(a==="admin-theme-edit-open"){
@@ -3787,8 +3794,8 @@ root.addEventListener("click",function(event){
     if(!canOpenAdmin()||state.adminTab!=="bank"||!privateBank.items.some(item=>item.id===el.dataset.id))return;
     if(!confirmDiscardBankEdits())return;
     bankSelectionId=el.dataset.id;
-    clearBankRename();clearAdminPreview();clearDraftEditor();themeUI.assetId=null;
-    render();focusBankInspector();return;
+    clearBankRename();clearDraftEditor();themeUI.assetId=null;
+    void openAdminPreview(el.dataset.id);return;
   }
   if(a==="admin-bank-panel"){
     if(!canOpenAdmin()||state.adminTab!=="bank")return;
