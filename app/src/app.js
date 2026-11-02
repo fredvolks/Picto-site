@@ -1730,26 +1730,43 @@ function renderAdmin(){
     const proposal=draftEditor.form;
     const isUpper=value=>typeof value==="string"&&/^[\p{Lu}]/u.test(value.trim());
     const warning=isUpper(proposal.titleFr)||isUpper(proposal.titleEn)
-      ?(fr?"Les libellés publiés doivent commencer par une minuscule.":"Published labels must start with a lowercase letter."):"";
+      ?(fr?"Les libellés doivent commencer par une minuscule.":"Captions must start with a lowercase letter."):"";
     const options=[...new Set([...themes.map(([v])=>v),proposal.theme])];
-    draftEditBody='<section class="admin-private-preview admin-draft-editor" role="region" aria-label="'+esc(fr?"Révision de brouillon":"Draft review")+'">'
-      +'<div class="admin-preview-heading"><div><h3>'+esc(fr?"Préparer les corrections":"Prepare corrections")+'</h3><p>'
-      +esc(fr?"Proposition locale. Aucune modification Supabase, aucune publication.":"Local proposal. No Supabase changes or publication.")+'</p></div>'
-      +'<button type="button" class="btn btn-quiet btn-small" data-action="close-admin-edit">'+icon("close","btn-icon")+esc(fr?"Fermer":"Close")+'</button></div>'
-      +'<form data-form="admin-edit-draft" class="admin-import-form">'
-      +'<div class="control"><label for="edit-draft-fr">'+esc(fr?"Nom français *":"French label *")+'</label><input id="edit-draft-fr" name="titleFr" type="text" maxlength="100" required autocomplete="off" value="'+esc(proposal.titleFr)+'"></div>'
-      +'<div class="control"><label for="edit-draft-en">'+esc(fr?"Nom anglais (facultatif)":"English label (optional)")+'</label><input id="edit-draft-en" name="titleEn" type="text" maxlength="100" autocomplete="off" value="'+esc(proposal.titleEn)+'"></div>'
+    const editableFields='<form data-form="admin-edit-draft" class="admin-import-form">'
+      +'<div class="control"><label for="edit-draft-fr">'+esc(fr?"Nom français *":"French caption *")+'</label><input id="edit-draft-fr" name="titleFr" type="text" maxlength="100" required autocomplete="off" value="'+esc(proposal.titleFr)+'"></div>'
+      +'<div class="control"><label for="edit-draft-en">'+esc(fr?"Nom anglais (facultatif)":"English caption (optional)")+'</label><input id="edit-draft-en" name="titleEn" type="text" maxlength="100" autocomplete="off" value="'+esc(proposal.titleEn)+'"></div>'
       +'<div class="control"><label for="edit-draft-theme">'+esc(fr?"Thème":"Theme")+'</label><select id="edit-draft-theme" name="theme">'
       +options.map(value=>'<option value="'+esc(value)+'"'+(value===proposal.theme?' selected':'')+'>'+esc(themes.find(([v])=>v===value)?.[1]||value)+'</option>').join("")+'</select></div>'
-      +'<div class="control"><label>'+esc(fr?"Proposition":"Proposed label")+'</label><output id="edit-draft-preview" class="admin-draft-preview-label">'+esc(proposal.titleFr||"—")+'</output></div>'
-      +'<div class="admin-import-actions"><button type="button" class="btn btn-light" data-action="export-admin-proposal">'+icon("upload","btn-icon")+esc(fr?"Exporter la proposition JSON":"Export JSON proposal")+'</button>'
-      +'<button type="submit" class="btn btn-primary"'+(!DRAFT_METADATA_WRITES_ENABLED||draftEditor.saving?' disabled':'')+'>'+icon("check","btn-icon")+esc(fr?"Enregistrer dans Supabase":"Save to Supabase")+'</button></div></form>'
-      +(warning?'<p class="admin-import-alert" role="status">'+esc(warning)+'</p>':"")
-      +(!DRAFT_METADATA_WRITES_ENABLED?'<p class="admin-draft-disabled" role="status">'+esc(fr?
-      "Sauvegarde désactivée : la politique sécurisée UPDATE doit être examinée et approuvée avant activation.":
-      "Saving disabled: the secured UPDATE policy must be reviewed and approved before activation.")+'</p>':"")
-      +(draftEditor.error?'<p class="admin-import-alert" role="alert">'+esc(draftEditor.error)+'</p>':"")
-      +(draftEditor.message?'<p class="admin-import-success" role="status">'+esc(draftEditor.message)+'</p>':"")
+      +'<div class="control"><label>'+esc(fr?"Aperçu du texte":"Caption preview")+'</label><output id="edit-draft-preview" class="admin-draft-preview-label">'+esc(proposal.titleFr||"—")+'</output></div>'
+      +(DRAFT_METADATA_WRITES_ENABLED
+        ?'<div class="admin-import-actions"><button type="submit" class="btn btn-primary"'+(draftEditor.saving?' disabled':'')+'>'+icon("check","btn-icon")+esc(fr?"Enregistrer les textes":"Save captions")+'</button></div>'
+        :'<div class="admin-import-actions"><button type="button" class="btn btn-light" data-action="export-admin-proposal">'+icon("upload","btn-icon")+esc(fr?"Exporter le fichier JSON":"Export JSON file")+'</button></div>')
+      +'</form>';
+    draftEditBody='<section class="admin-private-preview admin-draft-editor pa-bank-draft-simple" role="region" aria-label="'+esc(fr?"Textes du pictogramme":"Pictogram captions")+'">'
+      +'<div class="admin-preview-heading"><div><h3>'+esc(fr?"Textes et thème":"Captions and theme")+'</h3></div>'
+      +'<button type="button" class="btn btn-quiet btn-small" data-action="close-admin-edit">'+icon("close","btn-icon")+esc(fr?"Fermer":"Close")+'</button></div>'
+      +(!DRAFT_METADATA_WRITES_ENABLED
+        ?'<p class="pa-bank-draft-notice" role="status">'+esc(fr?
+          "Les textes français et anglais ne peuvent pas encore être enregistrés. La sauvegarde doit d’abord être sécurisée.":
+          "French and English captions cannot be saved yet. Secure saving must be approved first.")+'</p>'
+          +'<dl class="pa-bank-draft-values"><div><dt>'+esc(fr?"Français":"French")+'</dt><dd>'+esc(editing.title_fr||"—")+'</dd></div>'
+          +'<div><dt>'+esc(fr?"Anglais":"English")+'</dt><dd>'+esc(editing.title_en||(fr?"Non renseigné":"Not set"))+'</dd></div>'
+          +'<div><dt>'+esc(fr?"Thème":"Theme")+'</dt><dd>'+esc(themes.find(([v])=>v===editing.theme)?.[1]||editing.theme)+'</dd></div></dl>'
+          +'<button type="button" class="btn btn-primary pa-bank-draft-rename" data-action="admin-rename" data-id="'+esc(editing.id)+'">'+esc(fr?"Renommer dans la banque":"Rename in the bank")+'</button>'
+          +'<p class="pa-bank-draft-name-help">'+esc(fr?
+             "Ce renommage change le nom de classement, pas le texte imprimé sur le pictogramme.":
+             "This changes the bank name, not the printed caption.")+'</p>'
+          +'<details class="pa-bank-draft-technical"><summary>'+esc(fr?"Préparer une proposition (sans sauvegarde)":"Prepare a proposal (not saved)")+'</summary>'
+          +'<p>'+esc(fr?"Cette option permet uniquement d’exporter un fichier de proposition pour une révision technique. Aucune modification de la banque ou de Supabase.":"This only exports a proposal file for technical review. It does not update the bank or Supabase.")+'</p>'
+          +editableFields
+          +(warning?'<p class="admin-import-alert" role="status">'+esc(warning)+'</p>':"")
+          +(draftEditor.error?'<p class="admin-import-alert" role="alert">'+esc(draftEditor.error)+'</p>':"")
+          +(draftEditor.message?'<p class="admin-import-success" role="status">'+esc(draftEditor.message)+'</p>':"")
+          +'</details>'
+        :editableFields
+          +(warning?'<p class="admin-import-alert" role="status">'+esc(warning)+'</p>':"")
+          +(draftEditor.error?'<p class="admin-import-alert" role="alert">'+esc(draftEditor.error)+'</p>':"")
+          +(draftEditor.message?'<p class="admin-import-success" role="status">'+esc(draftEditor.message)+'</p>':""))
       +'</section>';
   }
   const draftReviewAction=state.adminTab==="bank"&&bankFilters.status==="draft"&&
