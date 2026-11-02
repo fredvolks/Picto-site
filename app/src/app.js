@@ -24,6 +24,9 @@ import {createLocalInkCrop} from "./png-ink.js";
 import {createNormalizedBankThumbnail} from "./bank-thumbnail.js";
 import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,renderPrivateInkNamedGallery,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
 import {validateImageFineTune,previewImageInTemplates} from "./image-fine-tune.js";
+import {BANK_SHEET_DEFAULT,validateBankSheetAdjustment,hasBankSheetChanges,clampBankSheetOffset} from "./bank-sheet-adjust.js";
+import {saveAdminSheetNames} from "./admin-sheet-names.js";
+import {suggestEnglishTitle} from "./admin-english-suggestions.js";
 import {readAdminImageAdjustment,saveAdminImageAdjustment} from "./image-adjustments.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
@@ -70,7 +73,7 @@ async function probeTemplateChoices(client,uid){
 // L’édition des fiches s’active seulement si le serveur confirme la
 // présence de la migration de protection. Sinon : proposition JSON locale.
 // Sauvegarde verrouillée : la politique SQL proposée est encore EN REVUE.
-const DRAFT_METADATA_WRITES_ENABLED = false;
+const DRAFT_METADATA_WRITES_ENABLED = true;
 import {DEFAULT_PRESET, THEMES, clampWidth, scaleMetrics, labelFor, searchCatalog, addToRoutine, moveRoutine, routineFitsPaper, validatePreset} from "./core.js";
 
 const translations = {
@@ -697,8 +700,54 @@ const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,tota
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
 const privateNamedGallery={items:[],assetId:null,loaded:false,loading:false,error:"",request:0};
-const bankImageSheet={tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+let bankHeroDrag=null;
+const bankImageSheet={tab:"name",scalePercent:100,rotationDeg:0,offsetX:0,offsetY:0,
+  mirrorHorizontal:false,savedAdjust:null,names:null,savedNames:null,
+  saveOpen:false,createdDraft:null,revision:null,available:false,loaded:false,
   loading:false,busy:false,error:"",message:"",request:0};
+function initBankNames(asset){
+  if(!asset)return;
+  bankImageSheet.names={adminName:asset.admin_name||asset.title_fr||"",
+    titleFr:asset.title_fr||"",titleEn:asset.title_en||""};
+  bankImageSheet.savedNames={admin_name:asset.admin_name??null,
+    title_fr:asset.title_fr,title_en:asset.title_en??null};
+}
+function bankSheetAdjustment(){
+  const {assetId,...settings}=validateBankSheetAdjustment({
+    assetId:privatePreview.id,scalePercent:bankImageSheet.scalePercent,
+    rotationDeg:bankImageSheet.rotationDeg,offsetX:bankImageSheet.offsetX,
+    offsetY:bankImageSheet.offsetY,mirrorHorizontal:bankImageSheet.mirrorHorizontal
+  });return settings;
+}
+function bankSheetDirty(){
+  if(!privatePreview.id)return false;
+  const names=bankImageSheet.names,saved=bankImageSheet.savedNames;
+  const namesDirty=Boolean(names&&saved&&(
+    names.adminName.trim()!==(saved.admin_name??saved.title_fr)||
+    names.titleFr.trim()!==saved.title_fr||
+    names.titleEn.trim()!==(saved.title_en||"")));
+  const adjustDirty=Boolean(bankImageSheet.loaded&&
+    hasBankSheetChanges(bankImageSheet,bankImageSheet.savedAdjust||BANK_SHEET_DEFAULT));
+  return namesDirty||adjustDirty;
+}
+function syncBankSheetPreview(){
+  const sheet=root.querySelector(".pa-bank-sheet");if(!sheet)return;
+  sheet.style.setProperty("--pa-art-x",bankImageSheet.offsetX+"%");
+  sheet.style.setProperty("--pa-art-y",bankImageSheet.offsetY+"%");
+  sheet.style.setProperty("--pa-art-angle",bankImageSheet.rotationDeg+"deg");
+  sheet.style.setProperty("--pa-art-mirror",bankImageSheet.mirrorHorizontal?-1:1);
+  sheet.style.setProperty("--pa-art-scale",bankImageSheet.scalePercent/100);
+  for(const image of sheet.querySelectorAll(".pa-bank-adjust-gallery [data-admin-ink-preview]")){
+    const angle=privatePreview.rotationDeg+bankImageSheet.rotationDeg+Number(image.dataset.templateRotation||0);
+    image.style.transform="translate("+bankImageSheet.offsetX+"%, "+bankImageSheet.offsetY+
+      "%) rotate("+angle+"deg) scaleX("+(bankImageSheet.mirrorHorizontal?-1:1)+")";
+  }
+  const dirty=sheet.querySelector(".pa-bank-scale-unsaved");
+  if(dirty)dirty.hidden=!bankSheetDirty();
+  const warning=sheet.querySelector("#pa-bank-scale-warning");
+  if(warning)warning.textContent=bankScaleWarning(state.language==="fr");
+}
+
 function bankScaleWarning(fr=true){
   if(!privateNamedGallery.loaded||!privateNamedGallery.items.length||!privatePreview.id)return "";
   try{
@@ -719,8 +768,15 @@ async function loadBankImageScale(assetId,uid,previewTicket){
     const row=await readAdminImageAdjustment(client,uid,assetId);
     if(ticket!==bankImageSheet.request||previewTicket!==privatePreview.request||
        privatePreview.id!==assetId||authStatus.user?.id!==uid||!canOpenAdmin())return;
-    Object.assign(bankImageSheet,{scalePercent:row.scalePercent,revision:row.revision,
-      available:row.available,loaded:true});
+    Object.assign(bankImageSheet,{
+      scalePercent:row.scalePercent,rotationDeg:row.rotationDeg??0,
+      offsetX:row.offsetX??0,offsetY:row.offsetY??0,
+      mirrorHorizontal:row.mirrorHorizontal??false,
+      savedAdjust:{scalePercent:row.scalePercent,rotationDeg:row.rotationDeg??0,
+        offsetX:row.offsetX??0,offsetY:row.offsetY??0,
+        mirrorHorizontal:row.mirrorHorizontal??false},
+      revision:row.revision,available:row.available,loaded:true
+    });
   }catch(error){
     if(ticket===bankImageSheet.request&&privatePreview.id===assetId)
       bankImageSheet.error=String(error?.message||error);
@@ -893,7 +949,7 @@ function hasUnsavedBankEdits(){
     const original=draftEditor.original,form=draftEditor.form;
     return form.titleFr!==original.title_fr||form.titleEn!==(original.title_en||"")||form.theme!==original.theme;
   }
-  return false;
+  return bankSheetDirty();
 }
 function confirmDiscardBankEdits(){
   return !hasUnsavedBankEdits()||window.confirm(state.language==="fr"
@@ -1018,7 +1074,10 @@ function clearAdminPreview(){
   privatePreview.inkUrl=null;privatePreview.inkBlob=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
   privatePreview.rotationDeg=0;privatePreview.adjustBusy=false;privatePreview.adjustError="";privatePreview.adjustMessage="";
   bankImageSheet.request++;privateNamedGallery.request++;
-  Object.assign(bankImageSheet,{tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+  bankHeroDrag=null;
+  Object.assign(bankImageSheet,{tab:"name",scalePercent:100,rotationDeg:0,offsetX:0,offsetY:0,
+    mirrorHorizontal:false,savedAdjust:null,names:null,savedNames:null,
+    saveOpen:false,createdDraft:null,revision:null,available:false,loaded:false,
     loading:false,busy:false,error:"",message:""});
   Object.assign(privateNamedGallery,{items:[],assetId:null,loaded:false,loading:false,error:""});
   privatePreview.loading=false;privatePreview.error="";
@@ -1028,6 +1087,7 @@ async function openAdminPreview(assetId){
   clearAdminPreview();
   const userId=authStatus.user.id,request=++privatePreview.request;
   privatePreview.id=assetId;privatePreview.loading=true;
+  initBankNames(privateBank.items.find(item=>item.id===assetId));
   if(draftReviewQueue.active)draftReviewQueue.seen.add(assetId);
   render();focusBankInspector();
   try{
