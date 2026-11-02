@@ -133,3 +133,37 @@ test("Portage public : la confirmation du gabarit publié précède toute écrit
  assert.match(block,/Gabarit publié mis à jour/);
  assert.match(block,/PDF archivés restent inchangés/);
 });
+
+
+test("Une vraie banque vide propose le premier carré ou rectangle, jamais une démo",()=>{
+ const html=renderAdminNamedTemplateBank({templates:[],fr:true});
+ assert.match(html,/Aucun gabarit encore enregistré/);
+ assert.match(html,/data-action="admin-named-template-starter" data-shape="square"/);
+ assert.match(html,/data-action="admin-named-template-starter" data-shape="portrait"/);
+ assert.match(html,/rien n’est publié automatiquement/);
+ assert.doesNotMatch(html,/Démonstration locale|autobus/);
+ const en=renderAdminNamedTemplateBank({templates:[],fr:false});
+ assert.match(en,/Prepare a square/);
+ assert.match(en,/Prepare a tall rectangle/);
+});
+
+test("Erreur réelle de réseau : pouvoir réessayer sans inventer de gabarits",()=>{
+ const html=renderAdminNamedTemplateBank({templates:[],busy:true,error:"Erreur <HTTP>"});
+ assert.match(html,/role="alert">Erreur &lt;HTTP&gt;/);
+ assert.match(html,/data-action="admin-named-template-refresh"/);
+ assert.doesNotMatch(html,/data-action="admin-named-template-starter"/);
+ const waiting=renderAdminNamedTemplateBank({templates:[],busy:true,loading:true});
+ assert.doesNotMatch(waiting,/data-action="admin-named-template-starter"/);
+});
+
+test("Premier modèle : pas d'écriture Supabase sans Enregistrer",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+ const section=app.split('if(a==="admin-named-template-starter")')[1]
+   ?.split('if(a==="admin-named-template-new")')[0];
+ assert.ok(section,"Le parcours de premier gabarit est codé");
+ assert.match(section,/state\.currentPreset=\{\.\.\.DEFAULT_PRESET,shape\}/);
+ assert.match(section,/shape!=="square"&&shape!=="portrait"/);
+ assert.doesNotMatch(section,/supabaseClient\(|\.insert\(|\.rpc\(/);
+ assert.match(app,/if\(a==="admin-named-template-refresh"\)/);
+});
