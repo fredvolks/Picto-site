@@ -85,12 +85,18 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
         +'<input id="rename-'+e(doc.id)+'" maxlength="120" required name="title" value="'+e(doc.title)+'">'
         +'<button type="submit" class="btn btn-primary btn-small"'+(files.busy?' disabled':'')+'>'+t("Enregistrer","Save")+'</button>'
         +'<button type="button" class="btn btn-light btn-small" data-action="files-rename-cancel">'+t("Annuler","Cancel")+'</button></form>':"")+'</div>'
-       +'<div class="files-entry-actions"><button type="button" class="btn btn-light btn-small" data-action="files-preview" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+icon("search","btn-icon")+t("Aperçu","Preview")+'</button>'
-       +'<button type="button" class="btn btn-primary btn-small" data-action="files-reprint" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+icon("print","btn-icon")+t("Réimprimer","Reprint")+'</button>'
-       +'<button type="button" class="btn btn-light btn-small" data-action="files-download" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+t("Télécharger PDF","Download PDF")+'</button>'
+       +'<div class="files-entry-actions">'
+       +'<div class="files-entry-primary" role="group" aria-label="'+e(t("Actions principales pour ","Primary actions for ")+doc.title)+'">'
+       +'<button type="button" class="btn btn-light btn-small" data-action="files-preview" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+icon("search","btn-icon")+t("Aperçu","Preview")+'</button>'
+       +'<button type="button" class="btn btn-primary btn-small" data-action="files-reprint" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+icon("print","btn-icon")+t("Réimprimer","Reprint")+'</button></div>'
+       +'<details class="files-entry-more"'+(renaming?' open':'')+'>'
+       +'<summary>'+t("Autres actions","More actions")+'</summary>'
+       +'<div class="files-entry-more-actions">'
+       +'<button type="button" class="btn btn-light btn-small" data-action="files-download" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+t("Télécharger le PDF original","Download original PDF")+'</button>'
        +(doc.source_draft_id?'<button type="button" class="btn btn-light btn-small" data-action="files-edit-source" data-id="'+e(doc.id)+'"'
          +(files.busy?' disabled':'')+'>'+icon("edit","btn-icon")+t("Modifier la source","Edit source")+'</button>':'')
-       +'<button type="button" class="btn btn-light btn-small" data-action="files-rename-open" data-id="'+e(doc.id)+'">'+t("Renommer","Rename")+'</button></div></article>';
+       +'<button type="button" class="btn btn-light btn-small" data-action="files-rename-open" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+t("Renommer","Rename")+'</button>'
+       +'</div></details></div></article>';
      }).join("")+'</div>'
    :'<p class="files-empty" role="status">'+(firstUse?
      t("Aucun PDF enregistré. Ajoutez votre premier document avec le formulaire ci-dessus.",
