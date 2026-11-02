@@ -669,6 +669,43 @@ try{
     }
   }
 
+  // Banque > Images : tests de pixels sur le vrai pipeline local (pas seulement les carrés CSS).
+  // Trois PNG fictifs : noir de taille/place différente et format panoramique; zéro compte privé.
+  const inkStats=await evaluate(
+    "return import('./src/bank-thumbnail.js').then(async ({createNormalizedBankThumbnail,BANK_THUMBNAIL_PIXELS})=>{"
+    +"const ink=await import('./src/png-ink.js');const sizes=[[200,200,10,10,70,70],[200,200,146,146,30,30],[200,100,45,30,100,40]];"
+    +"const all=[];"
+    +"for(const [w,h,x,y,bw,bh] of sizes){"
+    +"const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;"
+    +"const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);"
+    +"ctx.fillStyle='#000';ctx.fillRect(x,y,bw,bh);"
+    +"const original=await new Promise(ok=>canvas.toBlob(ok,'image/png'));"
+    +"const normalized=await createNormalizedBankThumbnail(original);"
+    +"const bitmap=await createImageBitmap(normalized);"
+    +"const out=document.createElement('canvas');out.width=out.height=BANK_THUMBNAIL_PIXELS;"
+    +"const outCtx=out.getContext('2d',{willReadFrequently:true});outCtx.drawImage(bitmap,0,0);bitmap.close();"
+    +"const bounds=ink.findInkBoundsRGBA(outCtx.getImageData(0,0,out.width,out.height).data,out.width,out.height);"
+    +"all.push({width:out.width,height:out.height,inkWidth:bounds.width,inkHeight:bounds.height,"
+    +"centerX:bounds.x+bounds.width/2,centerY:bounds.y+bounds.height/2,"
+    +"sourceUnchanged:original.size>0,outputBytes:normalized.size});"
+    +"}return all;"
+    +"});"
+  );
+  assert.equal(inkStats.length,3,"Les 3 PNG fictifs doivent être normalisés");
+  for(const [index,entry] of inkStats.entries()){
+    assert.equal(entry.width,216,"Dimension PNG normalisée "+index);
+    assert.equal(entry.height,216,"Dimension PNG normalisée "+index);
+    assert.ok(entry.sourceUnchanged&&entry.outputBytes>0,"Source ou rendu invalide "+index);
+    assert.ok(Math.abs(entry.centerX-108)<=2&&Math.abs(entry.centerY-108)<=2,
+      "Dessin non centré "+index+" "+JSON.stringify(entry));
+    assert.ok(Math.max(entry.inkWidth,entry.inkHeight)>=154&&Math.max(entry.inkWidth,entry.inkHeight)<=176,
+      "Dessin mal calibré "+index+" "+JSON.stringify(entry));
+  }
+  const squareInk=[inkStats[0],inkStats[1]];
+  assert.ok(Math.abs(squareInk[0].inkWidth-squareInk[1].inkWidth)<=8,
+    "Deux dessins carrés de tailles initiales différentes doivent finir à la même grandeur");
+  console.log("BANQUE ENCRE NORMALISÉE OK",JSON.stringify(inkStats));
+
   console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 3, zoom et pages légales.");
 }catch(error){
   console.error(error);
