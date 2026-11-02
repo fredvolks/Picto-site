@@ -2645,6 +2645,7 @@ function render(){
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):
     clientTitle?clientTitle[state.language==="fr"?0:1]:
     T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
+  const bankGalleryScrollTop=root.querySelector(".pa-bank-adjust-gallery")?.scrollTop??0;
   root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,uid:authStatus.user?.id,
     pendingPdf:Boolean(authStatus.user&&pendingGeneratedPdf?.uid===authStatus.user.id),escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
      kind:state.page==="routines"?"routine":"board",
@@ -2664,6 +2665,9 @@ function render(){
     }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,uid:authStatus.user?.id,
     pendingPdf:Boolean(authStatus.user&&pendingGeneratedPdf?.uid===authStatus.user.id),escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
+  const gallery=root.querySelector(".pa-bank-adjust-gallery");
+  if(gallery)gallery.scrollTop=bankGalleryScrollTop;
+  syncBankSheetPreview();
   updateArtFeedback();
   observeBankThumbnails();
   observePublishedArtwork();
@@ -4532,6 +4536,22 @@ root.addEventListener("click",function(event){
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
+  const nameField=event.target.dataset.input;
+  if(["pa-bank-name","pa-bank-name-fr","pa-bank-name-en"].includes(nameField)){
+    if(!canOpenAdmin()||!bankImageSheet.names||bankImageSheet.busy)return;
+    const key=nameField==="pa-bank-name"?"adminName":nameField==="pa-bank-name-fr"?"titleFr":"titleEn";
+    bankImageSheet.names[key]=event.target.value;
+    bankImageSheet.message="";bankImageSheet.error="";
+    syncBankSheetPreview();return;
+  }
+  if(nameField==="pa-bank-rotation"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    bankImageSheet.rotationDeg=Number(event.target.value);
+    bankImageSheet.message="";bankImageSheet.error="";
+    const output=root.querySelector("#pa-bank-rotation-value");
+    if(output)output.textContent=bankImageSheet.rotationDeg+"°";
+    syncBankSheetPreview();return;
+  }
   if(event.target.dataset.input==="pa-bank-scale"){
     if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
     try{bankImageSheet.scalePercent=validateImageFineTune({
@@ -4540,12 +4560,10 @@ root.addEventListener("input",function(event){
     bankImageSheet.error="";bankImageSheet.message="";
     const value=root.querySelector("#pa-bank-scale-value");
     if(value)value.textContent=bankImageSheet.scalePercent+" %";
-    const stage=root.querySelector(".pa-bank-scale-stage");
-    if(stage)stage.style.setProperty("--pictau-image-scale",String(bankImageSheet.scalePercent/Number(stage.dataset.baseScale||100)));
+    syncBankSheetPreview();
     const warning=root.querySelector("#pa-bank-scale-warning");
     if(warning)warning.textContent=bankScaleWarning(state.language==="fr");
-    const reset=root.querySelector('[data-action="pa-bank-scale-reset"]');
-    if(reset)reset.disabled=bankImageSheet.scalePercent===100;
+
     return;
   }
   if(event.target.dataset.input==="admin-art-rotation"){
@@ -4632,11 +4650,8 @@ root.addEventListener("input",function(event){
 });
 root.addEventListener("change",function(event){
   const el=event.target;
-  if(el?.dataset.input==="pa-bank-scale"){
-    if(canOpenAdmin()&&privatePreview.id&&bankImageSheet.tab==="adjust"&&!bankImageSheet.busy){
-      render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});
-    }
-    return;
+  if(el?.dataset.input==="pa-bank-scale"||el?.dataset.input==="pa-bank-rotation"){
+    syncBankSheetPreview();return;
   }
   if(el?.dataset.input!=="test-client-plan"||!canOpenAdmin()||testClients.busy)return;
   const id=el.dataset.id,plan=el.value;
@@ -4657,6 +4672,11 @@ root.addEventListener("change",function(event){
   })();
 });
 root.addEventListener("submit",function(event){
+  if(event.target.matches('form[data-form="pa-bank-sheet-names"]')){
+    event.preventDefault();
+    root.querySelector('[data-action="pa-bank-save-open"]')?.click();
+    return;
+  }
   if(event.target.matches('form[data-form="test-clients-create"]')){
     event.preventDefault();
     if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
