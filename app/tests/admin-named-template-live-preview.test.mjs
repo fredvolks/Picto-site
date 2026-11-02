@@ -52,8 +52,8 @@ test("L3 : la largeur change le vrai rendu privé et seule l'image pivote",()=>{
  const html=fn();
  assert.equal(used.at(-1).size,4.25);
  assert.match(used.at(-1).image,/src="blob:real-ink"/);
- assert.match(html,/--width:4\\.25cm/);
- assert.match(html,/class="picto-artwork" style="transform:rotate\\(-32\\.5deg\\);transform-origin:center center"/);
+ assert.match(html,/--width:4\.25cm/);
+ assert.match(html,/class="picto-artwork" style="transform:rotate\(-32\.5deg\);transform-origin:center center"/);
  assert.doesNotMatch(html,/<div class="picto"[^>]*rotate/);
  bank.widthCm="";const count=used.length;
  assert.match(fn(),/Aperçu indisponible/);
@@ -86,13 +86,13 @@ test("L3 : aperçu actualisé au clavier avec légende de l'image réelle",()=>{
      doc,()=>"<div>Réglages actualisés</div>",()=>{placements++;},()=>{},realCaption);
  fn();
  assert.equal(drawn,"<div>Réglages actualisés</div>");
- assert.match(caption,/Pomme · 4\\.25 cm · 15° · aperçu privé/);
+ assert.match(caption,/Pomme · 4\.25 cm · 15° · aperçu privé/);
  assert.equal(placements,1);
  bank.widthCm="5.75";bank.rotationDeg="-12";fn();
- assert.match(caption,/Pomme · 5\\.75 cm · -12°/);
+ assert.match(caption,/Pomme · 5\.75 cm · -12°/);
  assert.equal(placements,2);
- assert.match(app,/adminNamedTemplates\\.widthCm=event\\.target\\.value;adminLive\\(\\)/);
- assert.match(app,/adminNamedTemplates\\.rotationDeg=event\\.target\\.value;adminLive\\(\\)/);
+ assert.match(app,/adminNamedTemplates\.widthCm=event\.target\.value;adminLive\(\)/);
+ assert.match(app,/adminNamedTemplates\.rotationDeg=event\.target\.value;adminLive\(\)/);
  assert.match(app,/id="admin-preview-caption"[^>]*role="status" aria-live="polite"/);
 });
 test("L3 : validation avant toute sauvegarde réseau, sans toucher au login gelé",()=>{
