@@ -732,6 +732,11 @@ function bankSheetDirty(){
 }
 function syncBankSheetPreview(){
   const sheet=root.querySelector(".pa-bank-sheet");if(!sheet)return;
+  // La hauteur de la fiche tient compte de son en-tête réel sur téléphone,
+  // tablette et PC : pas de défilement du document pendant l'ajustement.
+  const top=sheet.getBoundingClientRect().top;
+  if(top>=0&&Number.isFinite(top))
+    sheet.style.height=Math.max(330,Math.floor(window.innerHeight-top-9))+"px";
   sheet.style.setProperty("--pa-art-x",bankImageSheet.offsetX+"%");
   sheet.style.setProperty("--pa-art-y",bankImageSheet.offsetY+"%");
   sheet.style.setProperty("--pa-art-angle",bankImageSheet.rotationDeg+"deg");
@@ -4272,6 +4277,8 @@ root.addEventListener("click",function(event){
           privateBank.items=privateBank.items.map(x=>x.id===originalId?
             {...x,admin_name:savedNames.admin_name,title_fr:savedNames.title_fr,
               title_en:savedNames.title_en}:x);
+          if(privatePreview.asset?.id===originalId)privatePreview.asset={...privatePreview.asset,
+            title_fr:savedNames.title_fr,title_en:savedNames.title_en,admin_name:savedNames.admin_name};
         }
         const saved=await saveAdminImageAdjustment(client,uid,{
           assetId:targetId,...adjustments,revision:overwrite?revision:null
