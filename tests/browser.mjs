@@ -698,7 +698,7 @@ try{
     assert.ok(entry.sourceUnchanged&&entry.outputBytes>0,"Source ou rendu invalide "+index);
     assert.ok(Math.abs(entry.centerX-108)<=2&&Math.abs(entry.centerY-108)<=2,
       "Dessin non centré "+index+" "+JSON.stringify(entry));
-    assert.ok(Math.max(entry.inkWidth,entry.inkHeight)>=154&&Math.max(entry.inkWidth,entry.inkHeight)<=176,
+    assert.ok(Math.max(entry.inkWidth,entry.inkHeight)>=180&&Math.max(entry.inkWidth,entry.inkHeight)<=196,
       "Dessin mal calibré "+index+" "+JSON.stringify(entry));
   }
   const squareInk=[inkStats[0],inkStats[1]];
