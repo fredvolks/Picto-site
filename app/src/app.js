@@ -4068,6 +4068,40 @@ root.addEventListener("click",function(event){
     return;
   }
   if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
+  if(a==="pa-bank-sheet-tab"){
+    if(!canOpenAdmin()||!bankSelectionId||!privatePreview.id||
+       !["name","adjust","classify"].includes(el.dataset.tab))return;
+    bankImageSheet.tab=el.dataset.tab;render();return;
+  }
+  if(a==="pa-bank-scale-reset"){
+    if(!canOpenAdmin()||!bankSelectionId||bankImageSheet.busy)return;
+    bankImageSheet.scalePercent=100;bankImageSheet.error="";bankImageSheet.message="";
+    render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-scale-save"){
+    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||
+       !bankImageSheet.available||bankImageSheet.busy||
+       !privateBank.items.some(row=>row.id===privatePreview.id&&row.status==="draft"))return;
+    const assetId=privatePreview.id,uid=authStatus.user.id;
+    const scalePercent=bankImageSheet.scalePercent,revision=bankImageSheet.revision;
+    const ticket=++bankImageSheet.request,previewTicket=privatePreview.request;
+    bankImageSheet.busy=true;bankImageSheet.error="";bankImageSheet.message="";render();
+    void(async()=>{
+      const current=()=>bankImageSheet.request===ticket&&
+        privatePreview.id===assetId&&privatePreview.request===previewTicket&&
+        authStatus.user?.id===uid&&canOpenAdmin();
+      try{
+        const client=await supabaseClient();
+        const saved=await saveAdminImageAdjustment(client,uid,{assetId,scalePercent,revision});
+        if(!current())return;
+        bankImageSheet.scalePercent=saved.scalePercent;bankImageSheet.revision=saved.revision;
+        bankImageSheet.message=state.language==="fr"?
+          "Taille enregistrée pour cette image uniquement.":"Size saved for this image only.";
+      }catch(error){if(current())bankImageSheet.error=String(error?.message||error);}
+      finally{if(current()){bankImageSheet.busy=false;render();}}
+    })();return;
+  }
+
   if(a==="close-admin-preview"){clearAdminPreview();render();return;}
   if(a==="download-admin-proof"){
     if(!canOpenAdmin()||!authStatus.user||privateProof.busy||
@@ -4310,6 +4344,22 @@ root.addEventListener("click",function(event){
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
 root.addEventListener("input",function(event){
+  if(event.target.dataset.input==="pa-bank-scale"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    try{bankImageSheet.scalePercent=validateImageFineTune({
+      assetId:privatePreview.id,scalePercent:Number(event.target.value)
+    }).scalePercent;}catch{return;}
+    bankImageSheet.error="";bankImageSheet.message="";
+    const value=root.querySelector("#pa-bank-scale-value");
+    if(value)value.textContent=bankImageSheet.scalePercent+" %";
+    const stage=root.querySelector(".pa-bank-scale-stage");
+    if(stage)stage.style.setProperty("--pictau-image-scale",String(bankImageSheet.scalePercent/Number(stage.dataset.baseScale||100)));
+    const warning=root.querySelector("#pa-bank-scale-warning");
+    if(warning)warning.textContent=bankScaleWarning(state.language==="fr");
+    const reset=root.querySelector('[data-action="pa-bank-scale-reset"]');
+    if(reset)reset.disabled=bankImageSheet.scalePercent===100;
+    return;
+  }
   if(event.target.dataset.input==="admin-art-rotation"){
     if(!canOpenAdmin()||!privatePreview.inkBlob||privatePreview.adjustBusy)return;
     const angle=Number(event.target.value);
@@ -4394,6 +4444,12 @@ root.addEventListener("input",function(event){
 });
 root.addEventListener("change",function(event){
   const el=event.target;
+  if(el?.dataset.input==="pa-bank-scale"){
+    if(canOpenAdmin()&&privatePreview.id&&bankImageSheet.tab==="adjust"&&!bankImageSheet.busy){
+      render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});
+    }
+    return;
+  }
   if(el?.dataset.input!=="test-client-plan"||!canOpenAdmin()||testClients.busy)return;
   const id=el.dataset.id,plan=el.value;
   if(!testClients.items.some(item=>item.user_id===id))return;
