@@ -4,7 +4,7 @@ import {inspectPngBlob} from "./admin-review.js";
 import {findInkBoundsRGBA,MAX_SCAN_SIDE,MAX_DECODE_PIXELS,MAX_PNG_CROP_BYTES} from "./png-ink.js";
 
 export const BANK_THUMBNAIL_PIXELS=216; // 3x le cadre CSS 72px, net sur écran haute densité.
-export const BANK_INK_MAX_PIXELS=174; // Le côté dominant du dessin mesure environ 58px à l'écran.
+export const BANK_INK_MAX_PIXELS=194; // Le côté dominant du dessin mesure environ 58px à l'écran.
 
 export async function createNormalizedBankThumbnail(originalBlob){
   // Un aperçu téléchargé reste local en mémoire; aucune écriture dans Storage.
