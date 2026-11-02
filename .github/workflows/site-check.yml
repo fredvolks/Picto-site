@@ -22,6 +22,15 @@ jobs:
           name: pictau-banque-hero-mobile
           path: artifacts/bank-hero/
           if-no-files-found: warn
+      - name: Vrai parcours de fiche Banque avec session admin QA dans Chromium
+        run: node tests/bank-real-app-mobile.mjs
+      - name: Captures de l'app Banque chargée en conditions navigateur
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pictau-banque-vraie-app-qa
+          path: artifacts/admin-bank-real/
+          if-no-files-found: warn
       - name: Captures et contrôle géométrique des pages (FR et EN)
         run: node tests/browser.mjs
       - name: Captures écran unique
