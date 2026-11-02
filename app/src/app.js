@@ -22,7 +22,9 @@ import {createPrivateDraftProof} from "./admin-proof.js";
 import {inspectPngBlob} from "./admin-review.js";
 import {createLocalInkCrop} from "./png-ink.js";
 import {createNormalizedBankThumbnail} from "./bank-thumbnail.js";
-import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
+import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,renderPrivateInkNamedGallery,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
+import {validateImageFineTune,previewImageInTemplates} from "./image-fine-tune.js";
+import {readAdminImageAdjustment,saveAdminImageAdjustment} from "./image-adjustments.js";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
@@ -38,7 +40,7 @@ import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,sa
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf,fitPhysicalCopyColumns} from "./print-pdf.js";
-import {loadConfirmedPrintSettings,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
+import {loadConfirmedPrintSettings,loadPublishedImageScale,applyPublishedImageScale,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
 import {renderPdfRecovery} from "./pdf-recovery-ui.js";
 
@@ -697,7 +699,7 @@ const privateProof={busy:false,error:"",message:"",request:0};
 const adminTemplateChoices={assetId:null,available:[],selected:[],confirmed:[],
   revision:0,confirmedRevision:0,loaded:false,loading:false,busy:false,
   dirty:false,error:"",message:"",request:0};
-const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,
+const clientPictoTemplates={pictoId:null,pictoName:"",items:[],selectedId:null,scalePercent:100,
   borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:"",request:0};
 function resetAdminTemplateChoices(){
   ++adminTemplateChoices.request;
@@ -707,7 +709,7 @@ function resetAdminTemplateChoices(){
 }
 function resetClientPictoTemplates(){
   ++clientPictoTemplates.request;
-  Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,
+  Object.assign(clientPictoTemplates,{pictoId:null,pictoName:"",items:[],selectedId:null,scalePercent:100,
     borderEnabled:null,borderColor:null,paper:"letter",copies:1,loading:false,busy:false,error:""});
 }
 function closeClientPictoTemplateChoices(){
@@ -753,8 +755,10 @@ async function openClientPictoTemplateChoices(id){
   try{
     const client=await supabaseClient();
     const rows=await listClientPictoTemplateChoices(client,uid,id);
+    const approvedScale=await loadPublishedImageScale(client,uid,id);
     if(ticket!==clientPictoTemplates.request||authStatus.user?.id!==uid||canOpenAdmin())return;
     clientPictoTemplates.items=rows;
+    clientPictoTemplates.scalePercent=approvedScale;
   }catch(error){
     if(ticket===clientPictoTemplates.request)clientPictoTemplates.error=String(error?.message||error);
   }finally{
@@ -771,7 +775,7 @@ function renderClientPictoTemplateModal(){
       +'<button type="button" data-action="client-template-refresh" class="btn btn-light">'
       +esc(fr?"Actualiser les gabarits":"Refresh templates")+'</button></div>':"")
     +(!f.loading&&!f.error?renderClientPictoTemplateOptions({pictoName:f.pictoName,
-       templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,
+       templates:f.items,selectedId:f.selectedId,fr,busy:f.busy,artScalePercent:f.scalePercent,
        borderEnabled:f.borderEnabled,borderColor:f.borderColor,paper:f.paper,copies:f.copies,
        artworkUrl:publishedCatalog.imageUrls.get(f.pictoId)||null}):"")
     +'</section></div>';
@@ -3890,6 +3894,7 @@ root.addEventListener("click",function(event){
       try{
         const client=await supabaseClient();
         const settings=await loadConfirmedPrintSettings(client,uid,id,chosenId);
+        const approvedScale=await loadPublishedImageScale(client,uid,id);
         if(!current())return;
         const rows=await loadApprovedSelection(client,uid,[id]);
         if(rows.length!==1||rows[0].id!==id)
@@ -3899,13 +3904,17 @@ root.addEventListener("click",function(event){
         // La confirmation peut avoir été révoquée pendant le téléchargement PNG.
         // Ne pas générer une version sortie du catalogue de gabarits.
         const latest=await loadConfirmedPrintSettings(client,uid,id,chosenId);
+        const latestApprovedScale=await loadPublishedImageScale(client,uid,id);
         if(!current())return;
+        if(latestApprovedScale!==approvedScale)
+          throw Error("La taille du dessin a changé : actualisez la fiche avant impression.");
         if(JSON.stringify(latest)!==JSON.stringify(settings))
           throw Error("Le gabarit a changé : actualisez la fiche avant l'impression.");
         const title=String(printLanguage==="en"?(row.title_en||row.title_fr):row.title_fr).trim().slice(0,120);
         // Une seule personnalisation validée, utilisée par le calcul
         // géométrique et le PDF officiel sans réduire le pictogramme.
-        const printPreset=applyClientBorderPreference(settings,borderPreference).preset;
+        const printPreset=applyPublishedImageScale(
+          applyClientBorderPreference(settings,borderPreference),approvedScale).preset;
         const columns=fitPhysicalCopyColumns({
           widthCm:settings.widthCm,preset:printPreset,paper:printPaper,copies:printCopies
         });
