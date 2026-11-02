@@ -4169,7 +4169,6 @@ root.addEventListener("change",function(event){
   })();
 });
 root.addEventListener("submit",function(event){
-root.addEventListener("submit",function(event){
   if(event.target.matches('form[data-form="test-clients-create"]')){
     event.preventDefault();
     if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
