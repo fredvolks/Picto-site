@@ -27,7 +27,7 @@ import {validateImageFineTune,previewImageInTemplates} from "./image-fine-tune.j
 import {BANK_SHEET_DEFAULT,validateBankSheetAdjustment,hasBankSheetChanges,clampBankSheetOffset} from "./bank-sheet-adjust.js";
 import {saveAdminSheetNames} from "./admin-sheet-names.js";
 import {suggestEnglishTitle} from "./admin-english-suggestions.js";
-import {readAdminImageAdjustment,saveAdminImageAdjustment} from "./image-adjustments.js";
+import {readAdminImageAdjustment,saveAdminImageAdjustment} from "./image-adjustments.js?v=bank5-20261102";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
