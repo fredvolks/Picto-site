@@ -2524,3 +2524,77 @@
   .files-entry-primary>.btn{font-size:12px;padding:8px 5px;overflow-wrap:anywhere}
   .files-entry-more-actions{grid-template-columns:minmax(0,1fr)}
 }
+
+/* Gabarits seulement : refonte Banque sans migration et sans toucher aux pages gelées. */
+@media screen {
+  .admin-workspace:has(.pa-template-lite){height:100dvh;min-height:0;overflow:hidden;padding-bottom:0}
+  .admin-workspace:has(.pa-template-lite) .admin-area{min-height:0;height:100%;display:flex;flex-direction:column;overflow:hidden}
+  .admin-workspace:has(.pa-template-lite) .admin-topbar{flex:none}
+  .admin-workspace:has(.pa-template-lite) .admin-main{flex:1;min-height:0;max-height:none;overflow:hidden;padding:8px clamp(8px,1.8vw,20px)}
+  .admin-workspace:has(.pa-template-lite) .admin-ui{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .admin-workspace:has(.pa-template-lite) .admin-ui>.admin-ui-title,
+  .admin-workspace:has(.pa-template-lite) .admin-ui>.admin-tabs{display:none}
+  .pa-template-lite{--lt-ink:#111;--lt-line:#dedede;min-width:0;min-height:0;height:100%;width:100%;display:flex;flex-direction:column;gap:8px;color:var(--lt-ink);overflow:hidden}
+  .pa-template-lite .pa-lt-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:none}
+  .pa-template-lite .pa-lt-head h1{font-size:clamp(18px,2.5vw,25px);line-height:1.2;letter-spacing:-.02em;margin:0;color:#111}
+  .pa-template-lite .pa-lt-save{min-height:44px;min-width:105px;background:#111;color:#fff;border:1px solid #111;border-radius:10px;font-weight:750}
+  .pa-template-lite .pa-lt-top{display:flex;align-items:center;gap:8px;flex:none;min-width:0}
+  .pa-template-lite .pa-lt-name{display:flex;align-items:center;gap:8px;flex:1;min-width:0;min-height:44px;padding:3px 9px;border:1px solid var(--lt-line);border-radius:10px;background:#fff;color:#555;font-size:12px;font-weight:750}
+  .pa-template-lite .pa-lt-name input{width:100%;min-width:0;flex:1;min-height:35px;font-size:14px;color:#111;background:#fff;border:0;outline-offset:-3px}
+  .pa-template-lite .pa-lt-manager{flex:none;min-width:0}
+  .pa-template-lite .pa-lt-manager>summary{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 12px;border:1px solid var(--lt-line);border-radius:10px;background:#fff;cursor:pointer;list-style:none;font-size:12px;color:#111;font-weight:750}
+  .pa-template-lite .pa-lt-manager>summary::-webkit-details-marker{display:none}
+  .pa-template-lite .pa-lt-manager>summary:after{content:"⌄";font-size:16px}
+  .pa-template-lite .pa-lt-manager[open]>summary:after{content:"⌃"}
+  .pa-template-lite .pa-lt-manager-body{position:fixed;z-index:90;top:clamp(128px,19dvh,180px);left:50%;transform:translateX(-50%);width:min(96vw,680px);max-height:calc(100dvh - clamp(128px,19dvh,180px) - 10px);overflow:auto;overscroll-behavior:contain;padding:12px;border:1px solid #bdbdbd;border-radius:14px;background:#fff;box-shadow:0 18px 55px #0003}
+  .pa-template-lite .pa-lt-manager-body .admin-named-templates{margin:0;border:0;padding:2px 3px}
+  .pa-template-lite .pa-lt-manager-body .admin-named-template-fields{display:none}
+  .pa-template-lite .pa-lt-manager-body .admin-named-template-actions button{background:#fff;border:1px solid #d1d1d1;color:#111}
+  .pa-template-lite .pa-lt-manager-body .pa-template-next{margin:8px 0}
+  .pa-template-lite .pa-lt-alert,.pa-template-lite .pa-lt-message{font-size:12px;margin:0;padding:5px 8px;border-radius:8px;max-height:46px;overflow:auto}
+  .pa-template-lite .pa-lt-alert{background:#fff0f0;color:#922}
+  .pa-template-lite .pa-lt-message{background:#f3f7f3;color:#234b36}
+  .pa-template-lite .pa-lt-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:8px;overflow:hidden}
+  .pa-template-lite .pa-lt-preview,.pa-template-lite .pa-lt-settings{min-height:0;min-width:0;overflow:hidden;border:1px solid var(--lt-line);background:#fff;border-radius:13px;padding:10px;display:flex;flex-direction:column}
+  .pa-template-lite .pa-real-template-asset-picker{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:0;margin:0 0 7px;border:0;flex:none}
+  .pa-template-lite .pa-real-template-asset-picker label{font-size:11px;font-weight:700;width:100%;color:#555}
+  .pa-template-lite .pa-real-template-asset-picker select{min-height:40px;min-width:0;flex:1 1 130px;padding:5px 8px;color:#111;background:#fff;border:1px solid #d3d3d3;border-radius:9px}
+  .pa-template-lite .pa-real-template-asset-picker button{min-height:40px;padding:6px 9px;color:#111;background:#f9f9f9;border:1px solid #d3d3d3;border-radius:9px}
+  .pa-template-lite .pa-real-template-asset-picker p{width:100%;font-size:11px;line-height:1.2;margin:0}
+  .pa-template-lite .admin-stage{flex:1;min-height:0;max-height:none;width:100%;overflow:hidden;padding:5px;display:grid;place-items:center;border:1px solid #e8e8e8;background:#f7f7f7;border-radius:11px}
+  .pa-template-lite .admin-stage .picto-wrapper{flex:none;min-width:0;max-width:100%;width:min(100%,180px,21dvh);display:flex;justify-content:center}
+  .pa-template-lite .admin-stage .color-shell{max-width:100%;width:100%;display:flex;justify-content:center;align-items:stretch}
+  .pa-template-lite .admin-stage .picto{width:100%!important;height:auto!important;min-height:0;max-width:100%!important;aspect-ratio:var(--pa-lt-ratio,1)}
+  .pa-template-lite .admin-stage img[data-pictau-ink]{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain}
+  .pa-template-lite .admin-preview-caption{flex:none;margin:4px 0 0;font-size:11px;color:#555;line-height:1.3;max-height:31px;overflow:hidden}
+  .pa-template-lite .pa-lt-settings{overflow-y:auto;overscroll-behavior:contain;gap:7px}
+  .pa-template-lite .pa-lt-group{border:1px solid #dedede;border-radius:10px;background:#fff;flex:none}
+  .pa-template-lite .pa-lt-group>summary{list-style:none;min-height:44px;display:flex;align-items:center;padding:9px 12px;font-size:13px;font-weight:750;color:#111;cursor:pointer}
+  .pa-template-lite .pa-lt-group>summary::-webkit-details-marker{display:none}
+  .pa-template-lite .pa-lt-group>summary:after{content:"⌄";margin-left:auto}
+  .pa-template-lite .pa-lt-group[open]>summary:after{content:"⌃"}
+  .pa-template-lite .pa-lt-group:first-child>summary{background:#111;color:#fff;border-radius:9px}
+  .pa-template-lite .pa-lt-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:9px}
+  .pa-template-lite .pa-lt-fields .control,.pa-template-lite .pa-lt-fields .toggle-row{min-width:0}
+  .pa-template-lite .pa-lt-fields .full-span{grid-column:1/-1}
+  .pa-template-lite .pa-lt-fields label{font-size:11px;color:#444}
+  .pa-template-lite .pa-lt-fields :is(select,input[type=number]){min-height:44px;width:100%;border:1px solid #d4d4d4;border-radius:8px;padding:7px;background:#fff;color:#111}
+  .pa-template-lite .pa-lt-fields input[type=range]{width:100%;accent-color:#111}
+  .pa-template-lite .pa-lt-fields .range-header{display:flex;align-items:center;justify-content:space-between;gap:5px}
+  .pa-template-lite .pa-lt-fields .range-header output{font-size:11px;white-space:nowrap}
+  .pa-template-lite :is(button,input,select,summary):focus-visible{outline:3px solid #111;outline-offset:1px}
+}
+@media screen and (max-width:700px){
+  .pa-template-lite .pa-lt-body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1.1fr) minmax(0,.9fr)}
+  .pa-template-lite .pa-lt-preview,.pa-template-lite .pa-lt-settings{padding:7px}
+  .pa-template-lite .pa-real-template-asset-picker label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .pa-template-lite .pa-real-template-asset-picker select,.pa-template-lite .pa-real-template-asset-picker button{min-height:36px}
+}
+@media screen and (max-height:650px){
+  .pa-template-lite{gap:5px}
+  .pa-template-lite .pa-lt-head h1{display:none}
+  .pa-template-lite .pa-lt-head{justify-content:flex-end}
+  .pa-template-lite .pa-lt-preview,.pa-template-lite .pa-lt-settings{padding:5px}
+  .pa-template-lite .pa-lt-fields{grid-template-columns:1fr}
+  .pa-template-lite .pa-lt-manager-body{top:110px;max-height:calc(100dvh - 120px)}
+}
