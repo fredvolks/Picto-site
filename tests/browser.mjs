@@ -623,6 +623,52 @@ try{
   assert.equal(publicForm.form,true,"Lien création → formulaire du forfait");
   assert.match(publicForm.price,/9,99/,"Tarif mensuel actuel");
   console.log("PASS connexion publique → création de compte Design 3");
+  // Banque > Images : contrôle du vrai CSS sur mobile / tablette / PC.
+  // Fiche factice seulement : aucune connexion Super Admin ou image privée.
+  await command("Page.navigate",{url:base+"/app/index.html"});
+  await waitFor("return document.readyState==='complete' && !!document.querySelector('link[href=\"./src/styles.css\"]')");
+  await evaluate(
+    "document.body.innerHTML='<main class=\"pa-bank-results\"><div class=\"admin-bank-grid admin-bank-view-list\"></div></main>';"
+    +"const grid=document.querySelector('.admin-bank-grid');"
+    +"for(let i=0;i<3;i++){"
+    +"const card=document.createElement('article');"
+    +"card.className='admin-bank-card admin-bank-item';"
+    +"card.innerHTML='<span class=\"admin-bank-thumb\"><img data-private-thumb alt=\"\"></span><div class=\"admin-bank-item-meta\"><strong>Picto '+(i+1)+'</strong></div><button type=\"button\" class=\"pa-bank-card-open\">Ouvrir</button>';"
+    +"const img=card.querySelector('img');"
+    +"const dims=[[80,80],[160,80],[80,160]][i];"
+    +"img.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"'+dims[0]+'\" height=\"'+dims[1]+'\" viewBox=\"0 0 '+dims[0]+' '+dims[1]+'\"><path fill=\"black\" d=\"M0 0h40v40H0z\"/></svg>');"
+    +"grid.appendChild(card);"
+    +"}return true;"
+  );
+  for(const width of [320,375,768,1024,1440,1920]){
+    await command("Emulation.setDeviceMetricsOverride",{width,height:900,mobile:width<800,deviceScaleFactor:1});
+    for(const view of ["list","small","medium"]){
+      const data=await evaluate(
+        "const g=document.querySelector('.pa-bank-results .admin-bank-grid');"
+        +"g.className='admin-bank-grid admin-bank-view-"+view+"';"
+        +"const thumbs=[...g.querySelectorAll('.admin-bank-item .admin-bank-thumb')];"
+        +"const boxes=thumbs.map(el=>{const r=el.getBoundingClientRect(),img=el.querySelector('img'),ri=img.getBoundingClientRect();"
+        +"return {width:r.width,height:r.height,left:r.left,right:r.right,"
+        +"imgWidth:ri.width,imgHeight:ri.height,objectFit:getComputedStyle(img).objectFit,"
+        +"objectPosition:getComputedStyle(img).objectPosition,"
+        +"centered:Math.abs((ri.left+ri.right)/2-(r.left+r.right)/2)<=1}});"
+        +"return {boxes,screen:innerWidth,scrollWidth:document.documentElement.scrollWidth};"
+      );
+      assert.equal(data.boxes.length,3,"Banque : le banc doit afficher 3 miniatures");
+      for(const box of data.boxes){
+        assert.ok(Math.abs(box.width-72)<0.2&&Math.abs(box.height-72)<0.2,
+          "Miniature non uniforme "+width+"px "+view+" : "+JSON.stringify(box));
+        assert.equal(box.objectFit,"contain","Image déformée "+width+"px "+view);
+        assert.equal(box.objectPosition,"50% 50%","Image non centrée "+width+"px "+view);
+        assert.ok(box.centered,"Miniature décentrée "+width+"px "+view);
+        assert.ok(box.imgWidth<=72&&box.imgHeight<=72,"Image déborde "+width+"px "+view);
+      }
+      assert.ok(data.scrollWidth<=width+1,
+        "Débordement horizontal Banque "+width+"px "+view+" : "+data.scrollWidth);
+      console.log("BANQUE MINIATURES OK",width,view,"72x72 px, contain, centrées");
+    }
+  }
+
   console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 3, zoom et pages légales.");
 }catch(error){
   console.error(error);
