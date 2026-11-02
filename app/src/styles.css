@@ -2249,3 +2249,134 @@
     font-size:12px;
   }
 }
+/* Maquette 5 finale — seul le rail des templates défile; image, onglets,
+   gradateurs et bouton de sauvegarde restent fixes dans cette fiche. */
+.pa-bank-sheet{
+  display:flex;flex-direction:column;gap:8px;
+  height:calc(100dvh - 48px);max-height:840px;min-height:0;
+  overflow:hidden;overscroll-behavior:contain}
+.pa-bank-sheet-head{flex:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;
+  align-items:center;gap:8px;margin:0;padding:0}
+.pa-bank-sheet-head h2{font-size:16px;min-width:0;line-height:1.2;max-height:2.4em;overflow:hidden}
+.pa-bank-sheet-head .btn{min-height:42px;white-space:nowrap}
+.pa-bank-sheet-head .admin-chip{white-space:nowrap}
+.pa-bank-head-save{background:#263b2d;color:#fff;border-color:#263b2d}
+.pa-bank-sheet-hero{
+  flex:none;margin:0;padding:8px;min-height:0;height:clamp(100px,23dvh,190px);
+  max-height:none;overflow:hidden;position:relative}
+.pa-bank-sheet-hero img{max-height:100%;max-width:100%;object-fit:contain;
+  transform-origin:center;transform:translate(var(--pa-art-x,0%),var(--pa-art-y,0%))
+    rotate(var(--pa-art-angle,0deg)) scaleX(var(--pa-art-mirror,1)) scale(var(--pa-art-scale,1));
+  transition:transform .12s ease-out;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.pa-bank-adjust-hero{cursor:grab;touch-action:none;user-select:none;outline-offset:2px}
+.pa-bank-adjust-hero:active{cursor:grabbing}
+.pa-bank-adjust-hero:focus-visible{outline:3px solid #2c6d42}
+.pa-bank-drag-icon{position:absolute;bottom:8px;right:8px;width:26px;height:26px;
+  background:#fff;border:1px solid #c6d1c6;border-radius:8px;display:grid;
+  place-items:center;color:#425a49;pointer-events:none}
+.pa-bank-drag-icon svg{width:16px;height:16px}
+.pa-bank-sheet-tabs{flex:none;margin:0;gap:4px;padding:3px}
+.pa-bank-sheet-tab{min-height:40px;font-size:13px;padding:7px 5px}
+.pa-bank-scale-unsaved{flex:none;margin:0;font-size:11px;line-height:1.3}
+.pa-bank-sheet .pa-bank-sheet-panel{min-height:0;flex:1;overflow:auto;align-content:start}
+.pa-bank-sheet .pa-bank-adjust-panel{
+  display:flex;flex-direction:column;gap:5px;overflow:hidden}
+.pa-bank-adjust-fixed{flex:none;min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px 14px;align-items:end}
+.pa-bank-adjust-control{display:grid;min-width:0;gap:1px}
+.pa-bank-adjust-control label{display:flex;justify-content:space-between;gap:8px;
+  color:#314534;font-size:12px;font-weight:750}
+.pa-bank-adjust-control output{font-variant-numeric:tabular-nums}
+.pa-bank-adjust-control input[type=range]{width:100%;min-height:29px;margin:0;
+  accent-color:#386a4a;touch-action:pan-y}
+.pa-bank-adjust-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.pa-bank-adjust-actions .btn{width:100%;min-width:0;min-height:36px;padding:5px 7px;
+  line-height:1.2;font-size:12px;border-radius:9px}
+.pa-bank-adjust-actions [aria-pressed=true]{background:#e1ebe2;border-color:#375b41;color:#1d3829}
+.pa-bank-adjust-fixed>p{grid-column:1/-1;margin:0;font-size:11px;line-height:1.35}
+.pa-bank-gallery-title{font-size:12px;line-height:1.2;color:#314a38;margin:1px 0 0}
+.pa-bank-adjust-gallery{flex:1;min-height:50px;overflow-x:hidden;overflow-y:auto;
+  overscroll-behavior:contain;scrollbar-gutter:stable;touch-action:pan-y;
+  border:1px solid #e0e8e1;border-radius:12px;padding:8px}
+.pa-bank-adjust-gallery:focus-visible{outline:3px solid #315f42;outline-offset:2px}
+.pa-bank-adjust-gallery .admin-png-named-grid{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  max-height:none!important;overflow:visible!important;gap:8px!important;
+  padding:0!important;min-width:0}
+.pa-bank-adjust-gallery .admin-png-variant{min-width:0;margin:0;padding:7px;
+  border-radius:10px;overflow:hidden;background:#fff}
+.pa-bank-adjust-gallery .admin-png-variant figcaption{font-size:11px;line-height:1.2;max-width:100%;
+  overflow-wrap:anywhere}
+.pa-bank-adjust-gallery .admin-png-variant figcaption strong{font-size:11px}
+.pa-bank-adjust-gallery .admin-png-variant figcaption small{font-size:10px}
+.pa-bank-adjust-gallery .admin-named-preview-status{font-size:9px}
+.pa-bank-adjust-gallery .admin-png-stage{min-width:0;max-width:100%;overflow:hidden;
+  margin-top:5px;display:block}
+.pa-bank-adjust-gallery .admin-png-cell{width:100%!important;max-width:100%!important;
+  height:auto!important;aspect-ratio:1;min-width:0!important;overflow:hidden}
+.pa-bank-adjust-gallery .admin-png-cell .picto{max-width:100%}
+.pa-bank-adjust-gallery .admin-png-variant [data-admin-ink-preview]{
+  transform-origin:center;transition:transform .08s ease-out}
+.pa-bank-sheet-fields{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pa-bank-sheet-fields>div{padding:9px}
+.pa-bank-sheet-actions{gap:8px}
+.pa-bank-sheet-actions .btn{min-height:38px;font-size:12px}
+.pa-bank-sheet-tools{border:1px solid #e0e9e2;border-radius:12px;padding:8px}
+.pa-bank-sheet-tools summary{cursor:pointer;font-weight:750;font-size:12px}
+.pa-bank-save-overlay{position:fixed;inset:0;z-index:10010;background:#0008;
+  padding:16px;display:grid;place-items:center}
+.pa-bank-save-dialog{width:min(440px,100%);max-height:calc(100dvh - 32px);
+  overflow:auto;border-radius:18px;border:1px solid #d8e1d8;background:#fff;
+  box-shadow:0 20px 60px #0003;padding:20px;display:grid;gap:12px}
+.pa-bank-save-dialog h3{font-size:21px;line-height:1.25;margin:0;color:#26382a}
+.pa-bank-save-dialog p{font-size:13px;line-height:1.4;color:#566356;margin:0}
+.pa-bank-save-option{width:100%;min-width:0;min-height:74px;text-align:left;border:1px solid #d7e2d7;
+  background:#f9fbf9;border-radius:12px;padding:12px 14px;
+  display:grid;gap:5px;color:#26382a}
+.pa-bank-save-option:hover:not(:disabled){border-color:#426c49;background:#f0f6f0}
+.pa-bank-save-option:focus-visible{outline:3px solid #326b44;outline-offset:2px}
+.pa-bank-save-option strong{font-size:14px}
+.pa-bank-save-option span{font-size:12px;line-height:1.4;color:#5d695d}
+@media(max-width:620px){
+  .pa-bank-sheet{padding:9px;height:calc(100dvh - 24px);max-height:none;gap:5px}
+  .pa-bank-sheet-head{grid-template-columns:auto minmax(0,1fr) auto;gap:5px}
+  .pa-bank-sheet-head .admin-chip{display:none}
+  .pa-bank-sheet-head h2{font-size:14px;flex-basis:auto}
+  .pa-bank-sheet-head .btn{width:auto;min-height:38px;font-size:11px;padding:7px 9px}
+  .pa-bank-sheet-hero{height:clamp(100px,20dvh,165px);padding:6px}
+  .pa-bank-sheet-hero img{max-height:100%}
+  .pa-bank-sheet-tabs{margin:0}
+  .pa-bank-adjust-fixed{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 7px}
+  .pa-bank-adjust-actions .btn{font-size:11px;padding-inline:3px}
+  .pa-bank-sheet-fields{grid-template-columns:1fr}
+  .pa-bank-sheet-fields>div{padding:9px}
+  .pa-bank-sheet-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pa-bank-sheet-actions .btn{width:auto;padding:7px 5px}
+  .pa-bank-adjust-gallery{padding:6px}
+  .pa-bank-adjust-gallery .admin-png-named-grid{gap:6px!important}
+  .pa-bank-adjust-gallery .admin-png-variant{padding:5px}
+}
+@media(max-width:360px){
+  .pa-bank-sheet-head .btn{padding:6px;font-size:10px}
+  .pa-bank-sheet-hero{height:100px}
+  .pa-bank-save-dialog{padding:14px}
+}
+@media(prefers-reduced-motion:reduce){
+  .pa-bank-sheet-hero img,.pa-bank-adjust-gallery [data-admin-ink-preview]{transition:none}
+}
+
+/* Fiche publique : adaptez l'espace au bandeau Pict-au et la barre Banque. */
+.pa-bank-name-panel{overflow:auto;gap:9px}
+.pa-bank-names-form{display:grid;gap:9px}
+.pa-bank-names-field{display:grid;gap:4px;min-width:0}
+.pa-bank-names-field label{font-size:12px;font-weight:750;color:#283b2d}
+.pa-bank-names-field input{height:39px;width:100%;max-width:100%;min-width:0;
+  padding:8px 10px;border:1px solid #c8d2c9;border-radius:9px;background:#fff;color:#22392a}
+.pa-bank-names-field input:focus-visible{outline:3px solid #386b4c;outline-offset:1px}
+.pa-bank-names-en{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center}
+.pa-bank-names-en .btn{min-height:39px;min-width:0;font-size:12px;padding:7px 10px}
+.pa-bank-name-help{font-size:12px;line-height:1.4;color:#756346}
+.pa-bank-sheet{max-height:none}
+.pa-bank-sheet-head{position:relative}
+.pa-bank-save-overlay{z-index:11000}
+@media(max-width:620px){.pa-bank-sheet{max-height:none}.pa-bank-sheet-head .admin-chip{display:none}}

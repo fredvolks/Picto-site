@@ -11,8 +11,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --check src/site.js && node --check app/src/app.js
-      - run: node --test tests/site.test.mjs
+      - run: node --check src/site.js && node --check app/src/app.js && node --check app/src/admin-sheet-names.js && node --check app/src/image-adjustments.js && node --check app/src/bank-sheet-adjust.js
+      - run: node --test tests/site.test.mjs tests/admin-bank-names.test.mjs
       - name: Captures et contrôle géométrique des pages (FR et EN)
         run: node tests/browser.mjs
       - name: Captures écran unique

@@ -24,7 +24,10 @@ import {createLocalInkCrop} from "./png-ink.js";
 import {createNormalizedBankThumbnail} from "./bank-thumbnail.js";
 import {validateArtworkRotation,makeRotatedPrivatePng,renderPrivateInkComparison,renderPrivateInkNamedGallery,privateInkDraftMetadata} from "./admin-artwork-rotation.js";
 import {validateImageFineTune,previewImageInTemplates} from "./image-fine-tune.js";
-import {readAdminImageAdjustment,saveAdminImageAdjustment} from "./image-adjustments.js";
+import {BANK_SHEET_DEFAULT,validateBankSheetAdjustment,hasBankSheetChanges,clampBankSheetOffset} from "./bank-sheet-adjust.js";
+import {saveAdminSheetNames} from "./admin-sheet-names.js";
+import {suggestEnglishTitle} from "./admin-english-suggestions.js";
+import {readAdminImageAdjustment,saveAdminImageAdjustment} from "./image-adjustments.js?v=bank5-20261102";
 import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./artwork-layout.js";
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
@@ -70,7 +73,7 @@ async function probeTemplateChoices(client,uid){
 // L’édition des fiches s’active seulement si le serveur confirme la
 // présence de la migration de protection. Sinon : proposition JSON locale.
 // Sauvegarde verrouillée : la politique SQL proposée est encore EN REVUE.
-const DRAFT_METADATA_WRITES_ENABLED = false;
+const DRAFT_METADATA_WRITES_ENABLED = true;
 import {DEFAULT_PRESET, THEMES, clampWidth, scaleMetrics, labelFor, searchCatalog, addToRoutine, moveRoutine, routineFitsPaper, validatePreset} from "./core.js";
 
 const translations = {
@@ -697,8 +700,59 @@ const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,tota
 const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
 const privateNamedGallery={items:[],assetId:null,loaded:false,loading:false,error:"",request:0};
-const bankImageSheet={tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+let bankHeroDrag=null;
+const bankImageSheet={tab:"name",scalePercent:100,rotationDeg:0,offsetX:0,offsetY:0,
+  mirrorHorizontal:false,savedAdjust:null,names:null,savedNames:null,
+  saveOpen:false,createdDraft:null,revision:null,available:false,loaded:false,
   loading:false,busy:false,error:"",message:"",request:0};
+function initBankNames(asset){
+  if(!asset)return;
+  bankImageSheet.names={adminName:asset.admin_name||asset.title_fr||"",
+    titleFr:asset.title_fr||"",titleEn:asset.title_en||""};
+  bankImageSheet.savedNames={admin_name:asset.admin_name??null,
+    title_fr:asset.title_fr,title_en:asset.title_en??null};
+}
+function bankSheetAdjustment(){
+  const {assetId,...settings}=validateBankSheetAdjustment({
+    assetId:privatePreview.id,scalePercent:bankImageSheet.scalePercent,
+    rotationDeg:bankImageSheet.rotationDeg,offsetX:bankImageSheet.offsetX,
+    offsetY:bankImageSheet.offsetY,mirrorHorizontal:bankImageSheet.mirrorHorizontal
+  });return settings;
+}
+function bankSheetDirty(){
+  if(!privatePreview.id)return false;
+  const names=bankImageSheet.names,saved=bankImageSheet.savedNames;
+  const namesDirty=Boolean(names&&saved&&(
+    names.adminName.trim()!==(saved.admin_name??saved.title_fr)||
+    names.titleFr.trim()!==saved.title_fr||
+    names.titleEn.trim()!==(saved.title_en||"")));
+  const adjustDirty=Boolean(bankImageSheet.loaded&&
+    hasBankSheetChanges(bankImageSheet,bankImageSheet.savedAdjust||BANK_SHEET_DEFAULT));
+  return namesDirty||adjustDirty;
+}
+function syncBankSheetPreview(){
+  const sheet=root.querySelector(".pa-bank-sheet");if(!sheet)return;
+  // La hauteur de la fiche tient compte de son en-tête réel sur téléphone,
+  // tablette et PC : pas de défilement du document pendant l'ajustement.
+  const top=sheet.getBoundingClientRect().top;
+  if(top>=0&&Number.isFinite(top))
+    sheet.style.height=Math.max(330,Math.floor(window.innerHeight-top-9))+"px";
+  sheet.style.setProperty("--pa-art-x",bankImageSheet.offsetX+"%");
+  sheet.style.setProperty("--pa-art-y",bankImageSheet.offsetY+"%");
+  sheet.style.setProperty("--pa-art-angle",bankImageSheet.rotationDeg+"deg");
+  sheet.style.setProperty("--pa-art-mirror",bankImageSheet.mirrorHorizontal?-1:1);
+  sheet.style.setProperty("--pa-art-scale",bankImageSheet.scalePercent/100);
+  for(const image of sheet.querySelectorAll(".pa-bank-adjust-gallery [data-admin-ink-preview]")){
+    const angle=privatePreview.rotationDeg+bankImageSheet.rotationDeg+Number(image.dataset.templateRotation||0);
+    image.style.transform="translate("+bankImageSheet.offsetX+"%, "+bankImageSheet.offsetY+
+      "%) rotate("+angle+"deg) scaleX("+(bankImageSheet.mirrorHorizontal?-1:1)+")";
+  }
+  const dirty=sheet.querySelector(".pa-bank-scale-unsaved");
+  if(dirty)dirty.hidden=!bankSheetDirty();
+  const warning=sheet.querySelector("#pa-bank-scale-warning");
+  if(warning)warning.textContent=bankScaleWarning(state.language==="fr");
+}
+
 function bankScaleWarning(fr=true){
   if(!privateNamedGallery.loaded||!privateNamedGallery.items.length||!privatePreview.id)return "";
   try{
@@ -719,8 +773,15 @@ async function loadBankImageScale(assetId,uid,previewTicket){
     const row=await readAdminImageAdjustment(client,uid,assetId);
     if(ticket!==bankImageSheet.request||previewTicket!==privatePreview.request||
        privatePreview.id!==assetId||authStatus.user?.id!==uid||!canOpenAdmin())return;
-    Object.assign(bankImageSheet,{scalePercent:row.scalePercent,revision:row.revision,
-      available:row.available,loaded:true});
+    Object.assign(bankImageSheet,{
+      scalePercent:row.scalePercent,rotationDeg:row.rotationDeg??0,
+      offsetX:row.offsetX??0,offsetY:row.offsetY??0,
+      mirrorHorizontal:row.mirrorHorizontal??false,
+      savedAdjust:{scalePercent:row.scalePercent,rotationDeg:row.rotationDeg??0,
+        offsetX:row.offsetX??0,offsetY:row.offsetY??0,
+        mirrorHorizontal:row.mirrorHorizontal??false},
+      revision:row.revision,available:row.available,loaded:true
+    });
   }catch(error){
     if(ticket===bankImageSheet.request&&privatePreview.id===assetId)
       bankImageSheet.error=String(error?.message||error);
@@ -893,7 +954,7 @@ function hasUnsavedBankEdits(){
     const original=draftEditor.original,form=draftEditor.form;
     return form.titleFr!==original.title_fr||form.titleEn!==(original.title_en||"")||form.theme!==original.theme;
   }
-  return false;
+  return bankSheetDirty();
 }
 function confirmDiscardBankEdits(){
   return !hasUnsavedBankEdits()||window.confirm(state.language==="fr"
@@ -1018,7 +1079,10 @@ function clearAdminPreview(){
   privatePreview.inkUrl=null;privatePreview.inkBlob=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
   privatePreview.rotationDeg=0;privatePreview.adjustBusy=false;privatePreview.adjustError="";privatePreview.adjustMessage="";
   bankImageSheet.request++;privateNamedGallery.request++;
-  Object.assign(bankImageSheet,{tab:"name",scalePercent:100,revision:null,available:false,loaded:false,
+  bankHeroDrag=null;
+  Object.assign(bankImageSheet,{tab:"name",scalePercent:100,rotationDeg:0,offsetX:0,offsetY:0,
+    mirrorHorizontal:false,savedAdjust:null,names:null,savedNames:null,
+    saveOpen:false,createdDraft:null,revision:null,available:false,loaded:false,
     loading:false,busy:false,error:"",message:""});
   Object.assign(privateNamedGallery,{items:[],assetId:null,loaded:false,loading:false,error:""});
   privatePreview.loading=false;privatePreview.error="";
@@ -1028,6 +1092,7 @@ async function openAdminPreview(assetId){
   clearAdminPreview();
   const userId=authStatus.user.id,request=++privatePreview.request;
   privatePreview.id=assetId;privatePreview.loading=true;
+  initBankNames(privateBank.items.find(item=>item.id===assetId));
   if(draftReviewQueue.active)draftReviewQueue.seen.add(assetId);
   render();focusBankInspector();
   try{
@@ -1903,54 +1968,96 @@ function renderAdmin(){
       sheetTabs.map(([key,label])=>'<button type="button" data-action="pa-bank-sheet-tab" data-tab="'+key+
         '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>';
     const sheetTitle=selectedAsset?(selectedAsset.admin_name||selectedAsset.title_fr||"—"):"";
+    const currentNames=bankImageSheet.names||{adminName:sheetTitle,
+      titleFr:selectedAsset?.title_fr||"",titleEn:selectedAsset?.title_en||""};
     const sheetTop=selectedAsset?'<header class="pa-bank-sheet-head">'+
-      '<button type="button" class="btn btn-light" data-action="admin-bank-detail-close">'+esc(fr?"← Retour aux images":"← Back to images")+'</button>'+
+      '<button type="button" class="btn btn-light" data-action="admin-bank-detail-close">'+esc(fr?"← Retour":"← Back")+'</button>'+
       '<h2 id="pa-bank-inspector-title" tabindex="-1">'+esc(sheetTitle)+'</h2>'+
-      '<span class="admin-chip">'+esc(selectedAsset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span></header>'+
-      (privatePreview.loading?'<p role="status">'+esc(fr?"Chargement sécurisé de l’image…":"Loading private picture…")+'</p>':"")+
-      (privatePreview.error?'<p role="alert">'+esc(privatePreview.error)+'</p>':"")+
-      (privatePreview.url?'<figure class="pa-bank-sheet-hero"><img alt="'+esc(chosenLabel)+'" src="'+esc(privatePreview.url)+'"></figure>':"")+
-      sheetNav:"";
-    const sheetNames=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Nom":"Name")+'">'+
-      '<div class="pa-bank-sheet-fields">'+
-      '<div><small>'+esc(fr?"Nom de la banque":"Bank name")+'</small><strong>'+esc(sheetTitle)+'</strong></div>'+
-      '<div><small>'+esc(fr?"Nom français":"French name")+'</small><strong>'+esc(selectedAsset.title_fr||"—")+'</strong></div>'+
-      '<div><small>'+esc(fr?"Nom anglais":"English name")+'</small><strong>'+esc(selectedAsset.title_en||"—")+'</strong></div></div>'+
-      '<div class="pa-bank-sheet-actions">'+
-      '<button type="button" class="btn btn-light" data-action="admin-rename" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier le nom de banque":"Edit bank name")+'</button>'+
-      (selectedAsset.status==="draft"&&selectedAsset.created_by===authStatus.user?.id?
-        '<button type="button" class="btn btn-light" data-action="admin-edit-draft" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier les noms FR/EN":"Edit FR/EN names")+'</button>':"")+'</div>'+
-      renameForm+draftEditBody+'</section>':"";
-    const sheetAdjust=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Ajuster":"Adjust")+'">'+
-      '<h3>'+esc(fr?"Taille de ce dessin seulement":"Size of this artwork only")+'</h3>'+
-      '<p>'+esc(fr?"100 % = taille du template. Le réglage individuel ne modifie pas les autres pictogrammes ni les modèles.":"100% = template size. The adjustment does not change other images or templates.")+'</p>'+
-      '<div class="pa-bank-sheet-range"><label for="pa-bank-scale">'+esc(fr?"Agrandir / rapetisser":"Enlarge / shrink")+
-      ' : <output id="pa-bank-scale-value">'+bankImageSheet.scalePercent+' %</output></label>'+
+      '<span class="admin-chip">'+esc(selectedAsset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span>'+
+      '<button type="button" class="btn btn-primary pa-bank-head-save" data-action="pa-bank-save-open"'+
+      (!bankImageSheet.loaded||bankImageSheet.busy||!privatePreview.url?' disabled':'')+'>'+
+        esc(fr?"Enregistrer":"Save")+'</button></header>'+
+      (privatePreview.loading?'<p role="status">'+esc(fr?"Chargement de l’image…":"Loading image…")+'</p>':'')+
+      (privatePreview.error?'<p role="alert">'+esc(privatePreview.error)+'</p>':'')+
+      (privatePreview.url?'<figure class="pa-bank-sheet-hero'+(bankImageSheet.tab==="adjust"?' pa-bank-adjust-hero':'')+'"'+
+        (bankImageSheet.tab==="adjust"?' tabindex="0" role="img" aria-label="'+esc(fr?
+          "Déplacer le dessin au doigt, à la souris ou avec les flèches":
+          "Move the drawing by touch, mouse or arrow keys")+'"':'')+'>'+
+        '<img data-pa-bank-art alt="'+esc(chosenLabel)+'" src="'+esc(privatePreview.inkUrl||privatePreview.url)+'">'+
+        (bankImageSheet.tab==="adjust"?'<span class="pa-bank-drag-icon" aria-hidden="true">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg></span>':"")+'</figure>':"")+
+      sheetNav+'<p class="pa-bank-scale-unsaved" role="status"'+(bankSheetDirty()?"":' hidden')+'>'+
+      esc(fr?"Modifications non enregistrées":"Unsaved changes")+'</p>':"";
+    const sheetNames=selectedAsset?'<section class="pa-bank-sheet-panel pa-bank-name-panel" aria-label="'+esc(fr?"Nom":"Name")+'">'+
+      '<form data-form="pa-bank-sheet-names" class="pa-bank-names-form">'+
+      '<div class="pa-bank-names-field"><label for="pa-bank-name">'+esc(fr?"Nom dans la banque":"Bank name")+'</label>'+
+      '<input id="pa-bank-name" data-input="pa-bank-name" name="adminName" maxlength="120" value="'+esc(currentNames.adminName)+'" autocomplete="off"></div>'+
+      '<div class="pa-bank-names-field"><label for="pa-bank-name-fr">'+esc(fr?"Français":"French")+'</label>'+
+      '<input id="pa-bank-name-fr" data-input="pa-bank-name-fr" name="titleFr" maxlength="100" required value="'+esc(currentNames.titleFr)+'" autocomplete="off"></div>'+
+      '<div class="pa-bank-names-field"><label for="pa-bank-name-en">'+esc(fr?"Anglais":"English")+'</label>'+
+      '<div class="pa-bank-names-en"><input id="pa-bank-name-en" data-input="pa-bank-name-en" name="titleEn" maxlength="100" value="'+esc(currentNames.titleEn)+'" autocomplete="off">'+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-suggest-en">'+esc(fr?"Suggérer":"Suggest")+'</button></div></div>'+
+      (selectedAsset.status==="published"?'<p class="pa-bank-name-help">'+esc(fr?
+        "Pour changer le texte d’une image publiée, enregistrez comme nouveau brouillon.":
+        "To change published labels, save as a new private draft.")+'</p>':"")+
+      (bankImageSheet.error?'<p role="alert" class="admin-import-alert">'+esc(bankImageSheet.error)+'</p>':'')+
+      (bankImageSheet.message?'<p role="status" class="admin-import-success">'+esc(bankImageSheet.message)+'</p>':'')+
+      '</form></section>':"";
+    const sheetGallery=privatePreview.inkUrl&&privatePreview.asset?
+       '<div class="pa-bank-scale-stage" data-base-scale="'+bankImageSheet.scalePercent+'">'+
+       (privateNamedGallery.loading?'<p role="status">'+esc(fr?"Chargement des templates…":"Loading templates…")+'</p>':'')+
+       (privateNamedGallery.error?'<p role="alert">'+esc(privateNamedGallery.error)+'</p>':'')+
+       (privateNamedGallery.loaded&&privateNamedGallery.assetId===privatePreview.asset.id?
+         renderPrivateInkNamedGallery({asset:privatePreview.asset,inkUrl:privatePreview.inkUrl,
+           rotationDeg:bankImageSheet.rotationDeg,templates:privateNamedGallery.items,
+           fr,customPicto,scaleMetrics,fmtRaw,artScalePercent:bankImageSheet.scalePercent}):"")+'</div>':
+       '<p role="status">'+esc(fr?"Les aperçus apparaîtront après le chargement de l’image.":"Previews appear once the image loads.")+'</p>';
+    const sheetAdjust=selectedAsset?'<section class="pa-bank-sheet-panel pa-bank-adjust-panel" aria-label="'+esc(fr?"Ajuster":"Adjust")+'">'+
+      '<div class="pa-bank-adjust-fixed">'+
+      '<div class="pa-bank-adjust-control"><label for="pa-bank-scale">'+esc(fr?"Grosseur":"Size")+
+      ' <output id="pa-bank-scale-value" for="pa-bank-scale">'+bankImageSheet.scalePercent+' %</output></label>'+
       '<input type="range" id="pa-bank-scale" data-input="pa-bank-scale" min="60" max="140" step="5" value="'+bankImageSheet.scalePercent+'"'+
-      (!bankImageSheet.loaded||bankImageSheet.busy?' disabled':'')+'>'+
-      '<div class="pa-bank-sheet-range-actions"><button type="button" class="btn btn-light" data-action="pa-bank-scale-reset"'+
-        (bankImageSheet.busy||bankImageSheet.scalePercent===100?' disabled':'')+'>'+esc(fr?"Réinitialiser à 100 %":"Reset to 100%")+'</button>'+
-      '<button type="button" class="btn btn-primary" data-action="pa-bank-scale-save"'+
-        (!bankImageSheet.loaded||!bankImageSheet.available||bankImageSheet.busy||selectedAsset.status!=="draft"?' disabled':'')+'>'+
-        esc(fr?"Enregistrer pour cette image":"Save for this image")+'</button></div></div>'+
-      (bankImageSheet.loading?'<p role="status">'+esc(fr?"Vérification des réglages…":"Checking adjustments…")+'</p>':"")+
+        (!bankImageSheet.loaded||bankImageSheet.busy?' disabled':'')+'></div>'+
+      '<div class="pa-bank-adjust-control"><label for="pa-bank-rotation">'+esc(fr?"Rotation":"Rotation")+
+      ' <output id="pa-bank-rotation-value" for="pa-bank-rotation">'+bankImageSheet.rotationDeg+'°</output></label>'+
+      '<input type="range" id="pa-bank-rotation" data-input="pa-bank-rotation" min="-180" max="180" step="1" value="'+bankImageSheet.rotationDeg+'"'+
+        (!bankImageSheet.loaded||bankImageSheet.busy?' disabled':'')+'></div>'+
+      '<div class="pa-bank-adjust-actions">'+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-scale-reset"'+(bankImageSheet.busy?' disabled':'')+'>'+esc(fr?"Réinitialiser":"Reset")+'</button>'+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-mirror" aria-pressed="'+bankImageSheet.mirrorHorizontal+'"'+(bankImageSheet.busy?' disabled':'')+'>'+esc(fr?"Miroir horizontal":"Horizontal flip")+'</button></div>'+
+      (bankImageSheet.loading?'<p role="status">'+esc(fr?"Chargement des réglages…":"Loading adjustments…")+'</p>':'')+
       (!bankImageSheet.loading&&bankImageSheet.loaded&&!bankImageSheet.available?
-        '<p role="status">'+esc(fr?"Sauvegarde indisponible : actualisez la fiche.":"Saving unavailable: refresh the record.")+'</p>':"")+
-      (bankImageSheet.error?'<p role="alert">'+esc(bankImageSheet.error)+'</p>':"")+
-      (bankImageSheet.message?'<p role="status">'+esc(bankImageSheet.message)+'</p>':"")+
-      '<p id="pa-bank-scale-warning" role="status" class="pa-bank-scale-warning">'+esc(bankScaleWarning(fr))+'</p>'+
-      '<div class="pa-bank-scale-stage" data-base-scale="'+bankImageSheet.scalePercent+'" style="--pictau-image-scale:1">'+privateInkCard+'</div>'+
-      '<details class="pa-bank-secondary-details"><summary>'+esc(fr?"Vérifier et publier / informations techniques":"Review, publish and technical details")+'</summary>'+
-      privatePreviewBody+'</details></section>':"";
+        '<p role="status">'+esc(fr?"Sauvegarde indisponible : vérifier Supabase.":"Saving unavailable: verify Supabase.")+'</p>':"")+
+      (bankImageSheet.error?'<p role="alert">'+esc(bankImageSheet.error)+'</p>':'')+
+      (bankImageSheet.message?'<p role="status">'+esc(bankImageSheet.message)+'</p>':'')+
+      '<p id="pa-bank-scale-warning" role="status" class="pa-bank-scale-warning">'+esc(bankScaleWarning(fr))+'</p></div>'+
+      '<h3 class="pa-bank-gallery-title">'+esc(fr?"Templates":"Templates")+'</h3>'+
+      '<div class="pa-bank-adjust-gallery" role="region" tabindex="0" aria-label="'+esc(fr?
+        "Galerie de templates défilante":"Scrollable template gallery")+'">'+sheetGallery+'</div></section>':"";
     const chosenThemes=selectedAsset?(themeUI.links[selectedAsset.id]||[selectedAsset.theme]):[];
     const sheetClassify=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Classer":"Classify")+'">'+
       '<h3>'+esc(fr?"Thèmes du pictogramme":"Pictogram themes")+'</h3>'+
       '<p>'+chosenThemes.map(code=>esc(themeLabel(code))).join(" · ")+'</p>'+
       '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+
       themeAssetPanel+'</section>':"";
+    const sheetSaveDialog=selectedAsset&&bankImageSheet.saveOpen?'<div class="pa-bank-save-overlay">'+
+      '<section class="pa-bank-save-dialog" role="dialog" aria-modal="true" aria-labelledby="pa-bank-save-title">'+
+      '<h3 id="pa-bank-save-title">'+esc(fr?"Enregistrer les modifications":"Save changes")+'</h3>'+
+      '<p>'+esc(fr?"Comment conserver ce pictogramme ?":"How do you want to save this pictogram?")+'</p>'+
+      '<button type="button" class="pa-bank-save-option" data-action="pa-bank-save-new"'+(bankImageSheet.busy||!bankImageSheet.available?' disabled':'')+'>'+
+      '<strong>'+esc(fr?"Enregistrer comme nouveau brouillon":"Save as new draft")+'</strong>'+
+      '<span>'+esc(fr?"Conserve l’original. Crée une nouvelle fiche privée.":"Keeps the original. Creates a new private record.")+'</span></button>'+
+      '<button type="button" class="pa-bank-save-option" data-action="pa-bank-save-overwrite"'+
+        (selectedAsset.status!=="draft"||selectedAsset.created_by!==authStatus.user?.id||bankImageSheet.busy||!bankImageSheet.available?' disabled':'')+'>'+
+      '<strong>'+esc(fr?"Mettre à jour le brouillon existant":"Update existing draft")+'</strong>'+
+      '<span>'+esc(fr?"Enregistre les noms et réglages, après confirmation.":"Saves names and adjustments after confirmation.")+'</span></button>'+
+      (selectedAsset.status==="published"?'<p>'+esc(fr?"Pour une image publiée, créez un nouveau brouillon.":"Published images require a new draft.")+'</p>':"")+
+      (bankImageSheet.error?'<p role="alert">'+esc(bankImageSheet.error)+'</p>':'')+
+      '<button type="button" class="btn btn-light" data-action="pa-bank-save-close">'+esc(fr?"Annuler":"Cancel")+'</button>'+
+      '</section></div>':"";
     const sheet=selectedAsset?'<section class="admin-surface pa-bank-sheet">'+sheetTop+
       (bankImageSheet.tab==="adjust"?sheetAdjust:bankImageSheet.tab==="classify"?sheetClassify:sheetNames)+
-      '</section>':"";
+      sheetSaveDialog+'</section>':"";
     const screen=bankPanel==="import"?importForm:bankPanel==="themes"?themeManagement:
       (bankSelectionId&&selectedAsset?sheet:
       '<div class="pa-bank-workspace'+(hasInspector?' has-inspector':'')+'">'+results+inspector+info+'</div>');
@@ -2543,6 +2650,7 @@ function render(){
   document.title="Pict-au — "+(state.page==="home"?(state.language==="fr"?"Accueil":"Home"):
     clientTitle?clientTitle[state.language==="fr"?0:1]:
     T(state.page==="library"?"library":state.page==="routines"?"routines":state.page==="boards"?"boards":state.page==="files"?"files":"admin"));
+  const bankGalleryScrollTop=root.querySelector(".pa-bank-adjust-gallery")?.scrollTop??0;
   root.innerHTML=SITE_EMBEDDED?(authStatus.recovery&&authStatus.user?renderNewPassword():!authStatus.user?renderHostedAccess():!authStatus.roleReady?renderRoleChecking():canOpenAdmin()?renderAdminWorkspace():renderClientWorkspace(state.page==="files"?renderClientFiles({language:state.language,logged:true,files:clientFiles,uid:authStatus.user?.id,
     pendingPdf:Boolean(authStatus.user&&pendingGeneratedPdf?.uid===authStatus.user.id),escape:esc,icon}):state.page==="library"?renderClientLibrary():state.page==="create"?renderClientCreate():state.page==="used"?renderClientUsed():state.page==="account"?renderClientAccount():state.page==="routines"||state.page==="boards"?renderOfficialComposer({
      kind:state.page==="routines"?"routine":"board",
@@ -2562,6 +2670,9 @@ function render(){
     }):renderClientHome())):state.page==="home"?renderLanding({lang:state.language,samples,icon,escape:esc,authHtml:googleButton()}):shell(state.page==="routines"?renderRoutine():state.page==="boards"?renderBoard():state.page==="files"?renderClientFiles({language:state.language,logged:Boolean(authStatus.user),files:clientFiles,uid:authStatus.user?.id,
     pendingPdf:Boolean(authStatus.user&&pendingGeneratedPdf?.uid===authStatus.user.id),escape:esc,icon}):state.page==="admin"?renderAdmin():renderLibrary());
   layoutArtwork(root);
+  const gallery=root.querySelector(".pa-bank-adjust-gallery");
+  if(gallery)gallery.scrollTop=bankGalleryScrollTop;
+  syncBankSheetPreview();
   updateArtFeedback();
   observeBankThumbnails();
   observePublishedArtwork();
@@ -4075,32 +4186,118 @@ root.addEventListener("click",function(event){
        !["name","adjust","classify"].includes(el.dataset.tab))return;
     bankImageSheet.tab=el.dataset.tab;render();return;
   }
-  if(a==="pa-bank-scale-reset"){
-    if(!canOpenAdmin()||!bankSelectionId||bankImageSheet.busy)return;
-    bankImageSheet.scalePercent=100;bankImageSheet.error="";bankImageSheet.message="";
-    render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});return;
+  if(a==="pa-bank-suggest-en"){
+    if(!canOpenAdmin()||!bankImageSheet.names)return;
+    const suggestion=suggestEnglishTitle(bankImageSheet.names.titleFr);
+    if(suggestion){
+      bankImageSheet.names.titleEn=suggestion;
+      const input=root.querySelector("#pa-bank-name-en");if(input)input.value=suggestion;
+      syncBankSheetPreview();
+    }else{
+      bankImageSheet.message=state.language==="fr"?
+        "Aucune traduction proposée : entrez l’anglais manuellement.":
+        "No suggestion available: enter the English name manually.";
+      render();
+    }return;
   }
-  if(a==="pa-bank-scale-save"){
-    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||
-       !bankImageSheet.available||bankImageSheet.busy||
-       !privateBank.items.some(row=>row.id===privatePreview.id&&row.status==="draft"))return;
-    const assetId=privatePreview.id,uid=authStatus.user.id;
-    const scalePercent=bankImageSheet.scalePercent,revision=bankImageSheet.revision;
+  if(a==="pa-bank-scale-reset"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    Object.assign(bankImageSheet,{scalePercent:100,rotationDeg:0,offsetX:0,offsetY:0,
+      mirrorHorizontal:false,error:"",message:""});
+    render();root.querySelector('[data-action="pa-bank-scale-reset"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-mirror"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    bankImageSheet.mirrorHorizontal=!bankImageSheet.mirrorHorizontal;
+    bankImageSheet.error="";bankImageSheet.message="";
+    render();root.querySelector('[data-action="pa-bank-mirror"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-save-open"||a==="pa-bank-scale-save"){
+    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||bankImageSheet.busy)return;
+    bankImageSheet.saveOpen=true;bankImageSheet.error="";
+    render();root.querySelector('[data-action="pa-bank-save-new"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-save-close"){
+    if(bankImageSheet.busy)return;
+    bankImageSheet.saveOpen=false;bankImageSheet.error="";
+    render();root.querySelector('[data-action="pa-bank-save-open"]')?.focus({preventScroll:true});return;
+  }
+  if(a==="pa-bank-save-overwrite"||a==="pa-bank-save-new"){
+    if(!canOpenAdmin()||!privatePreview.id||!bankImageSheet.loaded||!bankImageSheet.available||
+       bankImageSheet.busy||bankImageSheet.createdDraft||!privatePreview.asset||!privatePreview.url)return;
+    const originalId=privatePreview.id,uid=authStatus.user.id;
+    const original=privateBank.items.find(x=>x.id===originalId);
+    if(!original||!bankImageSheet.names||!bankImageSheet.savedNames)return;
+    const overwrite=a==="pa-bank-save-overwrite";
+    if(overwrite&&(original.status!=="draft"||original.created_by!==uid))return;
+    if(overwrite&&!window.confirm(state.language==="fr"?
+       "Mettre à jour le brouillon existant ? Les noms et réglages seront remplacés.":
+       "Update the existing draft? Names and adjustments will be replaced."))return;
+    const names={...bankImageSheet.names};
+    if(!names.titleFr.trim()){
+      bankImageSheet.error=state.language==="fr"?"Le nom français est obligatoire.":"French name is required.";
+      render();return;
+    }
+    let adjustments;
+    try{adjustments=bankSheetAdjustment();}catch(error){bankImageSheet.error=String(error?.message||error);render();return;}
+    const revision=bankImageSheet.revision,expected={...bankImageSheet.savedNames};
     const ticket=++bankImageSheet.request,previewTicket=privatePreview.request;
     bankImageSheet.busy=true;bankImageSheet.error="";bankImageSheet.message="";render();
     void(async()=>{
-      const current=()=>bankImageSheet.request===ticket&&
-        privatePreview.id===assetId&&privatePreview.request===previewTicket&&
-        authStatus.user?.id===uid&&canOpenAdmin();
+      const current=()=>bankImageSheet.request===ticket&&privatePreview.id===originalId&&
+        privatePreview.request===previewTicket&&authStatus.user?.id===uid&&canOpenAdmin();
       try{
         const client=await supabaseClient();
-        const saved=await saveAdminImageAdjustment(client,uid,{assetId,scalePercent,revision});
+        let targetId=originalId;
+        if(!overwrite){
+          const response=await fetch(privatePreview.url);
+          if(!response.ok)throw Error("Copie du PNG privé impossible.");
+          const blob=await response.blob();
+          if(!current())return;
+          const sourceFile=new File([blob],"picto-nouveau-brouillon.png",{type:"image/png"});
+          const added=await importPrivateDraft(client,uid,sourceFile,
+            {titleFr:names.titleFr,titleEn:names.titleEn,theme:original.theme});
+          if(!current())return;
+          const found=await client.from("pictau_assets")
+            .select("id,created_by,status,admin_name,title_fr,title_en")
+            .eq("image_path",added.imagePath).maybeSingle();
+          if(found.error||!found.data||found.data.created_by!==uid||found.data.status!=="draft")
+            throw Error("Brouillon créé : identifiant à vérifier dans la Banque.");
+          targetId=found.data.id;
+          bankImageSheet.createdDraft=targetId;
+          await saveAdminSheetNames(client,uid,targetId,{
+            admin_name:found.data.admin_name??null,
+            title_fr:found.data.title_fr,title_en:found.data.title_en??null
+          },names);
+        }else{
+          const savedNames=await saveAdminSheetNames(client,uid,originalId,expected,names);
+          if(!current())return;
+          bankImageSheet.savedNames={admin_name:savedNames.admin_name,
+            title_fr:savedNames.title_fr,title_en:savedNames.title_en};
+          privateBank.items=privateBank.items.map(x=>x.id===originalId?
+            {...x,admin_name:savedNames.admin_name,title_fr:savedNames.title_fr,
+              title_en:savedNames.title_en}:x);
+          if(privatePreview.asset?.id===originalId)privatePreview.asset={...privatePreview.asset,
+            title_fr:savedNames.title_fr,title_en:savedNames.title_en,admin_name:savedNames.admin_name};
+        }
+        const saved=await saveAdminImageAdjustment(client,uid,{
+          assetId:targetId,...adjustments,revision:overwrite?revision:null
+        });
         if(!current())return;
-        bankImageSheet.scalePercent=saved.scalePercent;bankImageSheet.revision=saved.revision;
+        if(overwrite)Object.assign(bankImageSheet,{
+          savedAdjust:{...adjustments},revision:saved.revision
+        });else bankImageSheet.createdDraft=null;
+        bankImageSheet.saveOpen=false;
         bankImageSheet.message=state.language==="fr"?
-          "Taille enregistrée pour cette image uniquement.":"Size saved for this image only.";
-      }catch(error){if(current())bankImageSheet.error=String(error?.message||error);}
-      finally{if(current()){bankImageSheet.busy=false;render();}}
+          (overwrite?"Noms et ajustements enregistrés dans Supabase.":"Nouveau brouillon privé enregistré dans Supabase."):
+          (overwrite?"Names and adjustments saved in Supabase.":"New private draft saved in Supabase.");
+        if(!overwrite)await refreshPrivateBank(client,uid);
+      }catch(error){
+        if(current())bankImageSheet.error=String(error?.message||error)+
+          (bankImageSheet.createdDraft?(state.language==="fr"?
+           " Une copie existe peut-être déjà : vérifiez la Banque avant de réessayer.":
+           "A copy may already exist; check the bank before retrying."):"");
+      }finally{if(current()){bankImageSheet.busy=false;render();}}
     })();return;
   }
 
@@ -4345,7 +4542,76 @@ root.addEventListener("click",function(event){
   if(a==="save"){if(!validatePreset(state.currentPreset)){notify(T("unavailable"));return;}state.savedPreset={...state.currentPreset};store("pictau-preset",serializeVersionedPreset(state.savedPreset,DEFAULT_PRESET,validatePreset));notify(T("saved"));}
   if(a==="restore"){state.currentPreset={...state.savedPreset};notify(T("restored"));}
 });
+// Déplacement direct dans la grande image : un petit symbole rappelle le geste.
+root.addEventListener("pointerdown",event=>{
+  const hero=event.target.closest?.(".pa-bank-adjust-hero");
+  if(!hero||!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy||
+     !bankImageSheet.loaded||event.isPrimary===false||event.button!==0)return;
+  event.preventDefault();
+  bankHeroDrag={id:event.pointerId,x:event.clientX,y:event.clientY,
+    offsetX:bankImageSheet.offsetX,offsetY:bankImageSheet.offsetY,
+    width:Math.max(1,hero.clientWidth),height:Math.max(1,hero.clientHeight)};
+  hero.setPointerCapture?.(event.pointerId);
+});
+root.addEventListener("pointermove",event=>{
+  if(!bankHeroDrag||event.pointerId!==bankHeroDrag.id)return;
+  event.preventDefault();
+  bankImageSheet.offsetX=clampBankSheetOffset(bankHeroDrag.offsetX+
+    (event.clientX-bankHeroDrag.x)*100/bankHeroDrag.width);
+  bankImageSheet.offsetY=clampBankSheetOffset(bankHeroDrag.offsetY+
+    (event.clientY-bankHeroDrag.y)*100/bankHeroDrag.height);
+  bankImageSheet.message="";bankImageSheet.error="";
+  syncBankSheetPreview();
+});
+function endBankHeroDrag(event){if(bankHeroDrag?.id===event.pointerId)bankHeroDrag=null;}
+root.addEventListener("pointerup",endBankHeroDrag);
+root.addEventListener("pointercancel",endBankHeroDrag);
+root.addEventListener("keydown",event=>{
+  const dialog=root.querySelector(".pa-bank-save-dialog");
+  if(dialog){
+    if(event.key==="Escape"&&!bankImageSheet.busy){
+      event.preventDefault();event.stopPropagation();
+      bankImageSheet.saveOpen=false;render();
+      root.querySelector('[data-action="pa-bank-save-open"]')?.focus({preventScroll:true});
+      return;
+    }
+    if(event.key==="Tab"){
+      const buttons=[...dialog.querySelectorAll("button:not(:disabled)")];
+      if(!buttons.length)return;
+      const first=buttons[0],last=buttons.at(-1);
+      if(!dialog.contains(document.activeElement)){event.preventDefault();first.focus();return;}
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();return;}
+      if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();return;}
+    }
+    return;
+  }
+  if(!event.target.closest?.(".pa-bank-adjust-hero")||
+     !["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)||
+     !canOpenAdmin()||bankImageSheet.busy||!bankImageSheet.loaded)return;
+  event.preventDefault();
+  const dx=event.key==="ArrowLeft"?-2:event.key==="ArrowRight"?2:0;
+  const dy=event.key==="ArrowUp"?-2:event.key==="ArrowDown"?2:0;
+  bankImageSheet.offsetX=clampBankSheetOffset(bankImageSheet.offsetX+dx);
+  bankImageSheet.offsetY=clampBankSheetOffset(bankImageSheet.offsetY+dy);
+  syncBankSheetPreview();
+},true);
 root.addEventListener("input",function(event){
+  const nameField=event.target.dataset.input;
+  if(["pa-bank-name","pa-bank-name-fr","pa-bank-name-en"].includes(nameField)){
+    if(!canOpenAdmin()||!bankImageSheet.names||bankImageSheet.busy)return;
+    const key=nameField==="pa-bank-name"?"adminName":nameField==="pa-bank-name-fr"?"titleFr":"titleEn";
+    bankImageSheet.names[key]=event.target.value;
+    bankImageSheet.message="";bankImageSheet.error="";
+    syncBankSheetPreview();return;
+  }
+  if(nameField==="pa-bank-rotation"){
+    if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
+    bankImageSheet.rotationDeg=Number(event.target.value);
+    bankImageSheet.message="";bankImageSheet.error="";
+    const output=root.querySelector("#pa-bank-rotation-value");
+    if(output)output.textContent=bankImageSheet.rotationDeg+"°";
+    syncBankSheetPreview();return;
+  }
   if(event.target.dataset.input==="pa-bank-scale"){
     if(!canOpenAdmin()||!privatePreview.id||bankImageSheet.busy)return;
     try{bankImageSheet.scalePercent=validateImageFineTune({
@@ -4354,12 +4620,10 @@ root.addEventListener("input",function(event){
     bankImageSheet.error="";bankImageSheet.message="";
     const value=root.querySelector("#pa-bank-scale-value");
     if(value)value.textContent=bankImageSheet.scalePercent+" %";
-    const stage=root.querySelector(".pa-bank-scale-stage");
-    if(stage)stage.style.setProperty("--pictau-image-scale",String(bankImageSheet.scalePercent/Number(stage.dataset.baseScale||100)));
+    syncBankSheetPreview();
     const warning=root.querySelector("#pa-bank-scale-warning");
     if(warning)warning.textContent=bankScaleWarning(state.language==="fr");
-    const reset=root.querySelector('[data-action="pa-bank-scale-reset"]');
-    if(reset)reset.disabled=bankImageSheet.scalePercent===100;
+
     return;
   }
   if(event.target.dataset.input==="admin-art-rotation"){
@@ -4446,11 +4710,8 @@ root.addEventListener("input",function(event){
 });
 root.addEventListener("change",function(event){
   const el=event.target;
-  if(el?.dataset.input==="pa-bank-scale"){
-    if(canOpenAdmin()&&privatePreview.id&&bankImageSheet.tab==="adjust"&&!bankImageSheet.busy){
-      render();root.querySelector("#pa-bank-scale")?.focus({preventScroll:true});
-    }
-    return;
+  if(el?.dataset.input==="pa-bank-scale"||el?.dataset.input==="pa-bank-rotation"){
+    syncBankSheetPreview();return;
   }
   if(el?.dataset.input!=="test-client-plan"||!canOpenAdmin()||testClients.busy)return;
   const id=el.dataset.id,plan=el.value;
@@ -4471,6 +4732,11 @@ root.addEventListener("change",function(event){
   })();
 });
 root.addEventListener("submit",function(event){
+  if(event.target.matches('form[data-form="pa-bank-sheet-names"]')){
+    event.preventDefault();
+    root.querySelector('[data-action="pa-bank-save-open"]')?.click();
+    return;
+  }
   if(event.target.matches('form[data-form="test-clients-create"]')){
     event.preventDefault();
     if(!canOpenAdmin()||testClients.busy||testClients.loading)return;
