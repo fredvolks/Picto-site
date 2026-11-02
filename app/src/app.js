@@ -1585,7 +1585,9 @@ function renderAdmin(){
       +'<span class="pa-bank-card-status">'+esc(asset.status==="published"?(fr?"Publié":"Published"):(fr?"Brouillon":"Draft"))+'</span>'
       +'<small>'+assignedThemes.map(t=>esc(themeLabel(t))).join(" · ")+' · '+esc(asset.status||"draft")+'</small>'
       +'<small>'+esc(fr?"Importé : ":"Imported: ")+esc(date)+'</small></div>'
-      +'<div class="admin-bank-item-actions"><button type="button" class="btn btn-primary btn-small pa-bank-card-open" data-action="admin-bank-open" data-id="'+esc(asset.id)+'"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Ouvrir":"Open")+'</button></div></article>';
+      +'<button type="button" class="btn btn-primary btn-small pa-bank-card-open"'
+      +' style="display:inline-flex!important;visibility:visible!important;min-height:44px;min-width:76px;max-width:100%;grid-column:auto!important;justify-self:end;align-self:center;align-items:center;justify-content:center"'
+      +' data-action="admin-bank-open" data-id="'+esc(asset.id)+'"'+(privateBank.loading?' disabled':'')+'>'+esc(fr?"Ouvrir":"Open")+'</button></article>';
   }).join("");
   const realBankBody=privateBank.loading
     ? '<p role="status">'+esc(fr?"Chargement de la banque…":"Loading bank…")+'</p>'
