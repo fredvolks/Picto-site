@@ -12,9 +12,9 @@ const row={id:assetId,title_fr:"toilette",title_en:"bathroom",theme:"hygiene",
 function png(){const data=new Uint8Array(40);data.set([137,80,78,71,13,10,26,10]);return new Blob([data],{type:"image/png"});}
 function user(id=uid){return {auth:{getUser:async()=>({data:{user:id?{id}:null},error:null})}};}
 
-function adminClient({isAdmin=true,insertFails=false}={}){
+function adminClient({isAdmin=true,insertFails=false,themeState="active",themeChangedDuringUpload=false}={}){
   const calls=[];
-  let approved=null, published=null;
+  let approved=null, published=null,themeReads=0;
   const asset={id:assetId,title_fr:"toilette",title_en:"bathroom",theme:"hygiene",
     status:"draft",created_at:"2026-10-28T12:00:00Z",
     image_path:"imports/"+uid+"/"+assetId+".png"};
@@ -28,6 +28,17 @@ function adminClient({isAdmin=true,insertFails=false}={}){
       };
       if(name==="pictau_assets")return{
         select(){return{eq(){return{maybeSingle:async()=>({data:asset,error:null})};}}}
+      };
+      if(name==="pictau_themes")return{
+        select(){return{eq(key,value){
+          calls.push(["theme-lookup",key,value]);
+          return{maybeSingle:async()=>{
+            themeReads++;
+            if(themeState==="missing")return{data:null,error:null};
+            return{data:{code:asset.theme,merged_into:
+              themeState==="merged"||(themeChangedDuringUpload&&themeReads>1)?"autonomie":null},error:null};
+          }};
+        }};}
       };
       if(name==="pictau_catalog_items")return{
         select(){return{eq(){return{maybeSingle:async()=>({data:published,error:null})};}}},
@@ -66,6 +77,26 @@ test("Seul un administrateur authentifié peut publier : téléchargement source
   assert.ok(calls.some(x=>x[0]==="upload"&&x[1]===row.image_path&&x[3]===false));
   assert.ok(!calls.some(x=>x[0]==="remove"),"No deletion on success");
 });
+test("L2 : refuser une catégorie inexistante ou fusionnée AVANT la copie privée",async()=>{
+ for(const themeState of ["missing","merged"]){
+   const {client,calls,review}=adminClient({themeState});
+   await assert.rejects(publishReviewedPictogram(client,uid,assetId,review),
+     /catégorie est absente ou fusionnée/i);
+   assert.equal(calls.filter(x=>x[0]==="theme-lookup").length,1);
+   assert.equal(calls.some(x=>["upload","insert","remove"].includes(x[0])),false);
+ }
+});
+
+test("L2 : une fusion concurrente après copie bloque l'INSERT sans effacer l'original",async()=>{
+ const {client,calls,review}=adminClient({themeChangedDuringUpload:true});
+ await assert.rejects(publishReviewedPictogram(client,uid,assetId,review),
+   /catégorie est absente ou fusionnée/i);
+ assert.equal(calls.filter(x=>x[0]==="theme-lookup").length,2);
+ assert.ok(calls.some(x=>x[0]==="upload"));
+ assert.equal(calls.some(x=>x[0]==="insert"),false);
+ assert.equal(calls.some(x=>x[0]==="remove"),false);
+});
+
 test("Une publication sans aperçu vérifié refuse le catalogue avant l'upload",async()=>{
  const {client,calls}=adminClient();
  await assert.rejects(publishReviewedPictogram(client,uid,assetId),/Aperçu approuvé absent/);
