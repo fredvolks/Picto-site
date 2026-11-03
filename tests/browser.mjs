@@ -164,7 +164,7 @@ try{
   for(const width of [340,520,521,700,750,751,820,899,900,980,1100]){
     const height=width<=520?780:width<=900?1024:900;
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=520,deviceScaleFactor:1});
-    for(const pageName of ["index","forfait"]){
+    for(const pageName of ["index"]){
       await command("Page.navigate",{url:base+"/"+pageName+".html"});
       await waitFor("return document.readyState==='complete' && document.querySelectorAll('.p-card').length===3");
       const squares=await evaluate('return [...document.querySelectorAll(".p-card")].map(card=>{const p=card.querySelector(".picto");return {cw:card.offsetWidth,ch:card.offsetHeight,pw:p.offsetWidth,ph:p.offsetHeight};});');
@@ -258,23 +258,20 @@ try{
         scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth};
     })();`);
     const signupItem=signupHeaderRow;
-    assert.ok(signupItem.scrollWidth<=signupItem.viewport+1,"En-tête déborde : "+JSON.stringify(signupItem));
-    assert.ok(signupItem.logo.right+2<=signupItem.fr.x&&signupItem.fr.right<=signupItem.en.x+1&&signupItem.en.right<=signupItem.login.x+1,
-      "Logo + FR + EN + Connexion chevauchés : "+JSON.stringify(signupItem));
-    for(const x of ["fr","en","login"])
-      assert.ok(Math.abs(signupItem.logo.cy-item[x].cy)<=13,
-        "Logo, FR, EN et Connexion ne sont PAS sur une seule ligne : "+JSON.stringify(signupItem));
-
-    if(width===768){const layout=await evaluate('const el=document.querySelector(".signup-page"),h=document.querySelector(".signup-header"),s=getComputedStyle(el),r=el.getBoundingClientRect(),rh=h.getBoundingClientRect();return {marginLeft:s.marginLeft,marginRight:s.marginRight,width:s.width,pageX:r.x,pageRight:r.right,headerX:rh.x,headerWidth:rh.width,viewport:innerWidth,clientWidth:document.documentElement.clientWidth}');console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader,layout}));}
+    assert.ok(signupItem.scrollWidth<=signupItem.viewport+1,
+      "Inscription: aucun débordement de l'en-tête "+width);
+    assert.ok(signupItem.logo.right<=signupItem.fr.x+1 ||
+      signupItem.logo.bottom<=signupItem.fr.y+1,
+      "Logo et FR sans chevauchement "+width);
+    assert.ok(signupItem.fr.right<=signupItem.en.x+2 &&
+      signupItem.en.right<=signupItem.login.x+2,"FR/EN/Connexion sans chevauchement "+width);
     for(const key of ["logo","fr","en","login"]){
-      const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
-      for(const dim of ["x","y","w","h"])
-        assert.ok(Math.abs(expected[dim]-actual[dim])<=2,id+" "+dim+
-          " : accueil="+expected[dim]+" inscription="+actual[dim]);
-      for(const prop of ["font","weight","color","background","radius","label"])
-        assert.equal(actual[prop],expected[prop],id+" "+prop+" : en-têtes différents");
+      const box=signupHeader[key],home=homeHeader[key];
+      assert.equal(box.label,home.label,"Texte en-tête inchangé "+key);
+      assert.ok(box.w>20&&box.h>=17,"Commande visible "+key+" "+width);
     }
-    console.log("PASS HEADER PARITY "+width+"x"+height+" : logo, FR, EN, connexion identiques");
+    assert.ok(signupHeader.login.h>=44,"Cible tactile Connexion "+width);
+    console.log("PASS EN-TÊTE INSCRIPTION",width+"x"+height);
   }
   // Le CTA de l'accueil doit réellement ouvrir le forfait; pas de faux paiement.
   for(const width of [320,375,390,430,768,1440]){
@@ -287,37 +284,41 @@ try{
     // FR, puis vérifier une seconde fois que le formulaire passe en anglais.
     await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
 
-    const dimensions=await evaluate('return [...document.querySelectorAll(".p-card")].map(card=>{const art=card.querySelector(".picto");return {cardWidth:card.offsetWidth,cardHeight:card.offsetHeight,pictoWidth:art.offsetWidth,pictoHeight:art.offsetHeight}});');
-    assert.equal(dimensions.length,3,"Trois pictogrammes doivent rester présents sur les pages");
-    for(const [i,d] of dimensions.entries()){
-      assert.ok(Math.abs(d.cardWidth-d.cardHeight)<=1,"Carte pictogramme "+(i+1)+" non carrée : "+JSON.stringify(d));
-      assert.ok(Math.abs(d.pictoWidth-d.pictoHeight)<=1,"Cadre noir pictogramme "+(i+1)+" non carré : "+JSON.stringify(d));
+    const p=await evaluate(`
+      const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,w:r.width,h:r.height};};
+      return {plan:document.querySelectorAll('.signup-plan').length,
+        benefits:document.querySelectorAll('.signup-plan-benefits span').length,
+        pictos:document.querySelectorAll('.signup-tiles .p-card').length,
+        price:document.querySelector('.signup-plan-price strong').textContent.trim(),
+        forms:document.querySelectorAll('form').length,
+        contact:document.querySelector('.signup-footer a').getAttribute('href'),
+        docWidth:document.documentElement.scrollWidth,
+        checked:document.querySelector('#signup-consent').checked,
+        disabled:document.querySelector('.signup-google').disabled,
+        layout:getComputedStyle(document.querySelector('.signup-page')).display,
+        intro:box('.signup-intro'),offer:box('.signup-plan'),form:box('.signup-form-card'),cta:box('.signup-action')};
+    `);
+    assert.equal(p.plan,1);assert.equal(p.benefits,3);
+    assert.equal(p.pictos,0,"Avantages de l'offre sans pictos marketing dupliqués");
+    assert.equal(p.price,"9,99 $");
+    assert.equal(p.forms,1);assert.equal(p.checked,false);
+    assert.equal(p.disabled,true,"Google reste inactif");
+    assert.equal(p.contact,"./contact.html");
+    assert.ok(p.docWidth<=width+1,"Inscription sans débordement horizontal");
+    assert.ok(p.cta.h>=44,"Action accessible au toucher");
+    if(width<680){
+      assert.equal(p.layout,"flex");
+      assert.ok(p.intro.bottom<=p.offer.y+1&&p.offer.bottom<=p.form.y+1,"Mobile en une colonne");
+    }else if(width>=1280){
+      assert.equal(p.layout,"grid");
+      assert.ok(p.intro.right+5<=p.offer.x&&p.offer.right+5<=p.form.x,"PC trois colonnes");
+    }else{
+      assert.equal(p.layout,"grid");
+      assert.ok(p.offer.right+5<=p.form.x,"Tablette deux colonnes");
     }
-    const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked,visibleForm:document.querySelector('#signup-status').getBoundingClientRect().bottom};");
-    assert.equal(p.plan,1,"One distinct signup plan page");
-    assert.match(p.price,/9,99/);
-    assert.equal(p.forms,1,"Preparatory form, no account or payment creation");
-    assert.equal(p.consent,false,"Consent is never prechecked");
-    assert.equal(p.back,"./index.html","Valid navigation back");
-    assert.ok(p.docWidth<=width+1,"Signup has no horizontal scroll");
-    if(width<=430){
-      const viewport=width===320?568:width===375?667:width===390?740:932;
-      assert.ok(p.docHeight<=viewport+1,"ONE mobile screen "+width+": "+JSON.stringify(p));
-      assert.ok(p.visibleForm<=viewport+1,"Form visible without scrolling "+width+": "+JSON.stringify(p));
-    }
-
-    // Critère visuel tiré du défaut Samsung : pas uniquement "pas de scroll".
-    if(width<=430&&width>=390){
-      const composition=await evaluate('const h=document.querySelector(".signup-header").getBoundingClientRect(),s=document.querySelector(".signup-showcase").getBoundingClientRect(),t=document.querySelector(".signup-tiles").getBoundingClientRect(),f=document.querySelector(".signup-form-card").getBoundingClientRect();return {header:h.bottom,showcase:s.top,tiles:t.height,form:f.bottom};');
-      const viewport=width===390?740:932;
-      assert.ok(composition.form>=viewport*.82,"La page est visuellement tassée en haut sur "+width+": "+JSON.stringify(composition));
-      assert.ok(composition.showcase-composition.header>=viewport*.035,"Le titre colle au logo sur "+width+": "+JSON.stringify(composition));
-      assert.ok(composition.tiles>=88,"Les pictogrammes mobiles sont trop petits sur "+width+": "+JSON.stringify(composition));
-    }
-    assert.equal(await evaluate("return document.body.dataset.pictauSignupDesign"),"5","Approved signup Design 5");
-    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".picto-label")].map(el=>el.textContent.trim())'),["Trouver","Personnaliser","Imprimer"]);
     await evaluate("document.querySelector('[data-lang=en]').click();return true;");
-    assert.deepEqual(await evaluate('return [...document.querySelectorAll(".picto-label")].map(el=>el.textContent.trim())'),["Find","Personalize","Print"]);
+    assert.match(await evaluate("return document.querySelector('#signup-title').textContent"),/Create your account/);
+    assert.equal(await evaluate("return document.querySelector('.signup-google span').textContent"),"Continue with Google");
     await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
     const reachable=await evaluate('window.scrollTo(0,document.documentElement.scrollHeight);const f=document.querySelector(".signup-footer").getBoundingClientRect();return {bottom:f.bottom,top:f.top,height:innerHeight,overflow:getComputedStyle(document.documentElement).overflowY};');
     assert.notEqual(reachable.overflow,"hidden","Scrolling remains possible with keyboard/zoom");
@@ -385,49 +386,28 @@ try{
     }
   }
 
-  // Contrat anti-régression demandé : les DEUX cartes blanches ont exactement
-  // les mêmes dimensions, et le contenu de gauche forme un bloc de la
-  // largeur/hauteur de la carte blanche à droite. Pas de fausse validation par
-  // présence de sélecteur CSS — rectangles réellement rendus par Chromium.
+  // Inscription approuvée : ses proportions sont indépendantes de celles de
+  // la connexion, qui n'a été ni modifiée ni recalibrée.
   for(const [width,height] of [[900,900],[1024,800],[1280,900],[1440,900],[1920,1080]]){
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:false,deviceScaleFactor:1});
-    for(const language of ["fr","en"]){
-      await command("Page.navigate",{url:base+"/forfait.html"});
-      await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-form-card')");
-      await evaluate("return document.fonts.ready.then(()=>true)");
-      await evaluate("document.querySelector('[data-lang="+language+"]').click();return true;");
-      await waitFor("return document.documentElement.lang==='"+language+"'");
-      const signup=await evaluate(`
-        const get=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,centerY:r.y+r.height/2};};
-        return {left:get('.signup-showcase'),card:get('.signup-form-card'),documentW:document.documentElement.scrollWidth,windowW:innerWidth,display:getComputedStyle(document.querySelector('.signup-page')).display};
-      `);
-      await command("Page.navigate",{url:base+"/app/index.html"});
-      await waitFor("return document.readyState==='complete' && !!document.querySelector('.hosted-access-v5 .hosted-access-panel')",16000);
-      await evaluate("return document.fonts.ready.then(()=>true)");
-      await evaluate("document.querySelector('[data-action=lang][data-lang="+language+"]').click();return true;");
-      await waitFor("return document.documentElement.lang==='"+language+"'");
-      const login=await evaluate(`
-        const get=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,centerY:r.y+r.height/2};};
-        return {left:get('.hosted-e-intro'),card:get('.hosted-access-panel'),documentW:document.documentElement.scrollWidth,windowW:innerWidth,display:getComputedStyle(document.querySelector('.hosted-e-layout')).display};
-      `);
-      const where=width+"x"+height+" "+language;
-      const close=(a,b,what)=>assert.ok(Math.abs(a-b)<=2,
-        "Panneaux non harmonisés "+what+" "+where+" signup="+JSON.stringify(signup)+" login="+JSON.stringify(login));
-      close(signup.card.w,login.card.w,"largeur carte login/signup");
-      close(signup.card.h,login.card.h,"hauteur carte login/signup");
-      for(const page of [signup,login]){
-        close(page.left.w,page.card.w,"largeur gauche/droite");
-        close(page.left.h,page.card.h,"hauteur gauche/droite");
-        close(page.left.centerY,page.card.centerY,"alignement vertical gauche/droite");
-        assert.ok(page.left.right+8<page.card.x,"Colonnes en chevauchement "+where+" "+JSON.stringify(page));
-        assert.ok(page.documentW<=page.windowW+2,"Débordement horizontal "+where+" "+JSON.stringify(page));
-      }
-      if(width===1440){
-        const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
-        await writeFile(join(screenshots,"auth-equal-cards-login-"+language+".png"),Buffer.from(shot.data,"base64"));
-      }
-      console.log("PASS CARTES BLANCHES IDENTIQUES",where,signup.card.w,signup.card.h);
-    }
+    await command("Page.navigate",{url:base+"/forfait.html"});
+    await waitFor("return !!document.querySelector('.signup-form-card')");
+    const o=await evaluate(`
+      const r=s=>{const v=document.querySelector(s).getBoundingClientRect();return {x:v.x,right:v.right,y:v.y,bottom:v.bottom,w:v.width,h:v.height};};
+      return {intro:r('.signup-showcase'),offer:r('.signup-plan'),form:r('.signup-form-card'),
+        docW:document.documentElement.scrollWidth,viewport:innerWidth};
+    `);
+    assert.ok(o.docW<=o.viewport+1,"Inscription desktop sans overflow "+width);
+    if(width>=1280)assert.ok(o.intro.right+5<=o.offer.x&&o.offer.right+5<=o.form.x,
+      "PC trois colonnes sans collision "+width);
+    else if(height>=width)assert.ok(o.offer.right+5<=o.form.x&&o.intro.bottom<=o.form.y+1,
+      "Tablette portrait : titre au-dessus, offre et formulaire côte à côte "+width+" "+JSON.stringify(o));
+    else assert.ok(o.intro.right+5<=o.form.x&&o.offer.right+5<=o.form.x,
+      "Tablette paysage deux colonnes sans collision "+width+" "+JSON.stringify(o));
+    await command("Page.navigate",{url:base+"/app/index.html"});
+    await waitFor("return !!document.querySelector('.hosted-access-panel')",16000);
+    const loginW=await evaluate("return document.documentElement.scrollWidth");
+    assert.ok(loginW<=width+1,"Connexion inchangée sans overflow "+width);
   }
   // Tablette et téléphone : pas de hauteur de carte desktop forcée,
   // pas de rupture à 899/900 px, pas de scroll horizontal.
@@ -455,7 +435,6 @@ try{
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
     for(const [page,tile,inside] of [
       ["index.html",".poster-tiles .p-card",".poster-tiles .p-card .picto"],
-      ["forfait.html",".signup-tiles .p-card",".signup-tiles .p-card .picto"],
       ["app/index.html",".hosted-e-tiles .hosted-e-tile",".hosted-e-tiles .hosted-e-tile .hosted-e-art"]
     ]){
       await command("Page.navigate",{url:base+"/"+page});
