@@ -1305,6 +1305,22 @@
   .pa-catalog-card-category{display:block;font-size:12px;color:#686868;text-align:center}
   .pa-catalog-art.is-unavailable .pa-catalog-art-body:after{content:"Image indisponible";font-size:12px;color:#686868}
   .pa-catalog-art.is-unavailable img{display:none}
+  /* Reprise ciblée d'une vignette publiée, sans changer la sélection cliente. */
+  .pa-catalog-image-error,.pa-catalog-image-retry{display:none}
+  .pa-catalog-card .pa-catalog-art.is-unavailable .pa-catalog-art-body:after{content:none}
+  .pa-catalog-card .pa-catalog-art.is-unavailable .pa-catalog-art-body{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  }
+  .pa-catalog-art.is-unavailable .pa-catalog-image-error{
+    display:block;font-size:12px;color:#555;text-align:center;overflow-wrap:anywhere
+  }
+  .pa-catalog-art.is-unavailable .pa-catalog-image-retry{
+    display:inline-flex;align-items:center;justify-content:center;min-height:44px;
+    max-width:100%;padding:7px 12px;background:#fff;color:#111;border:1px solid #555;
+    border-radius:10px;font:750 12px "DM Sans",system-ui,sans-serif;cursor:pointer
+  }
+  .pa-catalog-image-retry:focus-visible{outline:3px solid #555;outline-offset:2px}
+  .pa-catalog-image-retry:disabled{opacity:.55;cursor:wait}
   .pa-catalog-notice{padding:26px 20px;background:#f7f7f7;border:1px solid #e5e5e5;border-radius:16px;font-size:15px;color:#686868}
   .pa-catalog-pages{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;margin:25px 0}\n  .pa-client-workspace .pa-catalog-pages button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:96px;max-width:100%;padding:9px 13px;border:1px solid var(--pictau-ui-line);border-radius:11px;background:var(--pictau-ui-surface);color:var(--pictau-ui-ink);font-size:13px;font-weight:750;cursor:pointer}\n  .pa-client-workspace .pa-catalog-pages button:not(:disabled):hover{border-color:var(--pictau-ui-ink)}\n  .pa-client-workspace .pa-catalog-pages button:disabled{opacity:.45;cursor:not-allowed}\n  .pa-client-workspace .pa-catalog-pages span{font-size:13px;font-variant-numeric:tabular-nums;text-align:center;overflow-wrap:anywhere}
   .pa-catalog-search-button{min-width:105px;min-height:44px;background:#111;border:1px solid #111;border-radius:10px;color:#fff;font:750 13px "DM Sans",system-ui;cursor:pointer}
