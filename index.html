@@ -28,8 +28,6 @@ a:focus-visible,button:focus-visible{outline:3px solid #345a75;outline-offset:4p
 .hero{width:100%;max-width:1510px;min-height:0;margin:auto;padding:10px clamp(20px,4vw,62px) 12px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;row-gap:14px}
 .art-top{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:clamp(10px,.86vw,12px);font-weight:750;letter-spacing:1.2px;color:var(--muted)}
 .art-index{max-width:460px}
-.art-badge{flex:none;width:74px;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:50%;text-align:center;background:#e4eae1;color:#50675d;font-size:9px;font-weight:800;letter-spacing:0;line-height:1.3;transform:rotate(8deg)}
-.art-badge .badge-arrow{font-size:17px;font-weight:500}
 .poster{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);align-items:center;gap:clamp(15px,2.3vw,38px);min-height:0}
 .poster-heading{position:relative;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:0;font-size:clamp(42px,4.3vw,70px);font-weight:850;line-height:1.07;letter-spacing:-.062em;text-wrap:balance}
 .poster-heading span{white-space:nowrap}
@@ -72,8 +70,6 @@ footer a:hover{text-decoration:underline}
  .topbar{padding:0 22px}
  .hero{padding:4px 22px 10px;row-gap:8px}
  .art-top{font-size:10px;letter-spacing:.7px}
- .art-badge{width:58px;height:58px;font-size:7px}
- .art-badge .badge-arrow{font-size:12px}
  .poster{display:flex;flex-direction:column;justify-content:space-evenly;gap:8px}
  .poster-heading{align-items:center;text-align:center;font-size:clamp(37px,6.1vw,52px);line-height:1.09;letter-spacing:-.055em}
  .poster-tiles{width:min(100%,560px);padding:9px 12px;gap:clamp(8px,2.6vw,20px);max-height:220px}
@@ -97,7 +93,6 @@ footer a:hover{text-decoration:underline}
  .hero{padding:3px 15px 7px;row-gap:6px}
  .art-top{align-items:flex-start;font-size:8px;line-height:1.4;letter-spacing:.45px}
  .art-index{max-width:212px}
- .art-badge{width:49px;height:49px;font-size:6.5px}
  .poster{gap:7px}
  .poster-heading{font-size:clamp(32px,8.9vw,43px);line-height:1.11}
  .poster-heading span{white-space:normal}
@@ -114,7 +109,6 @@ footer a:hover{text-decoration:underline}
 }
 @media(max-height:690px) and (max-width:750px){
  .hero{row-gap:3px;padding-top:0;padding-bottom:4px}
- .art-badge{width:43px;height:43px}
  .poster-heading{font-size:clamp(31px,8.4vw,39px)}
  .poster-tiles{max-height:138px;padding:4px 6px}
  .p-card{max-width:100px;aspect-ratio:1;padding:4px}
@@ -154,7 +148,7 @@ footer a:hover{text-decoration:underline}
 </style><link rel="stylesheet" href="./branding/pictau-universal-header.css"></head>
 <body data-pictau-home-design="5"><a href="#page-main" class="skip" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
 <header class="topbar" data-pa-universal-header><a class="brand home-logo" data-pa-universal-logo href="./index.html" aria-label="Pict-au — Accueil" data-fr-aria="Pict-au — Accueil" data-en-aria="Pict-au — Home"><picture><source media="(max-width: 680px)" srcset="./branding/pictau-logo-le-fil-mobile.svg"><img class="pictau-brand-img" src="./branding/pictau-logo-le-fil.svg" alt="" width="760" height="116" decoding="async"></picture></a><nav class="pa-universal-controls" aria-label="Navigation principale" data-fr-aria="Navigation principale" data-en-aria="Main navigation"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button><a class="signin login-link" href="./app/" data-fr="Connexion" data-en="Sign in" data-fr-aria="Se connecter à mon espace Pict-au" data-en-aria="Sign in to my Pict-au space">Connexion</a></nav></header>
-<main id="page-main" class="hero" aria-labelledby="home-title"><div class="art-top"><span class="art-index" data-fr="PICT-AU — LES PETITS REPÈRES FONT LA DIFFÉRENCE" data-en="PICT-AU — SMALL VISUAL CUES MAKE A DIFFERENCE">PICT-AU — LES PETITS REPÈRES FONT LA DIFFÉRENCE</span><span class="art-badge" aria-label="Fait pour le quotidien" data-fr-aria="Fait pour le quotidien" data-en-aria="Made for everyday life"><span class="badge-label" data-fr="FAIT POUR LE QUOTIDIEN" data-en="MADE FOR EVERYDAY LIFE">FAIT POUR LE QUOTIDIEN</span><span class="badge-arrow" aria-hidden="true">↗</span></span></div>
+<main id="page-main" class="hero" aria-labelledby="home-title"><div class="art-top"><span class="art-index" data-fr="PICT-AU — LES PETITS REPÈRES FONT LA DIFFÉRENCE" data-en="PICT-AU — SMALL VISUAL CUES MAKE A DIFFERENCE">PICT-AU — LES PETITS REPÈRES FONT LA DIFFÉRENCE</span></div>
 <div class="poster"><h1 class="poster-heading" id="home-title"><span data-fr="Des pictogrammes" data-en="Pictograms">Des pictogrammes</span><span data-fr="pour un quotidien" data-en="for an easier">pour un quotidien</span><em data-fr="plus simple." data-en="everyday life.">plus simple.</em></h1><div class="poster-tiles"><div class="p-card card-1"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="39" cy="39" r="23"/><path d="m56 56 21 21"/></svg></div><div class="picto-label" data-fr="Trouver" data-en="Find">Trouver</div></div></div><div class="p-card card-2"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect height="57" rx="5" width="61" x="14" y="16"/><path d="M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9"/></svg></div><div class="picto-label" data-fr="Personnaliser" data-en="Personalize">Personnaliser</div></div></div><div class="p-card card-3"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6"/></svg></div><div class="picto-label" data-fr="Imprimer" data-en="Print">Imprimer</div></div></div></div></div>
 <div class="poster-bottom"><p data-fr="Des repères visuels à votre image, pour chaque moment du quotidien." data-en="Visual supports made your way, for every part of the day.">Des repères visuels à votre image, pour chaque moment du quotidien.</p><a class="signup-button" href="./forfait.html"><span data-fr="Créer mon compte" data-en="Create my account">Créer mon compte</span><span aria-hidden="true">↗</span></a></div></main>
 <footer><span>© Pict-au</span><nav aria-label="Informations légales" data-fr-aria="Informations légales" data-en-aria="Legal information"><a href="./contact.html" data-fr="Contact" data-en="Contact">Contact</a><a href="./conditions.html" data-fr="Conditions" data-en="Terms">Conditions</a><a href="./confidentialite.html" data-fr="Confidentialité" data-en="Privacy">Confidentialité</a></nav></footer>
