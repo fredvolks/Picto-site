@@ -79,9 +79,23 @@ const PNG_MAGIC=[137,80,78,71,13,10,26,10];
 const MAX_BYTES=6*1024*1024;
 const FIELDS="id,title_fr,title_en,theme,image_path,published_at";
 function cleanQuery(s){
-  if(typeof s!=="string"||s.length>80||!/^[\p{L}\p{N} '\-]*$/u.test(s))
+  if(typeof s!=="string"||s.length>80||!/^[\p{L}\p{N} '’\-]*$/u.test(s))
     throw Error("Recherche de pictogrammes invalide.");
   return s.trim().replace(/\s+/g," ");
+}
+// Recherche côté serveur AVANT count/pagination : chaque mot peut figurer dans
+// le nom FR ou EN, indépendamment de son ordre. Tous les mots sont requis.
+// Les deux graphies de l'apostrophe française sont équivalentes pour chercher.
+// Les caractères de syntaxe PostgREST (% , . ( ) _) restent refusés par cleanQuery.
+function catalogNameSearchExpression(search){
+  const groups=search.split(" ").map(word=>{
+    const variants=[...new Set([word,word.replace(/'/g,"’"),word.replace(/’/g,"'")])];
+    return variants.flatMap(term=>[
+      "title_fr.ilike.%"+term+"%","title_en.ilike.%"+term+"%"
+    ]).join(",");
+  });
+  return groups.length===1?groups[0]:
+    "and("+groups.map(group=>"or("+group+")").join(",")+")";
 }
 function validRow(row){
   return row&&UUID.test(row.id)&&row.image_path==="items/"+row.id+".png"
@@ -140,7 +154,7 @@ export async function listPublishedCatalog(client,uid,filters={}){
       FIELDS+",published_filter:pictau_published_theme_links!inner()":FIELDS;
     let q=client.from("pictau_catalog_items").select(selection,{count:"exact"});
     if(byTheme)q=q.eq(primaryOnly?"theme":"published_filter.theme_code",f.theme);
-    if(f.query)q=q.or("title_fr.ilike.%"+f.query+"%,title_en.ilike.%"+f.query+"%");
+    if(f.query)q=q.or(catalogNameSearchExpression(f.query));
     return q.order(sortField,sortOptions).order("id",{ascending:true})
       .range(f.page*CATALOG_PAGE_SIZE,(f.page+1)*CATALOG_PAGE_SIZE-1);
   };
