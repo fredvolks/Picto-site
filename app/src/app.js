@@ -457,45 +457,71 @@ async function fetchPublishedCatalog(){
   }
 }
 let catalogImageObserver=null;
+// Après une panne Storage, une carte client peut relancer uniquement SON image
+// sans modifier les choix, la composition, la session ou le catalogue.
+async function loadPublishedArtworkPreview(img){
+  const uid=authStatus.user?.id;
+  if(!SITE_EMBEDDED||!uid||canOpenAdmin())return;
+  const id=img?.dataset?.catalogId;
+  const row=[...publishedCatalog.items,
+    ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
+    ...officialComposer.routine,...officialComposer.board].find(x=>x.id===id);
+  if(!row||publishedCatalog.loadingImages.has(id))return;
+  if(publishedCatalog.imageUrls.has(id)){
+    const url=publishedCatalog.imageUrls.get(id);
+    for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id){
+      match.src=url;
+      match.closest(".pa-catalog-art")?.classList.remove("is-unavailable");
+    }
+    return;
+  }
+  const disableRetry=busy=>{
+    for(const button of root.querySelectorAll('[data-action="catalog-image-retry"]'))
+      if(button.dataset.id===id)button.disabled=busy;
+  };
+  publishedCatalog.loadingImages.add(id);
+  disableRetry(true);
+  try{
+    const client=await supabaseClient();
+    const blob=await downloadPublishedArtwork(client,uid,row);
+    if(authStatus.user?.id!==uid||![...publishedCatalog.items,
+      ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
+      ...officialComposer.routine,...officialComposer.board].some(x=>x.id===id))return;
+    const url=URL.createObjectURL(blob);
+    publishedCatalog.imageUrls.set(id,url);
+    for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id){
+      match.src=url;
+      match.closest(".pa-catalog-art")?.classList.remove("is-unavailable");
+    }
+  }catch(error){
+    if(authStatus.user?.id===uid)for(const match of root.querySelectorAll("img[data-catalog-id]")){
+      if(match.dataset.catalogId===id)match.closest(".pa-catalog-art")?.classList.add("is-unavailable");
+    }
+  }finally{
+    publishedCatalog.loadingImages.delete(id);
+    disableRetry(false);
+  }
+}
 function observePublishedArtwork(){
   if(catalogImageObserver)catalogImageObserver.disconnect();
   catalogImageObserver=null;
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!["library","used","routines","boards"].includes(state.page))return;
   const nodes=[...root.querySelectorAll("img[data-catalog-id]")];
   if(!nodes.length)return;
-  const uid=authStatus.user.id;
-  const load=async img=>{
-    const id=img.dataset.catalogId,row=[...publishedCatalog.items,
-      ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
-      ...officialComposer.routine,...officialComposer.board].find(x=>x.id===id);
-    if(!row||publishedCatalog.loadingImages.has(id))return;
-    if(publishedCatalog.imageUrls.has(id)){img.src=publishedCatalog.imageUrls.get(id);return;}
-    publishedCatalog.loadingImages.add(id);
-    try{
-      const client=await supabaseClient();
-      const blob=await downloadPublishedArtwork(client,uid,row);
-      if(authStatus.user?.id!==uid||![...publishedCatalog.items,
-          ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
-          ...officialComposer.routine,...officialComposer.board].some(x=>x.id===id))return;
-      const url=URL.createObjectURL(blob);
-      publishedCatalog.imageUrls.set(id,url);
-      for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id)match.src=url;
-    }catch(error){
-      if(authStatus.user?.id===uid)for(const match of root.querySelectorAll("img[data-catalog-id]")){
-        if(match.dataset.catalogId===id)match.closest(".pa-catalog-art")?.classList.add("is-unavailable");
-      }
-    }finally{publishedCatalog.loadingImages.delete(id);}
-  };
-  if(typeof IntersectionObserver==="undefined"){nodes.forEach(node=>{void load(node);});return;}
+  if(typeof IntersectionObserver==="undefined"){
+    nodes.forEach(node=>{void loadPublishedArtworkPreview(node);});return;
+  }
   catalogImageObserver=new IntersectionObserver(entries=>{
     for(const entry of entries)if(entry.isIntersecting){
       catalogImageObserver?.unobserve(entry.target);
-      void load(entry.target);
+      void loadPublishedArtworkPreview(entry.target);
     }
   },{rootMargin:"220px"});
   nodes.forEach(node=>{
-    if(publishedCatalog.imageUrls.has(node.dataset.catalogId))node.src=publishedCatalog.imageUrls.get(node.dataset.catalogId);
-    else catalogImageObserver.observe(node);
+    if(publishedCatalog.imageUrls.has(node.dataset.catalogId)){
+      node.src=publishedCatalog.imageUrls.get(node.dataset.catalogId);
+      node.closest(".pa-catalog-art")?.classList.remove("is-unavailable");
+    }else catalogImageObserver.observe(node);
   });
 }
 const clientFiles={items:[],total:0,page:0,query:"",type:"all",sort:"recent",loading:false,busy:false,error:"",message:"",
@@ -2465,7 +2491,10 @@ function renderClientLibrary(){
     const url=f.imageUrls.get(item.id);
     return '<article class="pa-catalog-card"><div class="pa-catalog-art">'
       +'<div class="pa-catalog-art-body"><img data-catalog-id="'+esc(item.id)+'"'
-      +(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async"></div>'
+      +(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async">'
+      +'<span class="pa-catalog-image-error" role="status">'+esc(fr?'Image indisponible.':'Image unavailable.')+'</span>'
+      +'<button type="button" class="pa-catalog-image-retry" data-action="catalog-image-retry" data-id="'+esc(item.id)+'"'
+      +' aria-label="'+esc(fr?'Réessayer de charger l’image de '+name:'Retry loading the image of '+name)+'">'+esc(fr?'Réessayer':'Retry')+'</button></div>'
       +'<div class="pa-catalog-art-caption">'+esc(name)+'</div></div>'
       +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
         clientCategoryLabel(item.theme,state.language)
@@ -3565,6 +3594,15 @@ root.addEventListener("click",function(event){
   }
   if(a==="used-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading&&!usedPictos.adding){
     void fetchUsedPictos();return;
+  }
+  if(a==="catalog-image-retry"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+    state.page==="library"&&!publishedCatalog.loading){
+    const id=el.dataset.id;
+    const img=[...root.querySelectorAll(".pa-client-catalog img[data-catalog-id]")]
+      .find(node=>node.dataset.catalogId===id);
+    if(img&&publishedCatalog.items.some(row=>row.id===id))
+      void loadPublishedArtworkPreview(img);
+    return;
   }
   if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
   if(a==="catalog-page"&&SITE_EMBEDDED&&!canOpenAdmin()&&!publishedCatalog.loading){
