@@ -12,9 +12,9 @@ const row={id:assetId,title_fr:"toilette",title_en:"bathroom",theme:"hygiene",
 function png(){const data=new Uint8Array(40);data.set([137,80,78,71,13,10,26,10]);return new Blob([data],{type:"image/png"});}
 function user(id=uid){return {auth:{getUser:async()=>({data:{user:id?{id}:null},error:null})}};}
 
-function adminClient({isAdmin=true,insertFails=false}={}){
+function adminClient({isAdmin=true,insertFails=false,themeState="active",themeChangedDuringUpload=false}={}){
   const calls=[];
-  let approved=null, published=null;
+  let approved=null, published=null,themeReads=0;
   const asset={id:assetId,title_fr:"toilette",title_en:"bathroom",theme:"hygiene",
     status:"draft",created_at:"2026-10-28T12:00:00Z",
     image_path:"imports/"+uid+"/"+assetId+".png"};
@@ -28,6 +28,17 @@ function adminClient({isAdmin=true,insertFails=false}={}){
       };
       if(name==="pictau_assets")return{
         select(){return{eq(){return{maybeSingle:async()=>({data:asset,error:null})};}}}
+      };
+      if(name==="pictau_themes")return{
+        select(){return{eq(key,value){
+          calls.push(["theme-lookup",key,value]);
+          return{maybeSingle:async()=>{
+            themeReads++;
+            if(themeState==="missing")return{data:null,error:null};
+            return{data:{code:asset.theme,merged_into:
+              themeState==="merged"||(themeChangedDuringUpload&&themeReads>1)?"autonomie":null},error:null};
+          }};
+        }};}
       };
       if(name==="pictau_catalog_items")return{
         select(){return{eq(){return{maybeSingle:async()=>({data:published,error:null})};}}},
@@ -54,11 +65,11 @@ function adminClient({isAdmin=true,insertFails=false}={}){
       remove:async paths=>{calls.push(["remove",paths]);return{error:null};}
     };}}
   };
-  return {client,calls};
+  return {client,calls,review:{...asset,blob:source}};
 }
 test("Seul un administrateur authentifié peut publier : téléchargement source PRIVÉE puis copie privée approuvée",async()=>{
-  const {client,calls}=adminClient();
-  const result=await publishReviewedPictogram(client,uid,assetId);
+  const {client,calls,review}=adminClient();
+  const result=await publishReviewedPictogram(client,uid,assetId,review);
   assert.equal(result.id,assetId);
   assert.ok(calls.some(x=>x[0]==="storage"&&x[1]==="pictau-drafts"));
   assert.ok(calls.some(x=>x[0]==="storage"&&x[1]===CATALOG_BUCKET));
@@ -66,20 +77,61 @@ test("Seul un administrateur authentifié peut publier : téléchargement source
   assert.ok(calls.some(x=>x[0]==="upload"&&x[1]===row.image_path&&x[3]===false));
   assert.ok(!calls.some(x=>x[0]==="remove"),"No deletion on success");
 });
+test("L2 : refuser une catégorie inexistante ou fusionnée AVANT la copie privée",async()=>{
+ for(const themeState of ["missing","merged"]){
+   const {client,calls,review}=adminClient({themeState});
+   await assert.rejects(publishReviewedPictogram(client,uid,assetId,review),
+     /catégorie est absente ou fusionnée/i);
+   assert.equal(calls.filter(x=>x[0]==="theme-lookup").length,1);
+   assert.equal(calls.some(x=>["upload","insert","remove"].includes(x[0])),false);
+ }
+});
+
+test("L2 : une fusion concurrente après copie bloque l'INSERT sans effacer l'original",async()=>{
+ const {client,calls,review}=adminClient({themeChangedDuringUpload:true});
+ await assert.rejects(publishReviewedPictogram(client,uid,assetId,review),
+   /catégorie est absente ou fusionnée/i);
+ assert.equal(calls.filter(x=>x[0]==="theme-lookup").length,2);
+ assert.ok(calls.some(x=>x[0]==="upload"));
+ assert.equal(calls.some(x=>x[0]==="insert"),false);
+ assert.equal(calls.some(x=>x[0]==="remove"),false);
+});
+
+test("Une publication sans aperçu vérifié refuse le catalogue avant l'upload",async()=>{
+ const {client,calls}=adminClient();
+ await assert.rejects(publishReviewedPictogram(client,uid,assetId),/Aperçu approuvé absent/);
+ assert.equal(calls.some(x=>x[0]==="upload"||x[0]==="insert"),false);
+});
+test("L'image PNG revue doit rester identique aux octets privés au moment de publier",async()=>{
+ const {client,calls,review}=adminClient();
+ const source=client.storage.from.bind(client.storage);
+ client.storage.from=bucket=>{
+  const storage=source(bucket);
+  if(bucket!=="pictau-drafts")return storage;
+  return {...storage,download:async path=>{
+   const answer=await storage.download(path);
+   const bytes=new Uint8Array(await answer.data.arrayBuffer());
+   bytes[35]^=0x80;
+   return{data:new Blob([bytes],{type:"image/png"}),error:null};
+  }};
+ };
+ await assert.rejects(publishReviewedPictogram(client,uid,assetId,review),/PNG a changé depuis l'aperçu/);
+ assert.equal(calls.some(x=>x[0]==="upload"||x[0]==="insert"),false);
+});
 test("Le non administrateur ne peut pas télécharger ni publier de PNG privé",async()=>{
-  const {client,calls}=adminClient({isAdmin:false});
-  await assert.rejects(()=>publishReviewedPictogram(client,uid,assetId),/Super Admin refusé/);
+  const {client,calls,review}=adminClient({isAdmin:false});
+  await assert.rejects(()=>publishReviewedPictogram(client,uid,assetId,review),/Super Admin refusé/);
   assert.ok(!calls.some(x=>x[0]==="upload"||x[0]==="download"));
 });
 test("Échec transaction catalogue : nettoyage de la copie et aucune annonce de publication",async()=>{
-  const {client,calls}=adminClient({insertFails:true});
-  await assert.rejects(()=>publishReviewedPictogram(client,uid,assetId),/Insert refused/);
+  const {client,calls,review}=adminClient({insertFails:true});
+  await assert.rejects(()=>publishReviewedPictogram(client,uid,assetId,review),/Insert refused/);
   assert.equal(calls.some(x=>x[0]==="remove"),false,
     "Ne jamais effacer le PNG après un INSERT SQL : la transaction pourrait avoir été confirmée sans réponse");
 });
 test("Dépublication retire la ligne avant de nettoyer le PNG privé",async()=>{
-  const {client,calls}=adminClient();
-  const result=await unpublishReviewedPictogram(client,uid,assetId);
+  const {client,calls,review}=adminClient();
+  const result=await unpublishReviewedPictogram(client,uid,assetId,review);
   assert.equal(result.unpublished,true);
   assert.ok(calls.findIndex(x=>x[0]==="delete")<calls.findIndex(x=>x[0]==="remove"));
 });
@@ -133,11 +185,11 @@ function publishingServer({ackLost=false,insertRejected=false,insertRejectedOnce
    remove:async paths=>{calls.push(["remove",paths]);approved=null;return{error:null};}
   };
  };
- return{client:x.client,calls,stored:()=>approved,published:()=>published};
+ return{client:x.client,calls,review:x.review,stored:()=>approved,published:()=>published};
 }
 test("Bibliothèque : un INSERT publié sans accusé garde le PNG privé et récupère le résultat",async()=>{
  const s=publishingServer({ackLost:true});
- const saved=await publishReviewedPictogram(s.client,uid,assetId);
+ const saved=await publishReviewedPictogram(s.client,uid,assetId,s.review);
  assert.equal(saved.id,assetId);
  assert.equal(s.published()?.id,assetId);
  assert.ok(s.stored(),"Le PNG publié reste réellement présent");
@@ -148,20 +200,20 @@ test("Bibliothèque : un INSERT publié sans accusé garde le PNG privé et réc
 });
 test("Bibliothèque : SQL réellement rejeté, ne jamais supprimer un PNG après début INSERT",async()=>{
  const s=publishingServer({insertRejected:true});
- await assert.rejects(publishReviewedPictogram(s.client,uid,assetId),/SQL rejeté/);
+ await assert.rejects(publishReviewedPictogram(s.client,uid,assetId,s.review),/SQL rejeté/);
  assert.equal(s.published(),null);
  assert.ok(s.stored());
  assert.equal(s.calls.filter(x=>x[0]==="remove").length,0);
 });
 test("Bibliothèque : une fiche SQL sans PNG approuvé ne prouve jamais une publication",async()=>{
  const s=publishingServer({approvedMissing:true});
- await assert.rejects(publishReviewedPictogram(s.client,uid,assetId),/stockage|PNG|privé|absent/i);
+ await assert.rejects(publishReviewedPictogram(s.client,uid,assetId,s.review),/stockage|PNG|privé|absent/i);
  assert.equal(s.published()?.id,assetId);
  assert.equal(s.calls.filter(x=>x[0]==="remove").length,0);
 });
 test("Bibliothèque : PNG publié altéré après l'upload, succès interdit",async()=>{
  const s=publishingServer({approvedChanged:true});
- await assert.rejects(publishReviewedPictogram(s.client,uid,assetId),/intégrité|octets|corrompu|identique/i);
+ await assert.rejects(publishReviewedPictogram(s.client,uid,assetId,s.review),/intégrité|octets|corrompu|identique/i);
  assert.equal(s.published()?.id,assetId);
  assert.equal(s.calls.filter(x=>x[0]==="remove").length,0);
 });
@@ -169,10 +221,10 @@ test("Bibliothèque : PNG publié altéré après l'upload, succès interdit",as
 
 test("Bibliothèque : après SQL rejeté, le second clic reprend le même PNG privé",async()=>{
  const s=publishingServer({insertRejectedOnce:true});
- await assert.rejects(publishReviewedPictogram(s.client,uid,assetId),/SQL rejeté/);
+ await assert.rejects(publishReviewedPictogram(s.client,uid,assetId,s.review),/SQL rejeté/);
  const original=s.stored();
  assert.ok(original);
- const recovered=await publishReviewedPictogram(s.client,uid,assetId);
+ const recovered=await publishReviewedPictogram(s.client,uid,assetId,s.review);
  assert.equal(recovered.id,assetId);
  assert.equal(s.stored(),original,"La source approuvée n'est jamais écrasée");
  assert.equal(s.calls.filter(x=>x[0]==="insert").length,2);
@@ -181,7 +233,7 @@ test("Bibliothèque : après SQL rejeté, le second clic reprend le même PNG pr
 });
 test("Bibliothèque : accusé upload perdu, preuve privée permet un seul INSERT",async()=>{
  const s=publishingServer({uploadAckLost:true});
- const result=await publishReviewedPictogram(s.client,uid,assetId);
+ const result=await publishReviewedPictogram(s.client,uid,assetId,s.review);
  assert.equal(result.id,assetId);
  assert.equal(s.calls.filter(x=>x[0]==="upload").length,1);
  assert.equal(s.calls.filter(x=>x[0]==="insert").length,1);
@@ -190,7 +242,7 @@ test("Bibliothèque : accusé upload perdu, preuve privée permet un seul INSERT
 });
 test("Bibliothèque : objet existant altéré, aucun INSERT ou remplacement sous même ID",async()=>{
  const s=publishingServer({insertRejectedOnce:true});
- await assert.rejects(publishReviewedPictogram(s.client,uid,assetId),/SQL rejeté/);
+ await assert.rejects(publishReviewedPictogram(s.client,uid,assetId,s.review),/SQL rejeté/);
  const originalFrom=s.client.storage.from.bind(s.client.storage);
  s.client.storage.from=bucket=>{
   const st=originalFrom(bucket);
@@ -202,7 +254,7 @@ test("Bibliothèque : objet existant altéré, aucun INSERT ou remplacement sous
    return{data:new Blob([bytes],{type:"image/png"}),error:null};
   }};
  };
- await assert.rejects(publishReviewedPictogram(s.client,uid,assetId),/identique|intégrité|conflit|différent/i);
+ await assert.rejects(publishReviewedPictogram(s.client,uid,assetId,s.review),/identique|intégrité|conflit|différent/i);
  assert.equal(s.calls.filter(x=>x[0]==="insert").length,1);
  assert.equal(s.calls.filter(x=>x[0]==="remove").length,0);
 });

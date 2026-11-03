@@ -43,9 +43,9 @@ import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,sa
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf,fitPhysicalCopyColumns,previewPhysicalCopySheet} from "./print-pdf.js";
-import {loadConfirmedPrintSettings,loadPublishedImageScale,applyPublishedImageScale,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint} from "./client-template-print.js";
+import {loadConfirmedPrintSettings,loadPublishedImageScale,applyPublishedImageScale,applyClientBorderPreference,validateClientPictoCopies,repeatApprovedPictoForPrint,verifyApprovedPrintSnapshot,verifyApprovedPrintSnapshots} from "./client-template-print.js";
 import {shouldOpenArchivedPdf} from "./export-navigation.js";
-import {renderPdfRecovery} from "./pdf-recovery-ui.js";
+import {renderPdfRecovery,holdPdfOnAuthError,releasePdfForVerifiedUser,hasUnarchivedPdfForAccount} from "./pdf-recovery-ui.js";
 
 // The public Pages build changes this to true. It must never expose the mock admin UI.
 const PUBLIC_DEMO = false;
@@ -185,6 +185,10 @@ let clientNavigationEpoch=0;
 // Repli temporaire en mémoire : ne jamais perdre un PDF créé si Storage échoue.
 let pendingGeneratedPdf=null;
 let pdfRecoveryBusy=false,pdfRecoveryRequest=0,pdfRecoveryError="";
+function hasPrivatePdfWorkInProgress(){
+ return pdfExportBusy||pdfRecoveryBusy||officialComposer.busy||
+   clientPictoTemplates.busy||clientFiles.busy||Boolean(pendingGeneratedPdf);
+}
 const testClients={items:[],loaded:false,loading:false,busy:false,error:"",message:"",created:null,request:0};
 const authStatus={user:null,working:false,ready:false,roleReady:false,roleError:"",recovery:false,email:"",emailBusy:false,emailError:"",emailMessage:"",emailView:"login",showPassword:false,error:""};
 function emptyComposerSettings(){
@@ -453,45 +457,71 @@ async function fetchPublishedCatalog(){
   }
 }
 let catalogImageObserver=null;
+// Après une panne Storage, une carte client peut relancer uniquement SON image
+// sans modifier les choix, la composition, la session ou le catalogue.
+async function loadPublishedArtworkPreview(img){
+  const uid=authStatus.user?.id;
+  if(!SITE_EMBEDDED||!uid||canOpenAdmin())return;
+  const id=img?.dataset?.catalogId;
+  const row=[...publishedCatalog.items,
+    ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
+    ...officialComposer.routine,...officialComposer.board].find(x=>x.id===id);
+  if(!row||publishedCatalog.loadingImages.has(id))return;
+  if(publishedCatalog.imageUrls.has(id)){
+    const url=publishedCatalog.imageUrls.get(id);
+    for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id){
+      match.src=url;
+      match.closest(".pa-catalog-art")?.classList.remove("is-unavailable");
+    }
+    return;
+  }
+  const disableRetry=busy=>{
+    for(const button of root.querySelectorAll('[data-action="catalog-image-retry"]'))
+      if(button.dataset.id===id)button.disabled=busy;
+  };
+  publishedCatalog.loadingImages.add(id);
+  disableRetry(true);
+  try{
+    const client=await supabaseClient();
+    const blob=await downloadPublishedArtwork(client,uid,row);
+    if(authStatus.user?.id!==uid||![...publishedCatalog.items,
+      ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
+      ...officialComposer.routine,...officialComposer.board].some(x=>x.id===id))return;
+    const url=URL.createObjectURL(blob);
+    publishedCatalog.imageUrls.set(id,url);
+    for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id){
+      match.src=url;
+      match.closest(".pa-catalog-art")?.classList.remove("is-unavailable");
+    }
+  }catch(error){
+    if(authStatus.user?.id===uid)for(const match of root.querySelectorAll("img[data-catalog-id]")){
+      if(match.dataset.catalogId===id)match.closest(".pa-catalog-art")?.classList.add("is-unavailable");
+    }
+  }finally{
+    publishedCatalog.loadingImages.delete(id);
+    disableRetry(false);
+  }
+}
 function observePublishedArtwork(){
   if(catalogImageObserver)catalogImageObserver.disconnect();
   catalogImageObserver=null;
   if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||!["library","used","routines","boards"].includes(state.page))return;
   const nodes=[...root.querySelectorAll("img[data-catalog-id]")];
   if(!nodes.length)return;
-  const uid=authStatus.user.id;
-  const load=async img=>{
-    const id=img.dataset.catalogId,row=[...publishedCatalog.items,
-      ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
-      ...officialComposer.routine,...officialComposer.board].find(x=>x.id===id);
-    if(!row||publishedCatalog.loadingImages.has(id))return;
-    if(publishedCatalog.imageUrls.has(id)){img.src=publishedCatalog.imageUrls.get(id);return;}
-    publishedCatalog.loadingImages.add(id);
-    try{
-      const client=await supabaseClient();
-      const blob=await downloadPublishedArtwork(client,uid,row);
-      if(authStatus.user?.id!==uid||![...publishedCatalog.items,
-          ...usedPictos.items.map(approvedFromUsage).filter(Boolean),
-          ...officialComposer.routine,...officialComposer.board].some(x=>x.id===id))return;
-      const url=URL.createObjectURL(blob);
-      publishedCatalog.imageUrls.set(id,url);
-      for(const match of root.querySelectorAll("img[data-catalog-id]"))if(match.dataset.catalogId===id)match.src=url;
-    }catch(error){
-      if(authStatus.user?.id===uid)for(const match of root.querySelectorAll("img[data-catalog-id]")){
-        if(match.dataset.catalogId===id)match.closest(".pa-catalog-art")?.classList.add("is-unavailable");
-      }
-    }finally{publishedCatalog.loadingImages.delete(id);}
-  };
-  if(typeof IntersectionObserver==="undefined"){nodes.forEach(node=>{void load(node);});return;}
+  if(typeof IntersectionObserver==="undefined"){
+    nodes.forEach(node=>{void loadPublishedArtworkPreview(node);});return;
+  }
   catalogImageObserver=new IntersectionObserver(entries=>{
     for(const entry of entries)if(entry.isIntersecting){
       catalogImageObserver?.unobserve(entry.target);
-      void load(entry.target);
+      void loadPublishedArtworkPreview(entry.target);
     }
   },{rootMargin:"220px"});
   nodes.forEach(node=>{
-    if(publishedCatalog.imageUrls.has(node.dataset.catalogId))node.src=publishedCatalog.imageUrls.get(node.dataset.catalogId);
-    else catalogImageObserver.observe(node);
+    if(publishedCatalog.imageUrls.has(node.dataset.catalogId)){
+      node.src=publishedCatalog.imageUrls.get(node.dataset.catalogId);
+      node.closest(".pa-catalog-art")?.classList.remove("is-unavailable");
+    }else catalogImageObserver.observe(node);
   });
 }
 const clientFiles={items:[],total:0,page:0,query:"",type:"all",sort:"recent",loading:false,busy:false,error:"",message:"",
@@ -697,7 +727,7 @@ async function fetchAdminNamedTemplates(){
 let bankQueryTimer=null;
 const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
 const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",request:0};
-const privatePreview={id:null,asset:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
+const privatePreview={id:null,asset:null,review:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
 const privateNamedGallery={items:[],assetId:null,loaded:false,loading:false,error:"",request:0};
 let bankHeroDrag=null;
@@ -1105,7 +1135,7 @@ function clearAdminPreview(){
   privatePreview.request++;
   if(privatePreview.url)URL.revokeObjectURL(privatePreview.url);
   if(privatePreview.inkUrl)URL.revokeObjectURL(privatePreview.inkUrl);
-  privatePreview.id=null;privatePreview.asset=null;privatePreview.url=null;
+  privatePreview.id=null;privatePreview.asset=null;privatePreview.review=null;privatePreview.url=null;
   privatePreview.inkUrl=null;privatePreview.inkBlob=null;privatePreview.inkInfo=null;privatePreview.inkError="";privatePreview.technical=null;
   privatePreview.rotationDeg=0;privatePreview.adjustBusy=false;privatePreview.adjustError="";privatePreview.adjustMessage="";
   bankImageSheet.request++;privateNamedGallery.request++;
@@ -1134,6 +1164,7 @@ async function openAdminPreview(assetId){
     catch(error){cropError=String(error?.message||error);}
     if(request!==privatePreview.request||authStatus.user?.id!==userId||!canOpenAdmin())return;
     privatePreview.asset=result.asset;privatePreview.technical=technical;
+    privatePreview.review={...result.asset,blob:result.blob};
     void loadBankImageScale(assetId,userId,request);
     void loadBankNamedGallery(assetId,userId,request);
     privatePreview.url=URL.createObjectURL(result.blob);
@@ -1265,14 +1296,36 @@ function googleButton(){
   const signInLabel=authStatus.working?(fr?"Connexion…":"Signing in…"):(fr?"Continuer avec Google":"Continue with Google");
   return '<button class="login-control login-google" type="button" data-action="google-login" aria-label="'+esc(signInLabel)+'"'+(authStatus.working?" disabled":"")+'><svg class="google-mark" width="20" height="20" viewBox="0 0 2048 2048" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M1651,330L1569,261L1473,199L1373,151L1272,117L1166,95L1073,86L959,87L844,102L748,126L644,165L554,211L462,272L375,346L300,427L239,510L186,603L498,845L516,796L545,739L582,683L615,643L702,564L801,506L877,478L955,462L1043,458L1115,465L1180,480L1244,504L1320,547L1383,598Z"/><path fill="#FBBC05" d="M185,604L139,711L108,817L90,926L85,1042L93,1147L117,1266L148,1360L187,1443L497,1202L476,1121L467,1025L474,938L497,845Z"/><path fill="#34A853" d="M186,1444L238,1536L303,1624L381,1707L454,1769L547,1832L644,1882L748,1921L844,1945L959,1960L1075,1961L1173,1952L1291,1928L1400,1891L1487,1849L1569,1797L1644,1735L1340,1499L1302,1523L1223,1558L1159,1576L1078,1588L988,1589L925,1581L861,1565L799,1541L705,1486L657,1447L616,1406L572,1351L541,1302L516,1252L498,1203Z"/><path fill="#4285F4" d="M1024,853L1024,1216L1528,1216L1507,1295L1468,1371L1422,1430L1381,1469L1341,1499L1646,1734L1723,1652L1787,1562L1839,1464L1881,1352L1907,1244L1923,1106L1922,969L1907,853Z"/></svg><span class="google-login-copy">'+esc(signInLabel)+'</span><span class="google-login-short" aria-hidden="true">Google</span></button>';
 }
-async function refreshGoogleUser(client){
+let authRefreshRequest=0;
+// Aucune copie privée exposée sans nouvelle preuve Auth du même compte.
+let quarantinedAuthPdf=null;
+async function refreshGoogleUser(client,request=++authRefreshRequest){
   try{
     const verified=await currentVerifiedUser(client);
+    if(request!==authRefreshRequest)return;
     const previousId=authStatus.user?.id;
     authStatus.user=verified;authStatus.error="";authStatus.working=false;authStatus.ready=true;
-    if(!verified){authStatus.roleReady=false;authStatus.roleError="";authStatus.recovery=false;resetPrivateBank();render();return;}
-    if(previousId!==verified.id){authStatus.roleReady=false;authStatus.roleError="";resetPrivateBank();render();void refreshPrivateBank(client,verified.id);if(state.page==="files")void fetchClientFiles(client,verified.id);return;}
+    if(!verified){
+      quarantinedAuthPdf=null;
+      authStatus.roleReady=false;authStatus.roleError="";authStatus.recovery=false;
+      resetPrivateBank();render();return;
+    }
+    if(previousId!==verified.id){
+      const recovered=releasePdfForVerifiedUser(quarantinedAuthPdf,verified.id);
+      quarantinedAuthPdf=null;
+      authStatus.roleReady=false;authStatus.roleError="";
+      resetPrivateBank();
+      if(recovered)pendingGeneratedPdf=recovered;
+      render();void refreshPrivateBank(client,verified.id);
+      if(state.page==="files")void fetchClientFiles(client,verified.id);
+      return;
+    }
   }catch(error){
+    if(request!==authRefreshRequest)return;
+    // Erreur réseau : masquer les vues privées, sans prendre cette erreur
+    // pour un SIGNED_OUT confirmé. La copie demeure cachée hors de l'UI.
+    const lastVerifiedId=authStatus.user?.id;
+    if(lastVerifiedId)quarantinedAuthPdf=holdPdfOnAuthError(pendingGeneratedPdf,lastVerifiedId);
     authStatus.user=null;authStatus.error=(error?.name==="AuthSessionMissingError"||/auth session missing/i.test(String(error?.message||"")))?"":String(error.message||error);authStatus.ready=true;authStatus.roleReady=false;
     resetPrivateBank();
   }
@@ -1282,11 +1335,18 @@ async function initializeGoogle(){
   try{
     const client=await supabaseClient();
     client.auth.onAuthStateChange((event)=>{
-      if(event==="SIGNED_OUT"){authStatus.user=null;authStatus.ready=true;authStatus.roleReady=false;authStatus.recovery=false;resetPrivateBank();render();}
-      else if(event==="PASSWORD_RECOVERY"){authStatus.recovery=true;authStatus.ready=true;void refreshGoogleUser(client);}
+      if(event==="SIGNED_OUT"){++authRefreshRequest;quarantinedAuthPdf=null;authStatus.user=null;authStatus.ready=true;authStatus.roleReady=false;authStatus.recovery=false;resetPrivateBank();render();}
+      else if(event==="PASSWORD_RECOVERY"){
+        const request=++authRefreshRequest;
+        authStatus.recovery=true;authStatus.ready=true;void refreshGoogleUser(client,request);
+      }
       else if(["INITIAL_SESSION","SIGNED_IN","TOKEN_REFRESHED","USER_UPDATED"].includes(event)){
-        // Ne pas appeler getUser directement dans le callback de changement de session.
-        setTimeout(()=>{void refreshGoogleUser(client);},0);
+        // getUser reste hors du callback; un SIGNED_OUT plus récent annule
+        // également le rafraîchissement déjà planifié.
+        const scheduled=++authRefreshRequest;
+        setTimeout(()=>{
+          if(scheduled===authRefreshRequest)void refreshGoogleUser(client,scheduled);
+        },0);
       }
     });
     await refreshGoogleUser(client);
@@ -1854,8 +1914,8 @@ function renderAdmin(){
       +(privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'
       +esc(fr?"Brouillon suivant sans publier":"Next draft without publishing")+'</button></div>':"")
     +privateInkCard+reviewHtml+privateProofControls
-    +(publishedCatalog.publishError?'<p role="alert" class="admin-import-alert">'+esc(publishedCatalog.publishError)+'</p>':'')
-    +(publishedCatalog.publishMessage?'<p role="status" class="admin-import-success">'+esc(publishedCatalog.publishMessage)+'</p>':'')
+    
+    
     +(privatePreview.asset&&privatePreview.technical&&chosen.status==="draft"
        ?'<form data-form="catalog-publish" data-id="'+esc(chosen.id)+'" class="admin-publish-control">'
         +'<h4>'+esc(fr?'Publication dans la bibliothèque client':'Publish to client library')+'</h4>'
@@ -2199,9 +2259,14 @@ function renderAdmin(){
       loading:testClients.loading,error:testClients.error,message:testClients.message,
       created:testClients.created});
   }else body=renderAdminTemplate();
+  const publishFeedback=state.adminTab==="bank"?
+    (publishedCatalog.publishError?
+      '<p role="alert" class="admin-import-alert pa-admin-publish-feedback">'+esc(publishedCatalog.publishError)+'</p>':"")+
+    (publishedCatalog.publishMessage?
+      '<p role="status" class="admin-import-success pa-admin-publish-feedback">'+esc(publishedCatalog.publishMessage)+'</p>':""):"";
   return '<div class="admin-ui"><div class="admin-ui-title"><div><div class="eyebrow">'+esc(sectionNames.status)+'</div><h1>'+esc(sectionNames.heading)+'</h1><p>'+esc(sectionNames.description)+'</p></div></div>'
     +'<nav class="admin-tabs" aria-label="'+esc(fr?"Sections administrateur":"Admin sections")+'">'+tab("overview",sectionNames.overview,"home")+tab("bank",sectionNames.bank,"library")+tab("requests",sectionNames.requests,"library")+tab("tools",sectionNames.tools,"settings")+tab("templates",sectionNames.templates,"routine")+tab("test-clients",sectionNames.testClients,"settings")+'</nav>'
-    +body+'</div>';
+    +publishFeedback+body+'</div>';
 }
 
 function adminRange(key,label,value,min,max,step,unit){
@@ -2426,7 +2491,10 @@ function renderClientLibrary(){
     const url=f.imageUrls.get(item.id);
     return '<article class="pa-catalog-card"><div class="pa-catalog-art">'
       +'<div class="pa-catalog-art-body"><img data-catalog-id="'+esc(item.id)+'"'
-      +(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async"></div>'
+      +(url?' src="'+esc(url)+'"':'')+' alt="" loading="lazy" decoding="async">'
+      +'<span class="pa-catalog-image-error" role="status">'+esc(fr?'Image indisponible.':'Image unavailable.')+'</span>'
+      +'<button type="button" class="pa-catalog-image-retry" data-action="catalog-image-retry" data-id="'+esc(item.id)+'"'
+      +' aria-label="'+esc(fr?'Réessayer de charger l’image de '+name:'Retry loading the image of '+name)+'">'+esc(fr?'Réessayer':'Retry')+'</button></div>'
       +'<div class="pa-catalog-art-caption">'+esc(name)+'</div></div>'
       +'<p class="pa-catalog-card-label">'+esc(name)+'</p><span class="pa-catalog-card-category">'+esc(
         clientCategoryLabel(item.theme,state.language)
@@ -2836,8 +2904,17 @@ function render(){
 }
 // La fermeture ne garantit jamais l'achèvement d'une requête réseau.
 window.addEventListener("beforeunload",event=>{
-  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
-     !(editableDrafts.dirty.routine||editableDrafts.dirty.board))return;
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+  // Préserver l'alerte des brouillons et couvrir aussi un original PDF temporaire.
+  const unarchived=hasUnarchivedPdfForAccount(pendingGeneratedPdf,authStatus.user.id);
+  if(!unarchived&&!editableDrafts.dirty.routine&&!editableDrafts.dirty.board)return;
+  event.preventDefault();
+  event.returnValue="";
+});
+window.addEventListener("beforeunload",event=>{
+  // Protection limitée à la fiche Super Admin et à sa requête d’écriture.
+  if(!SITE_EMBEDDED||!canOpenAdmin()||!privatePreview.id||
+     !(bankImageSheet.busy||bankScaleHasUnsavedChanges()))return;
   event.preventDefault();
   event.returnValue="";
 });
@@ -3518,6 +3595,15 @@ root.addEventListener("click",function(event){
   if(a==="used-refresh"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!usedPictos.loading&&!usedPictos.adding){
     void fetchUsedPictos();return;
   }
+  if(a==="catalog-image-retry"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+    state.page==="library"&&!publishedCatalog.loading){
+    const id=el.dataset.id;
+    const img=[...root.querySelectorAll(".pa-client-catalog img[data-catalog-id]")]
+      .find(node=>node.dataset.catalogId===id);
+    if(img&&publishedCatalog.items.some(row=>row.id===id))
+      void loadPublishedArtworkPreview(img);
+    return;
+  }
   if(a==="catalog-refresh"&&SITE_EMBEDDED&&!canOpenAdmin()){void fetchPublishedCatalog();return;}
   if(a==="catalog-page"&&SITE_EMBEDDED&&!canOpenAdmin()&&!publishedCatalog.loading){
     const target=publishedCatalog.page+Number(el.dataset.direction);
@@ -3666,9 +3752,25 @@ root.addEventListener("click",function(event){
       notify(state.language==="fr"?"Une sauvegarde est en cours. Attendez sa confirmation avant de vous déconnecter.":"A draft save is in progress. Wait for confirmation before signing out.");
       return;
     }
-    if((editableDrafts.dirty.routine||editableDrafts.dirty.board)&&!window.confirm(state.language==="fr"?
-      "Des modifications ne sont pas encore sauvegardées sur le serveur. Se déconnecter quand même risque de les perdre.":
-      "Changes have not yet been saved on the server. Signing out now may lose them."))return;
+    // Ne pas déconnecter un compte pendant qu'une génération ou un archivage
+    // peut encore déposer un original dans la mémoire temporaire.
+    if(pdfExportBusy||pdfRecoveryBusy||officialComposer.busy||clientPictoTemplates.busy||clientFiles.busy){
+      notify(state.language==="fr"?
+        "Un PDF est en cours de préparation ou d'archivage. Terminez cette opération avant de vous déconnecter.":
+        "A PDF is being prepared or archived. Finish this operation before signing out.");
+      return;
+    }
+    const unsavedDraft=editableDrafts.dirty.routine||editableDrafts.dirty.board;
+    const unarchivedPdf=hasUnarchivedPdfForAccount(pendingGeneratedPdf,authStatus.user?.id);
+    if((unsavedDraft||unarchivedPdf)&&!window.confirm(state.language==="fr"?
+      (unarchivedPdf?
+        (unsavedDraft?"Un PDF non archivé et des modifications de brouillon seraient perdus. Téléchargez le PDF avant de vous déconnecter. Quitter quand même ?":
+          "Un PDF non archivé existe seulement dans cet onglet. Téléchargez-le avant de vous déconnecter, sinon il sera perdu. Quitter quand même ?"):
+        "Des modifications ne sont pas encore sauvegardées sur le serveur. Se déconnecter quand même risque de les perdre."):
+      (unarchivedPdf?
+        (unsavedDraft?"An unarchived PDF and unsaved draft changes will be lost. Download the PDF before signing out. Sign out anyway?":
+          "An unarchived PDF exists only in this tab. Download it before signing out or it will be lost. Sign out anyway?"):
+        "Changes have not yet been saved on the server. Signing out now may lose them.")))return;
     authStatus.working=true;resetPrivateBank();render();
     void logoutGoogle().then(()=>{authStatus.user=null;authStatus.roleReady=false;authStatus.working=false;state.page="home";state.adminTab="overview";render();}).catch(err=>{authStatus.working=false;notify(String(err.message||err));});return;
   }
@@ -3718,7 +3820,7 @@ root.addEventListener("click",function(event){
   if(a==="board-remove"){state.board=removeDemoBoardItem(state.board,Number(el.dataset.index));saveDemoBoard();render();return;}
   if(a==="board-move"){state.board=moveDemoBoardItem(state.board,Number(el.dataset.index),Number(el.dataset.direction));saveDemoBoard();render();return;}
   if(a==="archive-generated-routine"||a==="archive-generated-board"){
-    if(!authStatus.user||pdfExportBusy||pendingGeneratedPdf?.uid===authStatus.user.id)return;
+    if(!authStatus.user||hasPrivatePdfWorkInProgress())return;
     const kind=a==="archive-generated-routine"?"routine":"board";
     const items=kind==="routine"?selectedItems():boardItems();
     if(kind==="routine"&&(items.length<2||!routineFitsPaper(state.routine,state.widthCm,state.paper)))return;
@@ -4271,8 +4373,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="client-template-print"){
     if(!TEMPLATE_CHOICES_RELEASED||!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
-       clientPictoTemplates.loading||clientPictoTemplates.busy||officialComposer.busy||
-       pdfExportBusy||pendingGeneratedPdf)return;
+       clientPictoTemplates.loading||hasPrivatePdfWorkInProgress())return;
     const id=clientPictoTemplates.pictoId,chosenId=clientPictoTemplates.selectedId,
       uid=authStatus.user.id,ticket=clientPictoTemplates.request,
       printLanguage=state.language,printPaper=clientPictoTemplates.paper,
@@ -4298,6 +4399,9 @@ root.addEventListener("click",function(event){
           throw Error("Ce pictogramme n'est plus publié. Actualisez la bibliothèque.");
         const row=rows[0],pngBlob=await downloadPublishedArtwork(client,uid,row);
         if(!current())return;
+        // Une image peut être dépubliée ou republiée pendant le téléchargement.
+        await verifyApprovedPrintSnapshot(client,uid,row);
+        if(!current())return;
         // La confirmation peut avoir été révoquée pendant le téléchargement PNG.
         // Ne pas générer une version sortie du catalogue de gabarits.
         const latest=await loadConfirmedPrintSettings(client,uid,id,chosenId);
@@ -4308,8 +4412,8 @@ root.addEventListener("click",function(event){
         if(JSON.stringify(latest)!==JSON.stringify(settings))
           throw Error("Le gabarit a changé : actualisez la fiche avant l'impression.");
         const title=String(printLanguage==="en"?(row.title_en||row.title_fr):row.title_fr).trim().slice(0,120);
-        // Une seule personnalisation validée, utilisée par le calcul
-        // géométrique et le PDF officiel sans réduire le pictogramme.
+        // Une seule validation de la personnalisation, utilisée à la fois
+        // par le calcul des colonnes et par le PDF imprimé (aucune mise à l'échelle).
         const printPreset=applyPublishedImageScale(
           applyClientBorderPreference(settings,borderPreference),approvedScale).preset;
         const layout=previewPhysicalCopySheet({
@@ -4321,8 +4425,18 @@ root.addEventListener("click",function(event){
           preset:printPreset,paper:printPaper,language:printLanguage,title
         });
         if(!current())return;
+        // Les chiffres annoncés avant l'impression et le fichier réellement
+        // archivé doivent être les mêmes. En cas de décalage, aucune archive.
         if(pageCount!==layout.pages)
           throw Error("La planche PDF ne correspond pas à l'aperçu. Aucune copie n'a été archivée.");
+        // Le rendu PDF peut être long : confirmer publication et gabarit AVANT l'archive.
+        await verifyApprovedPrintSnapshot(client,uid,row);
+        if(!current())return;
+        const finalSettings=await loadConfirmedPrintSettings(client,uid,id,chosenId);
+        const finalApprovedScale=await loadPublishedImageScale(client,uid,id);
+        if(!current())return;
+        if(JSON.stringify(finalSettings)!==JSON.stringify(settings)||finalApprovedScale!==approvedScale)
+          throw Error("Le pictogramme ou le gabarit a changé : actualisez la fiche avant impression.");
         pdfRecoveryError="";
         pendingGeneratedPdf={uid,blob,pageCount,title,documentType:"board",documentId:crypto.randomUUID()};
         await archivePdf(client,uid,blob,{title,documentType:"board",pageCount,
@@ -4451,8 +4565,13 @@ root.addEventListener("click",function(event){
           privateBank.items=privateBank.items.map(x=>x.id===originalId?
             {...x,admin_name:savedNames.admin_name,title_fr:savedNames.title_fr,
               title_en:savedNames.title_en}:x);
-          if(privatePreview.asset?.id===originalId)privatePreview.asset={...privatePreview.asset,
-            title_fr:savedNames.title_fr,title_en:savedNames.title_en,admin_name:savedNames.admin_name};
+          if(privatePreview.asset?.id===originalId){
+            privatePreview.asset={...privatePreview.asset,
+              title_fr:savedNames.title_fr,title_en:savedNames.title_en,admin_name:savedNames.admin_name};
+            if(privatePreview.review?.id===originalId)privatePreview.review={
+              ...privatePreview.review,title_fr:savedNames.title_fr,title_en:savedNames.title_en
+            };
+          }
         }
         const saved=await saveAdminImageAdjustment(client,uid,{
           assetId:targetId,...adjustments,revision:overwrite?revision:null
@@ -5002,14 +5121,15 @@ root.addEventListener("submit",function(event){
     event.preventDefault();
     if(!canOpenAdmin()||publishedCatalog.publishing||!publishForm.querySelector('[name="confirmed"]')?.checked)return;
     const asset=privateBank.items.find(x=>x.id===publishForm.dataset.id);
-    if(!asset||asset.status!=="draft"||privatePreview.asset?.id!==asset.id||!privatePreview.technical)return;
+    if(!asset||asset.status!=="draft"||privatePreview.asset?.id!==asset.id||privatePreview.review?.id!==asset.id||!privatePreview.technical)return;
     if(!window.confirm(state.language==="fr"?"Confirmer la publication de cette image approuvée dans le catalogue des clients ?":"Publish this reviewed picture to the client catalogue?"))return;
+    const reviewed={...privatePreview.review};
     publishedCatalog.publishing=true;publishedCatalog.publishError="";publishedCatalog.publishMessage="";
     const uid=authStatus.user.id;render();
     void (async()=>{
       try{
         const client=await supabaseClient();
-        await publishReviewedPictogram(client,uid,asset.id);
+        await publishReviewedPictogram(client,uid,asset.id,reviewed);
         if(authStatus.user?.id!==uid)return;
         publishedCatalog.publishMessage=state.language==="fr"?"Publication confirmée par le serveur.":"Publication confirmed by the server.";
         clearAdminPreview();
@@ -5033,7 +5153,8 @@ root.addEventListener("submit",function(event){
   const officialForm=event.target.closest('form[data-form="approved-export"]');
   if(officialForm){
     event.preventDefault();
-    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||officialComposer.busy||editableDrafts.busy||editableDrafts.copyKind||pendingGeneratedPdf)return;
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||
+       hasPrivatePdfWorkInProgress()||editableDrafts.busy||editableDrafts.copyKind)return;
     const kind=officialForm.dataset.kind;
     if(!["routine","board"].includes(kind))return;
     if(draftAutosave.status(kind).conflict){
@@ -5105,6 +5226,13 @@ root.addEventListener("submit",function(event){
           separatorMode:"simple",preset:{...DEFAULT_PRESET,color:"#111111",colored:false}
         });
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        // Le rendu peut durer : relire l'approbation de chaque PNG et la
+        // permission de légende juste avant toute création d'archive.
+        await verifyApprovedPrintSnapshots(client,uid,rows);
+        const finalCaptionPermission=await readCaptionPermission(client,uid);
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        if(finalCaptionPermission.enabled!==beforePdf.enabled)
+          throw Error("Le droit de modifier les légendes a changé : réessayez l'impression.");
         pdfRecoveryError="";
         pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind,sourceDraftId:savedDraft.id,
           documentId:crypto.randomUUID()};
@@ -5149,8 +5277,7 @@ root.addEventListener("submit",function(event){
     event.preventDefault();
     // Tant qu'un original attend sa confirmation, ne pas remplacer sa copie
     // en mémoire par un nouveau fichier ni créer un UUID concurrent.
-    if(!authStatus.user||clientFiles.busy||pdfRecoveryBusy||
-      pendingGeneratedPdf?.uid===authStatus.user.id)return;
+    if(!authStatus.user||hasPrivatePdfWorkInProgress())return;
     const data=new FormData(uploadForm),file=data.get("pdf"),
       title=String(data.get("title")||""),documentType=String(data.get("documentType")||"routine"),
       uid=authStatus.user.id,epoch=++clientFiles.request;

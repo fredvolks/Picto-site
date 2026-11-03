@@ -16,11 +16,13 @@ test("L'action existe dans la fiche client uniquement après sélection d'un mod
 test("L'impression revérifie le serveur après téléchargement du PNG",()=>{
  const block=app.slice(app.indexOf('if(a==="client-template-print")'),
    app.indexOf('if(a==="admin-preview")'));
- assert.equal((block.match(/loadConfirmedPrintSettings\(client,uid,id,chosenId\)/g)||[]).length,2);
+ assert.equal((block.match(/loadConfirmedPrintSettings\(client,uid,id,chosenId\)/g)||[]).length,3);
  assert.match(block,/loadApprovedSelection\(client,uid,\[id\]\)/);
  assert.match(block,/downloadPublishedArtwork\(client,uid,row\)/);
+ assert.ok((block.match(/verifyApprovedPrintSnapshot\(client,uid,row\)/g)||[]).length>=2,
+   "Le PNG publié est revérifié après téléchargement et après rendu PDF");
  assert.match(block,/JSON\.stringify\(latest\)!==JSON\.stringify\(settings\)/);
- assert.equal((block.match(/loadPublishedImageScale\(client,uid,id\)/g)||[]).length,2);
+ assert.equal((block.match(/loadPublishedImageScale\(client,uid,id\)/g)||[]).length,3);
  assert.match(block,/if\(!current\(\)\)return;/);
 });
 test("Le PDF d'une case est enregistré dans Mes fichiers sans démo",()=>{

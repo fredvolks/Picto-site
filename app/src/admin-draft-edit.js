@@ -1,7 +1,9 @@
 // Modification des métadonnées d'un brouillon privé, sans changer
 // le statut, l'image, le propriétaire ou la date de publication.
-// La permission UPDATE n'est pas encore activée dans Supabase:
-// ce module reste derrière le verrou UI avant revue de la migration.
+// La permission UPDATE dépend de la migration SQL sécurisée, confirmée
+// par la RPC avant l'activation de la sauvegarde dans l'interface.
+// Le serveur vérifie encore la propriété du brouillon et synchronise
+// sa catégorie principale avec la table des catégories multiples.
 import {validateDraftMetadata} from "./admin-import.js";
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

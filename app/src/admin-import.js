@@ -145,15 +145,22 @@ export function draftTitleFromFilename(filename){
   return title;
 }
 
-export async function preparePrivateDraftBatch(files,theme="autres",titles=null){
+export async function preparePrivateDraftBatch(files,theme="autres",titles=null,englishTitles=null,themes=null){
   if(!Array.isArray(files)||files.length<1||files.length>MAX_PRIVATE_DRAFT_BATCH)
     throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
   if(titles!==null&&(!Array.isArray(titles)||titles.length!==files.length))
     throw Error("Les noms du lot ne correspondent pas aux fichiers sélectionnés.");
+  if(englishTitles!==null&&(!Array.isArray(englishTitles)||englishTitles.length!==files.length||
+     englishTitles.some(value=>typeof value!=="string")))
+    throw Error("Les noms anglais du lot ne correspondent pas aux fichiers sélectionnés.");
+  if(themes!==null&&(!Array.isArray(themes)||themes.length!==files.length||
+     themes.some(value=>typeof value!=="string")))
+    throw Error("Les thèmes du lot ne correspondent pas aux fichiers sélectionnés.");
   const entries=[],seen=new Set();
   for(const [index,file] of files.entries()){
     const suggested=draftTitleFromFilename(file?.name);
-    const metadata={titleFr:titles===null?suggested:titles[index],titleEn:"",theme};
+    const metadata={titleFr:titles===null?suggested:titles[index],
+      titleEn:englishTitles===null?"":englishTitles[index],theme:themes===null?theme:themes[index]};
     const normalized=validateDraftMetadata(metadata);
     const key=normalized.title_fr.toLocaleLowerCase("fr");
     if(seen.has(key))throw Error("Deux PNG du lot portent le même nom : "+normalized.title_fr);
@@ -165,10 +172,10 @@ export async function preparePrivateDraftBatch(files,theme="autres",titles=null)
 }
 
 export async function importPrivateDraftBatch(client,uid,files,theme,{
- onProgress=()=>{},isCurrent=()=>true,importOne=importPrivateDraft,titles=null
+ onProgress=()=>{},isCurrent=()=>true,importOne=importPrivateDraft,titles=null,englishTitles=null,themes=null
 }={}){
   // Si un PNG est corrompu ou un nom invalide, aucun fichier n'est envoyé.
-  const entries=await preparePrivateDraftBatch(files,theme,titles);
+  const entries=await preparePrivateDraftBatch(files,theme,titles,englishTitles,themes);
   if(typeof onProgress!=="function"||typeof isCurrent!=="function"||
      typeof importOne!=="function")throw Error("Opération de lot invalide.");
   let completed=0;

@@ -2,6 +2,7 @@
 // avant chaque génération, jamais les brouillons ou les gabarits dépubliés.
 import {listClientPictoTemplateChoices} from "./picto-template-choices.js";
 import {validatePreset} from "./core.js";
+import {loadApprovedSelection} from "./catalog.js";
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const finite=(v,min,max)=>v!==null&&v!==undefined&&v!==""&&
@@ -33,6 +34,28 @@ export function namedTemplatePrintSettings(template){
  if(!validatePreset(preset))throw Error("Le gabarit ne peut pas être imprimé.");
  return {templateId:template.id,widthCm:Number(template.width_cm),preset};
 }
+// Vérifie que la publication utilisée lors du rendu PDF existe encore avec
+// les mêmes libellés, thème, chemin privé et date. Accepte les IDs répétés
+// d'une routine, mais consulte les fiches publiées une seule fois par lot.
+const PRINT_SOURCE_FIELDS=["id","image_path","title_fr","title_en","theme","published_at"];
+export async function verifyApprovedPrintSnapshots(client,uid,expected){
+ if(!Array.isArray(expected)||!expected.length||expected.length>16||
+    expected.some(row=>!row||typeof row!=="object"||!UUID.test(row.id||"")||
+      row.image_path!=="items/"+row.id+".png"||
+      typeof row.title_fr!=="string"||!row.title_fr.trim()||
+      typeof row.published_at!=="string"||!row.published_at.trim()))
+   throw Error("Le pictogramme n'a pas de publication vérifiable.");
+ const latest=await loadApprovedSelection(client,uid,expected.map(row=>row.id));
+ if(latest.length!==expected.length||
+    latest.some((row,i)=>PRINT_SOURCE_FIELDS.some(field=>
+      (row[field]??null)!==(expected[i][field]??null))))
+   throw Error("Le pictogramme publié a changé : actualisez la bibliothèque.");
+ return latest;
+}
+export async function verifyApprovedPrintSnapshot(client,uid,expected){
+ return (await verifyApprovedPrintSnapshots(client,uid,[expected]))[0];
+}
+
 export async function loadConfirmedPrintSettings(client,uid,pictoId,templateId){
  if(!UUID.test(pictoId||"")||!UUID.test(templateId||""))
    throw Error("Pictogramme ou gabarit invalide.");

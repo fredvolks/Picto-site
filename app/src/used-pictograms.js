@@ -95,8 +95,8 @@ export async function listUsedPictogramsAvailablePage(client,uid,filters={}){
     const last=lastUsedPictogramsPage(result.total);
     if(result.total===0)return {...result,page:0};
     if(page>last){page=last;continue;}
-    // Une page positive mais partielle peut venir d’une publication retirée.
-    // Relire jusqu’à trois fois, sans afficher une fausse liste complète.
+    // Une page positive partiellement remplie n’est pas complète : relire.
+    // Après trois réponses contradictoires, rendre une erreur récupérable.
     const expected=Math.min(USED_PAGE_SIZE,result.total-page*USED_PAGE_SIZE);
     if(result.items.length===expected)return {...result,page};
   }
