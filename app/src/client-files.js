@@ -233,10 +233,11 @@ export async function listMyDocumentsAvailablePage(client,uid,filters={}){
     const last=lastDocumentPage(result.total);
     if(result.total===0)return {...result,page:0};
     if(page>last){page=last;continue;}
-    // Le serveur annonce des fichiers sur cette page : relire une réponse
-    // temporairement vide, avec le même compte, les mêmes filtres et un maximum
-    // de trois essais. Ne jamais afficher « aucun PDF » à tort.
-    if(result.items.length>0)return {...result,page};
+    // Le compteur et la page peuvent être issus de deux états différents
+    // pendant une suppression ou un ajout concurrent. Ne jamais présenter
+    // une page partielle comme un historique PDF complet.
+    const expected=Math.min(DOCUMENTS_PAGE_SIZE,result.total-page*DOCUMENTS_PAGE_SIZE);
+    if(result.items.length===expected)return {...result,page};
   }
   throw Error("La liste a changé sur un autre appareil. Actualisez vos fichiers.");
 }
