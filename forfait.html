@@ -380,6 +380,11 @@ body[data-pictau-signup-design="5"]{background:#f5f5f0}
  .signup-page .signup-status{margin-top:4px}
 }
 @media(max-height:500px) and (orientation:landscape){.signup-page{min-height:100dvh;height:auto;overflow:visible}}
+/* Sur grands écrans verticaux, équilibrer l'espace sans déplacer l'en-tête. */
+@media(min-height:740px) and (max-width:899px){
+ .signup-page .signup-showcase{margin-top:auto}
+ .signup-page .signup-checkout{margin-bottom:auto}
+}
 </style>
 </head>
 <body data-pictau-signup-design="5">
