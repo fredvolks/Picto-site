@@ -2766,3 +2766,144 @@
 }
 
 @media screen{.admin-overview-elevated .admin-dashboard-summary{grid-template-columns:minmax(0,1fr);max-width:480px}}
+
+
+/* SUPER ADMIN — sauge sur toutes les vues; aucune modification côté client.
+   Vrai logo Le Fil identique à l'accueil, même palette pour chaque onglet. */
+@media screen{
+  .admin-workspace.admin-sage-unified{
+    --admin-ink:#244633;--admin-blue:#37694b;--admin-border:#d6e3d5;
+    --admin-sage:#356448;--admin-sage-soft:#e6f0e2;
+    background:#f8f9f5;color:#244633;
+  }
+  .admin-sage-unified .admin-sidebar{
+    background:#fff;border-color:#d9e4d8;
+    box-shadow:3px 0 18px rgba(37,74,46,.045);
+  }
+  .admin-sage-unified .admin-brand{
+    display:flex;justify-content:flex-start;align-items:center;
+    min-height:60px;width:100%;padding:7px 8px;border:0;
+    border-radius:11px;background:#fff;cursor:pointer;
+  }
+  .admin-sage-unified .admin-brand:hover{background:#f0f6ed}
+  .admin-sage-unified .admin-brand-picture{display:block;line-height:0;width:min(100%,202px)}
+  .admin-sage-unified .admin-brand-picture img{
+    display:block;width:100%;height:auto;max-width:100%;object-fit:contain;
+  }
+  .admin-sage-unified .admin-sidebar-caption{color:#65806a}
+  .admin-sage-unified .admin-side-link{color:#385540}
+  .admin-sage-unified .admin-side-link.active{
+    color:#244f34;background:#e5f0df;border-color:#d3e5d0;
+    box-shadow:0 3px 9px rgba(36,80,43,.065);
+  }
+  .admin-sage-unified .admin-side-link:hover:not(.active){background:#f1f6ef}
+  .admin-sage-unified .admin-sidebar-status{
+    color:#43624a;background:#f0f6ed;border:1px solid #dce9da;
+  }
+  .admin-sage-unified .admin-topbar{
+    background:linear-gradient(110deg,#315b44,#416d53);
+    border-color:#31583f;color:#fff;
+    box-shadow:0 3px 17px rgba(27,62,39,.13);
+  }
+  .admin-sage-unified .admin-topbar-intro span{color:#e0eadf}
+  .admin-sage-unified .admin-topbar-intro strong{color:#fff}
+  .admin-sage-unified .admin-topbar-actions{gap:10px;flex:none}
+  .admin-sage-unified .admin-topbar-actions .lang-switch{
+    background:#f9fbf7;border:1px solid #dde9dc;
+  }
+  .admin-sage-unified .admin-topbar-actions .lang-btn{color:#33563f}
+  .admin-sage-unified .admin-topbar-actions .lang-btn.active{
+    color:#fff;background:#335f45!important;border-color:#335f45!important;
+  }
+  .admin-sage-unified .admin-profile-menu{position:relative;z-index:100}
+  .admin-sage-unified .admin-profile-menu>summary{
+    list-style:none;display:flex;justify-content:center;align-items:center;
+    width:44px;height:44px;border:1px solid #dce9db;border-radius:50%;
+    background:#f7fbf5;cursor:pointer;
+  }
+  .admin-sage-unified .admin-profile-menu>summary::-webkit-details-marker{display:none}
+  .admin-sage-unified .admin-avatar{
+    width:36px;height:36px;display:grid;place-items:center;flex:none;
+    border-radius:50%;background:#497853;color:#fff;font-weight:800;font-size:12px;
+  }
+  .admin-sage-unified .admin-profile-panel{
+    position:absolute;top:calc(100% + 8px);right:0;
+    z-index:110;min-width:145px;padding:8px;
+    background:#fff;border:1px solid #d0dfd1;border-radius:12px;
+    box-shadow:0 13px 30px rgba(24,60,37,.18);
+  }
+  .admin-sage-unified .admin-profile-panel .login-signout{
+    min-height:44px;width:100%;padding:10px;
+    color:#294b37;background:#f6faf4;border:1px solid #d4e2d2;
+  }
+  .admin-sage-unified .admin-topbar-brand-mobile{display:none}
+  .admin-sage-unified .admin-main{background:#f8f9f5}
+  .admin-sage-unified .admin-main:has(.admin-dashboard){
+    width:100%;max-width:1510px;margin:0 auto;
+    padding:clamp(20px,2.4vw,40px);
+  }
+  .admin-sage-unified .admin-dashboard{max-width:none}
+  .admin-sage-unified .admin-dashboard h1{color:#244732}
+  .admin-sage-unified .admin-dashboard>p{color:#5c7361}
+  .admin-sage-unified :is(.admin-surface,.admin-tool,.admin-private-preview,
+    .admin-bank-card,.request-admin-panel,.pa-feature-settings,.admin-named-templates){
+    border-color:#d5e3d4;
+    box-shadow:0 5px 18px rgba(38,75,47,.06);
+  }
+  .admin-sage-unified .admin-ui :is(input,select,textarea):not([type="range"]){
+    border-color:#cedfcf;
+  }
+  .admin-sage-unified .admin-bank-controls :is(input,select),
+  .admin-sage-unified .pa-bank-more-filters>summary{
+    color:#2b5038;border-color:#cddfce;background:#fff;
+  }
+  .admin-sage-unified .admin-bank-view-controls .btn.is-active,
+  .admin-sage-unified .btn-primary{
+    background:#356448!important;border-color:#356448!important;color:#fff!important;
+  }
+  .admin-sage-unified .btn-primary:hover:not(:disabled){
+    background:#294e38!important;border-color:#294e38!important;
+  }
+  .admin-sage-unified .btn-light{
+    background:#fff!important;border-color:#cbdbcb!important;color:#2a5139!important;
+  }
+  .admin-sage-unified .btn-light:hover:not(:disabled){background:#eff6ed!important}
+  .admin-sage-unified .pa-template-lite{--lt-ink:#284735;--lt-line:#d2e0d0}
+  .admin-sage-unified .pa-template-lite .pa-lt-save,
+  .admin-sage-unified .pa-template-lite .pa-lt-group:first-child>summary{
+    background:#356448;color:#fff;border-color:#356448;
+  }
+  .admin-sage-unified .pa-template-lite :is(.pa-lt-preview,.pa-lt-settings){
+    border-color:#d5e3d4;box-shadow:0 4px 17px rgba(39,77,44,.055);
+  }
+  .admin-sage-unified .pa-template-lite .pa-lt-group{border-color:#d5e2d5}
+  .admin-sage-unified .pa-template-lite .pa-lt-manager>summary{
+    color:#294d38;border-color:#cddfcf;
+  }
+  .admin-sage-unified :is(button,summary,input,select,textarea):focus-visible{
+    outline:3px solid #83ad89;outline-offset:2px;
+  }
+  .admin-sage-unified .admin-mobile-link.active{background:#e6f0e2;color:#295239}
+  .admin-sage-unified .admin-mobile-nav{background:#fff;border-color:#d5e4d5}
+}
+@media screen and (max-width:1100px){
+  .admin-sage-unified .admin-topbar-brand-mobile{
+    display:block;flex:none;width:clamp(100px,22vw,156px);line-height:0;
+  }
+  .admin-sage-unified .admin-topbar-brand-mobile .admin-brand-picture,
+  .admin-sage-unified .admin-topbar-brand-mobile img{
+    display:block;width:100%;height:auto;
+  }
+  .admin-sage-unified .admin-topbar-intro{display:none}
+  .admin-sage-unified .admin-topbar-actions{margin-left:auto;gap:6px}
+  .admin-sage-unified .admin-menu-trigger{color:#fff;border-color:#789983}
+}
+@media screen and (max-width:440px){
+  .admin-sage-unified .admin-topbar{gap:5px;padding:8px 8px}
+  .admin-sage-unified .admin-topbar-brand-mobile{width:92px}
+  .admin-sage-unified .admin-topbar-actions{gap:4px}
+  .admin-sage-unified .admin-topbar-actions .lang-btn{padding:6px 7px}
+  .admin-sage-unified .admin-profile-menu>summary{width:40px;height:40px}
+  .admin-sage-unified .admin-avatar{width:32px;height:32px;font-size:11px}
+}
+@media print{.admin-sage-unified .admin-profile-menu{display:none}}
