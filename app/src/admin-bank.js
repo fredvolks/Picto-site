@@ -41,9 +41,9 @@ export function buildAccentInsensitivePattern(query){
     return accentClasses[char]||char;
   }).join("");
 }
-// Une lecture Supabase peut terminer après une déconnexion, un changement
-// de compte ou une révocation. Recontrôler l'identité ET le rôle après
-// chaque réponse privée; la RLS reste la protection côté serveur.
+// Une requête Supabase peut rester en vol après déconnexion, changement de
+// compte ou révocation du rôle. Vérifier AVANT et APRÈS la lecture : la RLS
+// protège le serveur, cette relecture évite de rendre un résultat privé périmé.
 async function currentAdminVerified(client,verifiedUserId){
   const session=await client.auth.getUser();
   if(session.error)throw session.error;
@@ -75,11 +75,12 @@ export async function readAdminBank(client, verifiedUserId, filters={}) {
   const from=f.page*ADMIN_BANK_PAGE_SIZE;
   const response=await q.range(from,from+ADMIN_BANK_PAGE_SIZE-1);
   if(response.error)throw response.error;
-  // Ne pas fournir de fiches privées obtenues sous une session devenue invalide.
+  // Ne jamais remettre les lignes en mémoire si les droits ont expiré au cours
+  // du transport ; s'applique à chacune des lectures du repli de pagination.
   if(!await currentAdminVerified(client,verifiedUserId))return {...empty};
   if(!Number.isSafeInteger(response.count)||response.count<0)
     throw new Error("Total de fiches indisponible : la pagination ne peut être vérifiée.");
-  // Ne pas présenter un corps PostgREST nul/partiel comme une banque vide.
+  // Un corps PostgREST absent ou partiel n'est PAS une banque vide.
   if(!Array.isArray(response.data)||response.data.length>ADMIN_BANK_PAGE_SIZE||
      response.data.length>response.count||
      (f.page*ADMIN_BANK_PAGE_SIZE>=response.count&&response.data.length>0)||
@@ -95,6 +96,9 @@ export async function readAdminBank(client, verifiedUserId, filters={}) {
   };
 }
 
+// Les suppressions, fusions et changements de thème peuvent faire disparaître
+// une page entre le clic de pagination et la réponse. Récupérer la dernière
+// page existante sans jamais traiter un échec RLS ou un corps nul comme 0.
 // File éditoriale L2 : navigation purement locale sur les résultats privés
 // filtrés par Supabase (status=draft, ancien d'abord). N'approuve et ne publie
 // jamais un PNG; chaque fiche passe par son aperçu et sa confirmation humaine.

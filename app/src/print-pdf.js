@@ -28,8 +28,11 @@ function safeImage(item){
     return item.pngBlob;
   }
   const s=item?.image;
+  // Ces SVG d'essai sont des dessins statiques : interdire tout contenu
+  // événementiel, CSS ou animé avant de le confier au décodeur d'image.
   if(typeof s!=="string"||!/^<svg[\s>]/i.test(s)||!/<\/svg>\s*$/i.test(s)||
-    /<script|<foreignObject|<image|(?:href|src)\s*=|<!doctype|<!entity/iu.test(s))
+    /<script|<foreignObject|<image|(?:href|src)\s*=|<!doctype|<!entity/iu.test(s)||
+    /(?:\son[a-z][a-z0-9_-]*\s*=|\sstyle\s*=|<\s*(?:style|animate[a-z]*|set|mpath|feimage)\b|url\s*\(|@import\b)/iu.test(s))
     throw Error("La source vectorielle ne peut pas être intégrée au PDF.");
   return s;
 }
@@ -39,8 +42,8 @@ function dimensions(paper){
   if(!v)throw Error("Format de papier invalide.");
   return v;
 }
-// Déterminer le maximum de cases de taille PHYSIQUE sur la largeur imprimable.
-// Ce calcul est partagé avec le moteur PDF, et réserve les bordures individuelles.
+// Chaque exemplaire conserve sa largeur physique. Les marges et contours
+// sont comptés AVANT de choisir un nombre de colonnes.
 export function fitPhysicalCopyColumns({widthCm,preset,paper="letter",copies=1}={}){
   safeWidth(widthCm);
   if(!validatePreset(preset)||typeof preset.colored!=="boolean"||
@@ -88,8 +91,8 @@ export function planPreparedPdf({items,kind,widthCm,preset,paper="letter",column
   if(typeof individualBorders!=="boolean"||(individualBorders&&kind!=="board"))
     throw Error("Bordures individuelles invalides.");
   if(kind==="routine"&&(items.length<2||items.length>10))throw Error("Une routine contient 2 à 10 pictogrammes.");
-  // Les exemplaires identiques peuvent désormais occuper plusieurs colonnes,
-  // contrairement à l'éditeur de tableaux qui conserve ses propres réglages.
+  // Les exemplaires identiques peuvent désormais occuper plusieurs colonnes.
+  // L'éditeur de tableaux conserve ses propres choix de disposition.
   if(kind==="board"&&![1,2,3,4].includes(columns))throw Error("Nombre de colonnes invalide.");
   if(!["simple","double"].includes(separatorMode))throw Error("Séparation invalide.");
   safeWidth(widthCm);
@@ -281,8 +284,8 @@ function renderCell(ctx,item,img,x,y,plan){
     ctx.restore();
   }
 }
-// Dessiner un contour COLORÉ distinct autour de chaque exemplaire sans
-// modifier les cadres noirs, ni les routines ou les tableaux ordinaires.
+// Garder un cadre coloré individuel même lorsque la planche comporte
+// plusieurs colonnes; ne pas changer le dessin des routines classiques.
 export function paintIndividualCellBorder(ctx,plan,x,y){
   if(!plan.individualBorders||plan.edgeMm<=0||!plan.preset.colored)return false;
   ctx.fillStyle=plan.preset.color;

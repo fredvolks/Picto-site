@@ -1,4 +1,5 @@
 import {validateImageFineTune} from "./image-fine-tune.js";
+import {validateBankSheetAdjustment} from "./bank-sheet-adjust.js";
 
 // Données privées Super Admin. Source de vérité: RLS sur Supabase.
 // Aucune écriture possible en absence de migration, de session vérifiée,
@@ -25,18 +26,32 @@ function parsedRow(row,assetId){
   if(!row||row.asset_id!==assetId||
      !Number.isSafeInteger(row.revision)||row.revision<1)
     throw new Error("Réglage individuel incomplet. Actualisez la fiche.");
-  const {scalePercent}=validateImageFineTune({assetId,scalePercent:row.scale_percent});
-  return Object.freeze({scalePercent,revision:row.revision,updatedAt:row.updated_at||null});
+  const settings=validateBankSheetAdjustment({assetId,
+    scalePercent:row.scale_percent,
+    rotationDeg:row.rotation_deg??0,
+    offsetX:row.offset_x??0,offsetY:row.offset_y??0,
+    mirrorHorizontal:row.mirror_horizontal??false});
+  const {assetId:ignored,...adjustment}=settings;
+  return Object.freeze({...adjustment,revision:row.revision,updatedAt:row.updated_at||null});
 }
 
 export async function readAdminImageAdjustment(client,uid,assetId){
   validateImageFineTune({assetId});
   await verifiedAdminSession(client,uid);
   const {data,error}=await client.from("pictau_image_adjustments")
-    .select("asset_id,scale_percent,revision,updated_at")
+    .select("asset_id,scale_percent,rotation_deg,offset_x,offset_y,mirror_horizontal,revision,updated_at")
     .eq("asset_id",assetId).maybeSingle();
   if(error){
     if(missingTable(error))return Object.freeze({available:false,scalePercent:100,revision:null});
+    // Une ancienne migration peut ne connaître que scale_percent :
+    // laisser consulter la taille, mais INTERDIRE toute sauvegarde partielle.
+    if(error.code==="42703"||error.code==="PGRST204"||/column.*(rotation_deg|offset_x|offset_y|mirror_horizontal)/i.test(message(error))){
+      const legacy=await client.from("pictau_image_adjustments")
+        .select("asset_id,scale_percent,revision,updated_at").eq("asset_id",assetId).maybeSingle();
+      if(legacy.error)throw new Error("Lecture du réglage individuel impossible : "+message(legacy.error));
+      await verifiedAdminSession(client,uid);
+      return Object.freeze({available:false,scalePercent:legacy.data?.scale_percent??100,revision:legacy.data?.revision??null});
+    }
     throw new Error("Lecture du réglage individuel impossible : "+message(error));
   }
   await verifiedAdminSession(client,uid);
@@ -45,19 +60,20 @@ export async function readAdminImageAdjustment(client,uid,assetId){
   return Object.freeze({available:true,...parsedRow(data,assetId)});
 }
 
-export async function saveAdminImageAdjustment(client,uid,{assetId,scalePercent,revision}){
-  validateImageFineTune({assetId,scalePercent});
+export async function saveAdminImageAdjustment(client,uid,{assetId,scalePercent,rotationDeg=0,offsetX=0,offsetY=0,mirrorHorizontal=false,revision}){
+  validateBankSheetAdjustment({assetId,scalePercent,rotationDeg,offsetX,offsetY,mirrorHorizontal});
   validateRevision(revision);
   await verifiedAdminSession(client,uid);
   const op=revision===null
     ?client.from("pictau_image_adjustments")
-      .insert({asset_id:assetId,scale_percent:scalePercent})
+      .insert({asset_id:assetId,scale_percent:scalePercent,rotation_deg:rotationDeg,offset_x:offsetX,offset_y:offsetY,mirror_horizontal:mirrorHorizontal})
     :client.from("pictau_image_adjustments")
-      .update({scale_percent:scalePercent}).eq("asset_id",assetId)
+      .update({scale_percent:scalePercent,rotation_deg:rotationDeg,offset_x:offsetX,offset_y:offsetY,mirror_horizontal:mirrorHorizontal}).eq("asset_id",assetId)
       .eq("revision",revision);
-  const {data,error}=await op.select("asset_id,scale_percent,revision,updated_at").maybeSingle();
+  const {data,error}=await op.select("asset_id,scale_percent,rotation_deg,offset_x,offset_y,mirror_horizontal,revision,updated_at").maybeSingle();
   if(error){
-    if(missingTable(error))throw new Error("Sauvegarde indisponible : migration Supabase non installée.");
+    if(missingTable(error)||error.code==="42703"||error.code==="PGRST204")
+      throw new Error("Sauvegarde indisponible : migration Supabase des ajustements non installée.");
     if(error.code==="23505")throw new Error("Une autre session a créé ce réglage. Actualisez la fiche.");
     throw new Error("Sauvegarde du réglage refusée : "+message(error));
   }
