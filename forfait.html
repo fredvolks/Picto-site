@@ -386,6 +386,195 @@ body[data-pictau-signup-design="5"]{background:#f5f5f0}
  .signup-page .signup-checkout{margin-bottom:auto}
 }
 </style>
+
+<style id="signup-owner-approved-20261103">
+/* Décision propriétaire 2026-11-03 : mobile de référence conservé visuellement,
+   tablette portrait/paysage en deux colonnes et PC en trois colonnes.
+   CSS limité à la vitrine inscription : pas de changement Auth/OAuth/paiement. */
+body[data-pictau-signup-design="5"]{background:#f7f8f3}
+body[data-pictau-signup-design="5"]::before{
+ content:"";position:fixed;left:-140px;top:14vh;width:min(40vw,520px);
+ aspect-ratio:1;border-radius:46% 54% 58% 42%;background:#ebf1e8;
+ pointer-events:none;z-index:0
+}
+body[data-pictau-signup-design="5"]::after{
+ content:"";position:fixed;bottom:45px;left:0;right:0;height:clamp(50px,11vh,115px);
+ background:#e2eadf;clip-path:polygon(0 27%,12% 20%,28% 64%,44% 88%,61% 37%,79% 54%,100% 10%,100% 100%,0 100%);
+ pointer-events:none;z-index:0
+}
+.signup-page{position:relative;z-index:1;width:min(calc(100% - 70px),1680px);min-height:100dvh;
+ margin:0 auto;padding:18px 0 14px;display:grid;
+ grid-template-rows:auto minmax(0,1fr) auto;gap:20px 32px;align-items:center}
+.signup-page .signup-header{grid-column:1/-1;grid-row:1;width:100%;min-width:0;margin:0}
+.signup-page .signup-checkout{display:contents}
+.signup-page .signup-showcase{grid-row:2;width:100%;max-width:none;min-height:0;gap:0;justify-self:stretch;align-self:center}
+.signup-page .signup-intro{width:100%}
+.signup-page .signup-eyebrow{display:block;margin:0 0 13px;font-size:clamp(10px,1vw,13px);
+ font-weight:800;letter-spacing:.085em;line-height:1.4;color:#667d70}
+.signup-page .signup-intro h1{max-width:none;margin:0 0 18px;font-size:clamp(36px,3.9vw,67px);
+ line-height:1.09;letter-spacing:-.055em;font-weight:800;color:#253d32;text-wrap:balance}
+.signup-page .signup-intro h1 em{color:#648773;font-style:normal}
+.signup-page .signup-intro .signup-intro-copy{display:block;margin:0;max-width:600px;
+ color:#557062;font-size:clamp(15px,1.4vw,21px);line-height:1.5}
+.signup-page .signup-plan{display:grid;grid-template-columns:minmax(0,1fr) auto;
+ gap:14px 8px;align-content:center;background:#e4ecdf;border:1px solid #d9e4d6;
+ border-radius:26px;padding:clamp(18px,2vw,32px);box-shadow:none;width:100%;max-width:none;min-width:0}
+.signup-page .signup-plan-name{grid-column:1;grid-row:1;align-self:center;
+ font-size:clamp(11px,1vw,15px);font-weight:800;line-height:1.3;letter-spacing:.075em}
+.signup-page .signup-plan-price{grid-column:2;grid-row:1;align-self:center;
+ display:flex;align-items:baseline;justify-content:flex-end;gap:7px;
+ flex-wrap:nowrap;white-space:nowrap;margin:0}
+.signup-page .signup-plan-price strong{font-size:clamp(27px,3vw,47px);letter-spacing:-.045em;line-height:1.05}
+.signup-page .signup-plan-price span{font-size:clamp(10px,1vw,14px)}
+.signup-page .signup-plan-period{grid-column:1/-1;grid-row:2;
+ display:grid;grid-template-columns:1fr 1fr;max-width:none;
+ min-height:43px;padding:4px;gap:3px;border:1px solid #cbd8ca;background:#f8f9f5;
+ border-radius:999px;overflow:hidden}
+.signup-page .signup-plan-badge,.signup-page .signup-plan-yearly{height:auto;min-height:35px;
+ border:none;display:flex;justify-content:center;align-items:center;
+ text-align:center;border-radius:999px;padding:5px 8px;font-size:clamp(11px,1.1vw,14px);
+ letter-spacing:0;line-height:1.2;white-space:normal}
+.signup-page .signup-plan-badge{background:#486f54;color:white}
+.signup-page .signup-plan-yearly{background:transparent;color:#728576;opacity:1;cursor:not-allowed}
+.signup-page .signup-plan-benefits{grid-column:1/-1;grid-row:3;display:grid;
+ grid-template-columns:1fr;gap:12px;padding:0;margin:9px 0 0;border:0;
+ color:#29493b;font-size:clamp(12px,1.18vw,17px);font-weight:700;line-height:1.3}
+.signup-page .signup-plan-benefits span{display:flex;align-items:center;gap:12px;min-width:0}
+.signup-page .signup-plan-benefits span::before{content:"";display:block;flex:none;
+ width:42px;height:42px;border-radius:12px;background:#f8faf5 center / 26px 26px no-repeat}
+.signup-page .signup-plan-benefits span:nth-child(1)::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23294b3b%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2218%22%20height%3D%2218%22%20rx%3D%222%22%2F%3E%3Ccircle%20cx%3D%228.5%22%20cy%3D%228%22%20r%3D%221.4%22%2F%3E%3Cpath%20d%3D%22m4%2018%205.5-6%204%203.5%202.8-3%203.7%205.5%22%2F%3E%3C%2Fsvg%3E")}
+.signup-page .signup-plan-benefits span:nth-child(2)::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23294b3b%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%2218%22%20height%3D%2216%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%203v4M17%203v4M3%2010h18m-13%205%202.5%202.5%205-5%22%2F%3E%3C%2Fsvg%3E")}
+.signup-page .signup-plan-benefits span:nth-child(3)::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23294b3b%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%208V3h10v5M7%2017H4V9h16v8h-3M7%2014h10v7H7zM16%2011h1%22%2F%3E%3C%2Fsvg%3E")}
+.signup-page .signup-form-card{grid-row:2;display:block;width:100%;max-width:none;
+ border-radius:28px;border:1px solid #dce5da;box-shadow:0 14px 40px #244b3510;
+ padding:clamp(20px,2.4vw,36px);background:#fff;align-self:center;min-width:0}
+.signup-page .signup-form{gap:14px}
+.signup-page .signup-field{gap:6px}
+.signup-page .signup-field label{font-size:clamp(13px,1.1vw,16px);line-height:1.35;font-weight:800}
+.signup-page .signup-field input{height:52px;min-height:48px;border-radius:12px;
+ background:#f8faf7;font-size:16px;padding:11px 14px}
+.signup-page .signup-consent{margin:6px 0 0;font-size:clamp(11px,1vw,13px);line-height:1.4}
+.signup-page .signup-consent input{width:20px;height:20px;flex:none}
+.signup-page .signup-action{min-height:53px;border-radius:12px;margin:0;
+ background:#315b48;font-size:clamp(14px,1.25vw,18px);font-weight:800}
+.signup-page .signup-divider{margin:15px 0;font-size:14px;font-weight:500}
+.signup-page .signup-google{min-height:52px;border-radius:12px;font-size:clamp(13px,1.2vw,17px);font-weight:750}
+.signup-page .signup-status{margin:14px 0 0;font-size:clamp(10px,.9vw,12px);color:#7a8e7d}
+.signup-page .signup-footer{grid-column:1/-1;grid-row:auto;width:100%;min-width:0;
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:12px 0 0;margin:0;font-size:12px;border-top:1px solid #e3e9e0}
+.signup-page .signup-footer-links{display:flex;gap:18px}
+.signup-page .brand .pictau-brand-img{width:clamp(180px,17vw,270px);height:auto}
+@media (min-width:1280px){
+ .signup-page{grid-template-columns:minmax(0,1.08fr) minmax(0,.88fr) minmax(0,1.06fr);
+  column-gap:clamp(26px,2.5vw,52px)}
+ .signup-page .signup-showcase{grid-column:1}
+ .signup-page .signup-plan{grid-column:2;grid-row:2;align-self:center;min-height:460px}
+ .signup-page .signup-plan-price{display:block;text-align:right;white-space:normal}
+ .signup-page .signup-plan-price strong{display:block;font-size:clamp(32px,3vw,48px)}
+ .signup-page .signup-plan-price span{display:block;margin-top:5px}
+ .signup-page .signup-plan-name{align-self:start}
+ .signup-page .signup-form-card{grid-column:3}
+ .signup-page .signup-intro h1{font-size:clamp(43px,3.5vw,70px)}
+}
+@media (min-width:900px) and (max-width:1279px) and (orientation:landscape){
+ .signup-page{width:calc(100% - 54px);grid-template-columns:minmax(0,.98fr) minmax(0,1.02fr);
+  column-gap:26px;row-gap:10px}
+ .signup-page .signup-showcase{grid-column:1;grid-row:2;align-self:start;padding-top:18px}
+ .signup-page .signup-intro h1{font-size:clamp(34px,3.7vw,48px);margin-bottom:12px}
+ .signup-page .signup-intro .signup-intro-copy{font-size:clamp(14px,1.4vw,17px)}
+ .signup-page .signup-plan{grid-column:1;grid-row:2;align-self:end;margin-bottom:12px;padding:20px}
+ .signup-page .signup-plan-benefits{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+ .signup-page .signup-plan-benefits span{flex-direction:column;justify-content:flex-start;text-align:center;font-size:12px;gap:8px}
+ .signup-page .signup-plan-benefits span::before{width:38px;height:38px}
+ .signup-page .signup-form-card{grid-column:2;grid-row:2;padding:24px}
+ .signup-page .signup-field input{height:49px;min-height:47px}
+ .signup-page .signup-form{gap:12px}
+ .signup-page .signup-plan-price strong{font-size:clamp(30px,3.2vw,43px)}
+}
+@media (min-width:680px) and (max-width:1279px) and (orientation:portrait){
+ .signup-page{width:calc(100% - 42px);grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+  grid-template-rows:auto auto minmax(0,1fr) auto;gap:24px 22px}
+ .signup-page .signup-showcase{grid-column:1/-1;grid-row:2;align-self:end}
+ .signup-page .signup-intro h1{font-size:clamp(33px,5vw,52px)}
+ .signup-page .signup-intro .signup-intro-copy{font-size:17px;max-width:100%}
+ .signup-page .signup-plan{grid-column:1;grid-row:3;align-self:start;padding:23px}
+ .signup-page .signup-plan-price{display:block;text-align:left;grid-column:1/-1;grid-row:2}
+ .signup-page .signup-plan-name{grid-column:1/-1;grid-row:1}
+ .signup-page .signup-plan-period{grid-row:3}
+ .signup-page .signup-plan-benefits{grid-row:4;gap:12px}
+ .signup-page .signup-form-card{grid-column:2;grid-row:3;align-self:start;padding:22px}
+}
+@media (min-width:680px) and (max-width:899px) and (orientation:landscape){
+ .signup-page{width:calc(100% - 34px);grid-template-columns:1fr 1.12fr;gap:10px 20px}
+ .signup-page .signup-showcase{grid-column:1;grid-row:2;align-self:start}
+ .signup-page .signup-intro h1{font-size:30px}
+ .signup-page .signup-intro .signup-intro-copy{font-size:14px}
+ .signup-page .signup-plan{grid-column:1;grid-row:2;align-self:end;margin-bottom:12px}
+ .signup-page .signup-plan-benefits{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .signup-page .signup-plan-benefits span{flex-direction:column;text-align:center;font-size:10px}
+ .signup-page .signup-form-card{grid-column:2;grid-row:2;padding:18px}
+ .signup-page .signup-form{gap:9px}
+}
+@media (max-width:679px){
+ .signup-page{width:calc(100% - 30px);min-height:100dvh;display:flex;
+  flex-direction:column;align-items:stretch;gap:13px;padding:9px 0 14px;margin:0 auto}
+ .signup-page .signup-header{display:flex;grid-template-columns:none;grid-template-rows:none;
+  align-items:center;justify-content:space-between;gap:5px;margin:0}
+ .signup-page .brand .pictau-brand-img{width:clamp(120px,39vw,180px);height:auto}
+ .signup-page .signup-header-right{gap:4px;justify-self:auto}
+ .signup-page .signup-header-right button{min-width:35px;min-height:44px;font-size:12px;padding:6px 2px}
+ .signup-page .signup-header-right .signup-login{min-height:44px;font-size:12px;padding:9px 10px}
+ .signup-page .signup-showcase{width:100%;max-width:none;align-self:auto;margin:9px 0 0;padding:0}
+ .signup-page .signup-eyebrow{font-size:10px;margin-bottom:9px}
+ .signup-page .signup-intro h1{font-size:clamp(29px,7.5vw,36px);line-height:1.08;margin-bottom:10px}
+ .signup-page .signup-intro .signup-intro-copy{font-size:13px;line-height:1.45}
+ .signup-page .signup-checkout{display:flex;flex-direction:column;gap:12px;width:100%;max-width:none;align-self:auto}
+ .signup-page .signup-plan{width:100%;max-width:none;padding:14px 13px;border-radius:19px;gap:11px 6px}
+ .signup-page .signup-plan-name{font-size:11px}
+ .signup-page .signup-plan-price strong{font-size:clamp(28px,7vw,36px)}
+ .signup-page .signup-plan-price span{font-size:11px}
+ .signup-page .signup-plan-period{min-height:40px}
+ .signup-page .signup-plan-badge,.signup-page .signup-plan-yearly{min-height:32px;font-size:12px}
+ .signup-page .signup-plan-benefits{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:1px 0 0}
+ .signup-page .signup-plan-benefits span{flex-direction:column;gap:7px;justify-content:flex-start;
+  font-size:clamp(10px,2.7vw,12px);line-height:1.25;text-align:center}
+ .signup-page .signup-plan-benefits span::before{width:37px;height:37px;background-size:23px 23px}
+ .signup-page .signup-form-card{width:100%;align-self:auto;border-radius:20px;padding:16px 15px;margin:0}
+ .signup-page .signup-form{gap:9px}
+ .signup-page .signup-field{gap:4px}
+ .signup-page .signup-field label{font-size:13px}
+ .signup-page .signup-field input{height:45px;min-height:44px;font-size:16px;padding:10px 12px}
+ .signup-page .signup-consent{font-size:11px;line-height:1.3;gap:8px;margin:3px 0 0}
+ .signup-page .signup-action{min-height:46px;font-size:15px;border-radius:11px}
+ .signup-page .signup-divider{margin:11px 0;font-size:12px}
+ .signup-page .signup-google{min-height:45px;font-size:14px}
+ .signup-page .signup-status{font-size:10px;margin-top:10px}
+ .signup-page .signup-footer{margin-top:auto;font-size:10px;min-height:25px}
+ .signup-page .signup-footer-links{gap:10px}
+}
+@media (max-width:360px){
+ .signup-page{width:calc(100% - 20px);gap:9px}
+ .signup-page .brand .pictau-brand-img{width:clamp(112px,36vw,135px)}
+ .signup-page .signup-header-right button{min-width:32px}
+ .signup-page .signup-header-right .signup-login{padding:8px 7px;font-size:11px}
+ .signup-page .signup-intro h1{font-size:27px}
+ .signup-page .signup-plan{padding:11px 10px}
+ .signup-page .signup-plan-price strong{font-size:26px}
+ .signup-page .signup-plan-price span{font-size:10px}
+ .signup-page .signup-plan-benefits span{font-size:10px}
+ .signup-page .signup-form-card{padding:12px 11px}
+ .signup-page .signup-footer-links{gap:7px}
+}
+@media (max-width:740px) and (orientation:landscape){
+ .signup-page{height:auto;min-height:100dvh}
+ .signup-page .signup-footer{display:flex}
+}
+@media (prefers-reduced-motion:reduce){
+ .signup-page *, .signup-page *::before,.signup-page *::after{
+  animation:none!important;transition:none!important}
+}
+</style>
 </head>
 <body data-pictau-signup-design="5">
 <a href="#page-main" class="signup-skip" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
@@ -399,7 +588,9 @@ body[data-pictau-signup-design="5"]{background:#f5f5f0}
  </header>
  <div class="signup-showcase">
   <section class="signup-intro" aria-labelledby="signup-title">
-   <h1 id="signup-title" data-fr="Commencez à créer vos repères visuels en quelques étapes seulement." data-en="Start creating your visual supports in just a few steps.">Commencez à créer vos repères visuels en quelques étapes seulement.</h1>
+   <p class="signup-eyebrow" data-fr="DES IMAGES POUR MIEUX COMMUNIQUER" data-en="IMAGES TO COMMUNICATE BETTER">DES IMAGES POUR MIEUX COMMUNIQUER</p>
+   <h1 id="signup-title"><span data-fr="Créez votre compte" data-en="Create your account">Créez votre compte</span> <em>Pict-au</em></h1>
+   <p class="signup-intro-copy" data-fr="Commencez à créer vos repères visuels en quelques étapes seulement." data-en="Start creating your visual supports in just a few steps.">Commencez à créer vos repères visuels en quelques étapes seulement.</p>
   </section>
  </div>
  <div class="signup-checkout">
@@ -430,7 +621,7 @@ body[data-pictau-signup-design="5"]{background:#f5f5f0}
    <p class="signup-status" id="signup-status" role="status" aria-live="polite"><span data-fr="Inscriptions à venir · Aucun paiement ni compte créé ici." data-en="Registration coming soon · No payment or account created here.">Inscriptions à venir · Aucun paiement ni compte créé ici.</span></p>
   </section>
  </div>
- <footer class="signup-footer"><span>© Pict-au</span><div class="signup-footer-links"><a href="./index.html" data-fr="Accueil" data-en="Home">Accueil</a><a href="./conditions.html" data-fr="Conditions" data-en="Terms">Conditions</a><a href="./confidentialite.html" data-fr="Confidentialité" data-en="Privacy">Confidentialité</a></div></footer>
+ <footer class="signup-footer"><span>© Pict-au</span><div class="signup-footer-links"><a href="./contact.html" data-fr="Contact" data-en="Contact">Contact</a><a href="./conditions.html" data-fr="Conditions" data-en="Terms">Conditions</a><a href="./confidentialite.html" data-fr="Confidentialité" data-en="Privacy">Confidentialité</a></div></footer>
 </main>
 <script type="module">
 const translations=[...document.querySelectorAll('[data-fr][data-en]')];
