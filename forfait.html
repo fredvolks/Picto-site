@@ -8,7 +8,7 @@
 <title>Créer mon compte — Pict-au</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:light;font-family:"DM Sans",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#26352f;background:#f5f5f0;font-synthesis:none;--ink:#26352f;--accent:#607a6f;--muted:#62766d;--line:#d7e0d8;--paper:#f5f5f0;--leaf:#e4eae1;--white:#fff}
 *,*::before,*::after{box-sizing:border-box}
@@ -253,6 +253,46 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
 .signup-tiles .p-card{
   padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;
 }
+
+/* Nouvelle annotation : grandir les pictogrammes sans affecter leur cadre noir.
+   La largeur de 100% empêche grid + justify-items:center de rapetisser les cartes. */
+.signup-tiles .p-card{width:100%;max-width:185px;justify-self:center}
+@media(min-width:521px) and (max-width:899px){
+ .signup-tiles{max-width:600px;width:min(100%,600px);gap:clamp(5px,1.3vw,14px);padding:14px 10px}
+ .signup-tiles .picto-art svg{width:85%;height:85%}
+}
+@media(max-width:520px){
+ .signup-tiles{width:100%;max-width:none;gap:clamp(3px,1.2vw,8px);padding:5px 2px}
+ .signup-tiles .p-card{width:100%;max-width:116px}
+ .signup-tiles .picto-art svg{width:85%;height:85%}
+}
+@media(max-width:340px) and (max-height:600px){
+ .signup-tiles .p-card{max-width:88px}
+}
+/* Revue responsive approuvée : trois cartes parfaitement alignées,
+   police ronde du vrai texte identique à l'accueil sur tous les écrans. */
+.signup-tiles{justify-items:center;align-items:end}
+.signup-tiles .card-1,.signup-tiles .card-2,.signup-tiles .card-3{transform:none}
+.signup-tiles .picto-label{font-family:"Quicksand","Century Gothic",sans-serif;font-weight:700;letter-spacing:-.25px}
+.signup-plan-top{min-width:0}
+.signup-plan-period{display:inline-flex;align-items:center;justify-content:flex-end;flex-wrap:nowrap;gap:5px;flex:none}
+.signup-plan-yearly{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:29px;gap:1px;padding:3px 8px;border:1px dashed #a1b0a5;border-radius:999px;background:transparent;color:#597164;font-family:inherit;font-size:9px;font-weight:800;letter-spacing:.045em;line-height:1.1;cursor:not-allowed;opacity:1}
+.signup-plan-yearly small{font-size:8px;font-weight:700;letter-spacing:0;opacity:.85}
+.signup-plan-yearly:disabled{opacity:1;cursor:not-allowed}
+@media(max-width:899px){
+ .signup-tiles{width:min(100%,600px);max-width:600px;margin-inline:auto}
+}
+@media(max-width:520px){
+ .signup-tiles{width:100%;max-width:none;margin-inline:auto}
+ .signup-plan-top{gap:5px}
+ .signup-plan-period{gap:3px}
+ .signup-plan-badge{font-size:8px;padding:4px 6px}
+ .signup-plan-yearly{min-height:27px;font-size:8px;padding:3px 6px}
+ .signup-plan-yearly small{font-size:7px}
+ /* Réduire seulement le dessin de la bulle : la cible reste à 44 px. */
+ body[data-pictau-signup-design="5"] [data-pa-universal-header] .pa-universal-controls .signup-login{position:relative;isolation:isolate;min-height:44px;padding:8px 8px;border:0;background:transparent;font-size:10px}
+ body[data-pictau-signup-design="5"] [data-pa-universal-header] .pa-universal-controls .signup-login::before{content:"";position:absolute;inset:7px 9px;border:1px solid #d8e0d9;border-radius:9px;background:#fff;z-index:-1}
+}
 </style><link rel="stylesheet" href="./branding/pictau-universal-header.css">
     <link rel="stylesheet" href="./app/src/auth-layout.css">
 </head>
@@ -270,11 +310,11 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #345a
   <section class="signup-intro" aria-labelledby="signup-title">
    <p class="signup-eyebrow" data-fr="DES OUTILS POUR VOTRE QUOTIDIEN" data-en="TOOLS FOR EVERYDAY LIFE">DES OUTILS POUR VOTRE QUOTIDIEN</p>
    <h1 id="signup-title" data-fr="Créez et personnalisez vos repères visuels." data-en="Create and personalize your visual supports.">Créez et personnalisez vos repères visuels.</h1>
-   <p data-fr="Des pictogrammes simples, des routines à votre image et des supports faciles à imprimer." data-en="Simple pictograms, visual routines made your way and supports ready to print.">Des pictogrammes simples, des routines à votre image et des supports faciles à imprimer.</p>
+
   </section>
   <div class="signup-tiles" aria-label="Trouver, personnaliser et imprimer" data-fr-aria="Trouver, personnaliser et imprimer" data-en-aria="Find, personalize and print"><div class="p-card card-1"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="39" cy="39" r="23"/><path d="m56 56 21 21"/></svg></div><div class="picto-label" data-fr="Trouver" data-en="Find">Trouver</div></div></div><div class="p-card card-2"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect height="57" rx="5" width="61" x="14" y="16"/><path d="M25 32h26M25 43h20m0 22 24-24 9 9-24 24-13 4zM63 47l9 9"/></svg></div><div class="picto-label" data-fr="Personnaliser" data-en="Personalize">Personnaliser</div></div></div><div class="p-card card-3"><div class="picto"><div class="picto-art"><svg viewBox="0 0 92 92" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M25 34V15h43v19M25 68H15V36h63v32H68M26 57h42v23H26zM65 45h6"/></svg></div><div class="picto-label" data-fr="Imprimer" data-en="Print">Imprimer</div></div></div></div>
   <section class="signup-plan" aria-label="Forfait Pict-au / Pict-au plan">
-   <div class="signup-plan-top"><strong class="signup-plan-name">Forfait Pict-au</strong><span class="signup-plan-badge" data-fr="MENSUEL" data-en="MONTHLY">MENSUEL</span></div>
+   <div class="signup-plan-top"><strong class="signup-plan-name">Forfait Pict-au</strong><div class="signup-plan-period" role="group" aria-label="Périodes de forfait" data-fr-aria="Périodes de forfait" data-en-aria="Plan billing periods"><span class="signup-plan-badge" data-fr="MENSUEL" data-en="MONTHLY">MENSUEL</span><button class="signup-plan-yearly" type="button" disabled aria-label="Annuel, à venir" data-fr-aria="Annuel, à venir" data-en-aria="Yearly, coming soon"><span data-fr="ANNUEL" data-en="YEARLY">ANNUEL</span><small data-fr="BIENTÔT" data-en="SOON">BIENTÔT</small></button></div></div>
    <div class="signup-plan-price"><strong>9,99 $</strong><span data-fr="CA / mois" data-en="CAD / month">CA / mois</span></div>
    <div class="signup-plan-benefits"><span data-fr="Pictogrammes" data-en="Pictograms">Pictogrammes</span><span data-fr="Routines et tableaux" data-en="Routines and boards">Routines et tableaux</span><span data-fr="PDF et impression" data-en="PDF and printing">PDF et impression</span></div>
    <p class="signup-plan-note" data-fr="Tarif prévu · Taxes et modalités à confirmer" data-en="Planned price · Taxes and terms to be confirmed">Tarif prévu · Taxes et modalités à confirmer</p>
