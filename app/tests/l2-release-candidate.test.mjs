@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {listPublishedCatalog,normalizeCatalogFilters} from "../src/catalog.js";
 const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
 const catalog=readFileSync(new URL("../src/catalog.js",import.meta.url),"utf8");
 const pdfRecovery=readFileSync(new URL("../src/pdf-recovery-ui.js",import.meta.url),"utf8");
@@ -63,4 +64,56 @@ test("Les spécificités du site public Banque et tableau restent en place",()=>
  assert.match(app,/focusBankInspector\(\)/);
  assert.match(app,/const publishFeedback=state\.adminTab==="bank"/);
  assert.match(app,/\+publishFeedback\+body/);
+});
+
+test("La recherche du catalogue L2 garde les mots FR/EN et les apostrophes avant pagination",async()=>{
+ const uid="11111111-1111-4111-8111-111111111111";
+ const id="33333333-3333-4333-8333-333333333333";
+ const row={id,title_fr:"Laver les mains",title_en:"Wash hands",theme:"hygiene",
+   image_path:"items/"+id+".png",published_at:"2026-11-03T12:00:00Z"};
+ const queries=[];
+ const client={
+   auth:{getUser:async()=>({data:{user:{id:uid}},error:null})},
+   from(table){
+     assert.equal(table,"pictau_catalog_items","Aucun accès aux brouillons");
+     return {select(){return{
+       or(expression){queries.push(expression);return this;},
+       order(){return this;},
+       range(first,last){
+         assert.deepEqual([first,last],[0,23]);
+         return Promise.resolve({data:[row],count:1,error:null});
+       }
+     };}};
+   }
+ };
+ const found=await listPublishedCatalog(client,uid,{query:"laver mains"});
+ assert.equal(found.total,1);
+ assert.equal(found.items[0].id,id);
+ assert.equal(queries[0],
+   "and(or(title_fr.ilike.%laver%,title_en.ilike.%laver%),or(title_fr.ilike.%mains%,title_en.ilike.%mains%))");
+ assert.equal(normalizeCatalogFilters({query:"l’école"}).query,"l’école");
+ await listPublishedCatalog(client,uid,{query:"l'école"});
+ assert.match(queries[1],/title_fr\.ilike\.%l’école%/);
+ assert.match(queries[1],/title_fr\.ilike\.%l'école%/);
+ assert.throws(()=>normalizeCatalogFilters({query:"laver%"}),/invalide/);
+});
+
+test("La vignette indisponible se réessaie sans publier et avec un contrôle de session",()=>{
+ const css=readFileSync(new URL("../src/styles.css",import.meta.url),"utf8");
+ const loader=section("async function loadPublishedArtworkPreview(img){","function observePublishedArtwork(){");
+ assert.match(loader,/publishedCatalog\.loadingImages\.has\(id\)/);
+ assert.match(loader,/await downloadPublishedArtwork\(client,uid,row\)/);
+ assert.match(loader,/authStatus\.user\?\.id!==uid/);
+ assert.match(loader,/\.classList\.remove\("is-unavailable"\)/);
+ assert.doesNotMatch(loader,/publishReviewedPictogram|upload\(/);
+ const retry=section('if(a==="catalog-image-retry"','if(a==="catalog-refresh"');
+ assert.match(retry,/publishedCatalog\.items\.some\(row=>row\.id===id\)/);
+ assert.match(retry,/loadPublishedArtworkPreview\(img\)/);
+ const card=section("function renderClientLibrary(){","function renderClientUsed(){");
+ assert.match(card,/pa-catalog-image-error/);
+ assert.match(card,/pa-catalog-image-retry/);
+ assert.match(card,/Image indisponible/);
+ assert.match(card,/Image unavailable/);
+ assert.match(css,/\.pa-catalog-art\.is-unavailable \.pa-catalog-image-retry/);
+ assert.match(css,/min-height:44px/);
 });
