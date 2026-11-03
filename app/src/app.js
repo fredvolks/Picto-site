@@ -2230,7 +2230,7 @@ function renderAdminHome(){
     +'<h1 id="admin-dashboard-title">'+esc(fr?'Accueil Super Admin':'Super Admin home')+'</h1>'
     +'<p>'+esc(fr?'Gérez vos pictogrammes, vos demandes et vos gabarits en un seul endroit.':'Manage your pictograms, requests, and templates in one place.')+'</p>'
     +'<div class="admin-dashboard-summary"><div><span>'+esc(fr?'Fiches dans la banque privée':'Private bank records')+'</span><strong>'+privateBank.total+'</strong></div>'
-    +'<div><span>'+esc(fr?'Statut':'Status')+'</span><strong>'+esc(fr?'Accès administrateur vérifié':'Administrator verified')+'</strong></div></div>'
+    +'</div>'
     +'<section class="admin-review-shortcut" aria-labelledby="admin-review-shortcut-title">'
     +'<h2 id="admin-review-shortcut-title">'+esc(fr?'Brouillons à approuver':'Drafts to review')+'</h2>'
     +'<p>'+esc(fr?
@@ -2278,7 +2278,7 @@ function renderAdminWorkspace(){
     '<button type="button" class="'+(compact?'admin-mobile-link':'admin-side-link')+(state.adminTab===tab?' active':'')
     +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+'>'
     +icon(ico)+'<span>'+esc(label)+'</span></button>';
-  return '<div class="admin-workspace'+(state.adminMenuOpen?' menu-open':'')+'">'
+  return '<div class="admin-workspace'+(state.adminTab==="overview"?' admin-overview-elevated':'')+(state.adminMenuOpen?' menu-open':'')+'">'
     +'<a href="#admin-main" class="skip">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
     +'<button class="admin-drawer-scrim" type="button" tabindex="-1" data-action="admin-menu-close" aria-label="'+esc(fr?'Fermer le menu d’administration':'Close administration menu')+'"></button>'
     +'<aside id="pictau-admin-drawer" class="admin-sidebar'+(state.adminMenuOpen?' is-open':'')+'" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'

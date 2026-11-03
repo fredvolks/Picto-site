@@ -2598,3 +2598,171 @@
   .pa-template-lite .pa-lt-fields{grid-template-columns:1fr}
   .pa-template-lite .pa-lt-manager-body{top:110px;max-height:calc(100dvh - 120px)}
 }
+
+
+/* Pict-au — Style 2 Cartes élevées : accueil Super Admin uniquement.
+   Apparence sauge/ivoire, sans modification des données, fonctionnalités ou
+   autres onglets (Banque, Demandes, Gabarits, Paramètres). */
+@media screen{
+  .admin-workspace.admin-overview-elevated{
+    --admin-sage-ink:#274735;
+    --admin-sage:#39684c;
+    --admin-sage-pale:#e7f0e5;
+    --admin-sage-border:#d5e3d6;
+    --admin-ivory:#f8f8f3;
+    --admin-ink:#243b2d;
+    --admin-blue:#39684c;
+    --admin-border:#d9e4d9;
+    background:var(--admin-ivory);
+    color:var(--admin-sage-ink);
+  }
+  .admin-overview-elevated .admin-sidebar{
+    background:#fff;
+    border-right-color:#dbe5da;
+    box-shadow:3px 0 18px rgba(37,67,47,.035);
+  }
+  .admin-overview-elevated .admin-brand-mark{
+    background:#305d43;
+    color:#fff;
+    box-shadow:0 3px 9px rgba(33,77,48,.16);
+  }
+  .admin-overview-elevated .admin-brand-identity strong{color:#203d2d}
+  .admin-overview-elevated .admin-brand-identity small,
+  .admin-overview-elevated .admin-sidebar-caption{color:#677e69}
+  .admin-overview-elevated .admin-side-link{color:#3e5546}
+  .admin-overview-elevated .admin-side-link.active{
+    background:#e4f0df;
+    border-color:#d2e4cd;
+    color:#234e34;
+    box-shadow:0 2px 9px rgba(39,83,49,.055);
+  }
+  .admin-overview-elevated .admin-side-link:hover:not(.active){background:#f1f6ef}
+  .admin-overview-elevated .admin-sidebar-status{
+    background:#f3f7ef;
+    color:#43604b;
+    border:1px solid #e4ebdf;
+  }
+  .admin-overview-elevated .admin-topbar{
+    background:linear-gradient(105deg,#335d45,#426c52);
+    border-bottom-color:#2f533d;
+    box-shadow:0 3px 16px rgba(28,67,42,.13);
+  }
+  .admin-overview-elevated .admin-topbar-intro span{color:#d9e9dc}
+  .admin-overview-elevated .admin-topbar-intro strong{color:#fff}
+  .admin-overview-elevated .admin-topbar-actions .lang-switch{
+    background:#f9faf7;
+    border-color:#dfe9dc;
+  }
+  .admin-overview-elevated .lang-btn.active{
+    background:#365e44;
+    border-color:#365e44;
+    color:#fff;
+  }
+  .admin-overview-elevated .admin-main{
+    padding-top:clamp(24px,3vw,40px);
+  }
+  .admin-overview-elevated .admin-dashboard{max-width:1130px}
+  .admin-overview-elevated .admin-dashboard-kicker{
+    color:#52735b;
+    letter-spacing:.15em;
+  }
+  .admin-overview-elevated .admin-dashboard h1{color:#203d2d}
+  .admin-overview-elevated .admin-dashboard>p{color:#5c7061}
+  .admin-overview-elevated .admin-dashboard-summary>div,
+  .admin-overview-elevated .admin-dashboard-card,
+  .admin-overview-elevated .admin-dashboard .pa-release-readiness{
+    background:#fff;
+    border:1px solid var(--admin-sage-border);
+    box-shadow:0 7px 22px rgba(40,75,49,.075),0 2px 5px rgba(40,75,49,.035);
+    border-radius:19px;
+  }
+  .admin-overview-elevated .admin-dashboard-summary>div{
+    border-left:4px solid #8eae8b;
+    padding:22px 24px;
+    gap:9px;
+  }
+  .admin-overview-elevated .admin-dashboard-summary span,
+  .admin-overview-elevated .admin-dashboard-card>span{color:#617367}
+  .admin-overview-elevated .admin-dashboard-summary strong{color:#254a35}
+  .admin-overview-elevated .admin-dashboard-card{
+    grid-template-columns:42px minmax(0,1fr) 20px;
+    gap:7px 13px;
+    min-height:118px;
+    padding:22px;
+    color:#244934;
+    transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+  }
+  .admin-overview-elevated .admin-dashboard-card>svg:first-child{
+    box-sizing:content-box;
+    grid-row:span 2;
+    height:24px;
+    width:24px;
+    padding:9px;
+    background:#eaf2e7;
+    border-radius:12px;
+    color:#356847;
+  }
+  .admin-overview-elevated .admin-dashboard-card>strong{color:#213d2d}
+  .admin-overview-elevated .admin-dashboard-card>svg:last-child{color:#4d7958}
+  .admin-overview-elevated .admin-dashboard-card:hover{
+    border-color:#9ab89e;
+    box-shadow:0 12px 27px rgba(35,72,44,.13);
+    transform:translateY(-2px);
+  }
+  .admin-overview-elevated .admin-dashboard .pa-release-readiness{
+    background:linear-gradient(125deg,#f5f9f2,#fff 65%);
+    padding:clamp(18px,2.4vw,28px);
+  }
+  .admin-overview-elevated .admin-dashboard .pa-release-readiness .admin-surface-head h2{
+    color:#264735;
+  }
+  .admin-overview-elevated .admin-dashboard .pa-release-grid>div{
+    background:#fff;
+    border:1px solid #e0e9dd;
+    border-radius:12px;
+  }
+  .admin-overview-elevated .admin-dashboard .pa-release-readiness .btn-primary{
+    background:#356448!important;
+    border-color:#356448!important;
+    color:#fff!important;
+  }
+  .admin-overview-elevated .admin-dashboard .pa-release-readiness .btn-primary:hover{
+    background:#284d38!important;
+  }
+  .admin-overview-elevated button:focus-visible{
+    outline:3px solid #679c77;
+    outline-offset:3px;
+  }
+  .admin-overview-elevated .admin-mobile-nav{
+    background:#fff;
+    border-top-color:#d9e6d9;
+    box-shadow:0 -3px 16px rgba(39,70,49,.06);
+  }
+  .admin-overview-elevated .admin-mobile-link.active{
+    background:#e4f0df;
+    color:#285039;
+  }
+}
+@media screen and (max-width:820px){
+  .admin-overview-elevated .admin-topbar{min-height:72px}
+  .admin-overview-elevated .admin-main{padding:20px 15px 32px}
+  .admin-overview-elevated .admin-dashboard-card{min-height:104px}
+}
+@media screen and (max-width:560px){
+  .admin-overview-elevated .admin-dashboard-summary>div{padding:16px 18px}
+  .admin-overview-elevated .admin-dashboard-card{
+    min-height:94px;
+    grid-template-columns:42px minmax(0,1fr) 20px;
+    padding:16px;
+  }
+  .admin-overview-elevated .admin-dashboard-card>svg:first-child{
+    padding:8px;
+  }
+  .admin-overview-elevated .admin-dashboard .pa-release-readiness{padding:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  .admin-overview-elevated .admin-dashboard-card{transition:none}
+  .admin-overview-elevated .admin-dashboard-card:hover{transform:none}
+}
+
+@media screen{.admin-overview-elevated .admin-dashboard-summary{grid-template-columns:minmax(0,1fr);max-width:480px}}
