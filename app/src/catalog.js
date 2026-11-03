@@ -278,6 +278,21 @@ async function verifyReviewedDraftStillCurrent(client,uid,expected){
  await requireAdmin(client,uid);
 }
 
+// Refuser un thème primaire absent ou déjà fusionné AVANT de copier un PNG
+// dans le bucket approuvé. Les anciens brouillons de test peuvent porter un
+// thème syntaxiquement valable mais absent du registre des catégories.
+async function requireCanonicalPublicationTheme(client,uid,theme){
+  if(typeof theme!=="string"||!/^[a-z][a-z0-9_-]{0,59}$/.test(theme))
+    throw Error("Catégorie invalide : choisissez un thème actif dans la Banque.");
+  await requireAdmin(client,uid);
+  const r=await client.from("pictau_themes")
+    .select("code,merged_into").eq("code",theme).maybeSingle();
+  if(r.error)throw r.error;
+  if(!r.data||r.data.code!==theme||r.data.merged_into!==null)
+    throw Error("Cette catégorie est absente ou fusionnée. Choisissez une catégorie active avant de publier.");
+  await requireAdmin(client,uid);
+}
+
 // L'approbation manuelle doit porter sur le PNG et les libellés vraiment
 // affichés dans la fiche Super Admin. Une nouvelle relecture après le clic
 // ne suffit pas si le PNG avait déjà changé avant ce clic.
@@ -299,6 +314,8 @@ export async function publishReviewedPictogram(client,uid,assetId,reviewed){
   const reviewedDigest=await pngDigest(reviewed.blob);
   if(source.blob.size!==reviewed.blob.size||sourceDigest!==reviewedDigest)
     throw Error("L'image PNG a changé depuis l'aperçu. Rouvrez la fiche avant publication.");
+  // Un brouillon historique mal classé ne doit jamais atteindre Storage approuvé.
+  await requireCanonicalPublicationTheme(client,uid,source.asset.theme);
   await requireAdmin(client,uid);
   const path="items/"+assetId+".png",bucket=client.storage.from(CATALOG_BUCKET);
   const uploaded=await bucket.upload(path,source.blob,{contentType:"image/png",cacheControl:"0",upsert:false});
@@ -320,6 +337,8 @@ export async function publishReviewedPictogram(client,uid,assetId,reviewed){
   // Après l'upload (ou sa reprise), ne pas publier des métadonnées périmées.
   // Sur erreur, garder la copie PNG privée pour une reprise contrôlée.
   await verifyReviewedDraftStillCurrent(client,uid,source.asset);
+  // Un autre admin peut fusionner le thème pendant l'upload; revalider avant SQL.
+  await requireCanonicalPublicationTheme(client,uid,source.asset.theme);
   let insertError=null;
   try{
     await requireAdmin(client,uid);
