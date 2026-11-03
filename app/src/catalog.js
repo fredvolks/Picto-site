@@ -59,6 +59,21 @@ export function moveCatalogChoice(current,id,direction){
   return new Map(entries);
 }
 
+// Retire uniquement les choix de la page affichée : ceux des autres pages
+// restent intacts. Aucun accès Storage ou mutation de composition.
+export function removeVisibleCatalogPage(current,visibleRows){
+  if(!(current instanceof Map)||current.size>MAX_CATALOG_CHOICES||
+    !Array.isArray(visibleRows)||visibleRows.length>CATALOG_PAGE_SIZE||
+    visibleRows.some(row=>!UUID.test(row?.id||"")))
+    throw Error("Sélection de la bibliothèque invalide.");
+  const selected=new Map(current);
+  let removed=0;
+  for(const row of visibleRows){
+    if(selected.delete(row.id))removed++;
+  }
+  return {selected,removed};
+}
+
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PNG_MAGIC=[137,80,78,71,13,10,26,10];
 const MAX_BYTES=6*1024*1024;
@@ -102,6 +117,10 @@ export function normalizeCatalogFilters({query="",theme="all",sort="recent",page
   if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
   return {query:search,theme,sort,page,language};
 }
+// Le schéma L2 actuel contient la catégorie PRINCIPALE sur chaque fiche
+// publiée. La future projection multicatégorie peut ne pas être installée.
+// Repli borné à une erreur PostgREST de relation MANQUANTE, jamais à une
+// erreur d'autorisation, de réseau ou de réponse incohérente.
 function missingPublishedThemeRelation(error){
   return error?.code==="PGRST200"&&
     String(error?.message||"").includes("pictau_published_theme_links");
@@ -160,9 +179,15 @@ export async function listPublishedCatalogAvailablePage(client,uid,filters={}){
   for(let attempt=0;attempt<3;attempt++){
     const result=await listPublishedCatalog(client,uid,{...filters,page});
     const last=lastPublishedCatalogPage(result.total);
-    if(page<=last)return {...result,page};
     if(result.total===0)return {...result,page:0};
-    page=last;
+    if(page>last){page=last;continue;}
+    // Total positif + page existante + zéro fiche : résultat transitoire
+    // possible après mutation ou panne. Relire au plus trois fois sans
+    // jamais transformer cette incohérence en « bibliothèque vide ».
+    // Une page non finale doit avoir CATALOG_PAGE_SIZE résultats. En cas de
+    // retrait concurrent, ne pas afficher une page silencieusement tronquée.
+    const expected=Math.min(CATALOG_PAGE_SIZE,result.total-page*CATALOG_PAGE_SIZE);
+    if(result.items.length===expected)return {...result,page};
   }
   throw Error("Le catalogue a changé. Actualisez les pictogrammes.");
 }
@@ -192,7 +217,6 @@ export async function downloadPublishedArtwork(client,uid,row){
   await verified(client,uid);
   return r.data;
 }
-// Publication UNIQUEMENT après un clic de revue manuelle explicite Super Admin.
 // Preuve de publication : un reçu SQL seul n'atteste jamais le vrai PNG privé.
 // Calcul identique avant copie et après relecture, sans lien public permanent.
 async function pngDigest(blob){
@@ -222,13 +246,45 @@ async function confirmApprovedPublication(client,uid,assetId,source,sourceDigest
   return row;
 }
 
-// Publication UNIQUEMENT après un clic de revue manuelle explicite Super Admin.
-export async function publishReviewedPictogram(client,uid,assetId){
+// Le téléchargement et la copie privée peuvent durer. Relire la fiche
+// exactement avant l'INSERT : aucun libellé/thème issu d'une ancienne vue ne
+// doit devenir le catalogue d'un autre changement Super Admin. Ceci n'est
+// pas une transaction inter-comptes : les règles SQL/RLS restent l'autorité.
+async function verifyReviewedDraftStillCurrent(client,uid,expected){
+ await requireAdmin(client,uid);
+ const r=await client.from("pictau_assets")
+   .select("id,title_fr,title_en,theme,status").eq("id",expected.id).maybeSingle();
+ if(r.error)throw r.error;
+ const live=r.data;
+ if(!live||live.id!==expected.id||live.status!=="draft"||
+    live.title_fr!==expected.title_fr||
+    (live.title_en??null)!==(expected.title_en??null)||
+    live.theme!==expected.theme)
+   throw Error("Ce brouillon a été modifié sur un autre appareil. Actualisez la fiche avant publication.");
+ await requireAdmin(client,uid);
+}
+
+// L'approbation manuelle doit porter sur le PNG et les libellés vraiment
+// affichés dans la fiche Super Admin. Une nouvelle relecture après le clic
+// ne suffit pas si le PNG avait déjà changé avant ce clic.
+export async function publishReviewedPictogram(client,uid,assetId,reviewed){
   if(!UUID.test(assetId||""))throw Error("Identifiant invalide.");
   await requireAdmin(client,uid);
+  if(!reviewed||reviewed.id!==assetId||reviewed.status!=="draft"||
+     typeof reviewed.title_fr!=="string"||!reviewed.title_fr.trim()||
+     typeof reviewed.theme!=="string"||!reviewed.theme.trim()||
+     !(reviewed.blob instanceof Blob))
+    throw Error("Aperçu approuvé absent : ouvrez de nouveau la fiche et vérifiez le PNG.");
   const source=await loadPrivateAdminPreview(client,uid,assetId);
   if(source.asset.status!=="draft")throw Error("Seul un brouillon peut être approuvé.");
+  if(source.asset.title_fr!==reviewed.title_fr||
+     (source.asset.title_en??null)!==(reviewed.title_en??null)||
+     source.asset.theme!==reviewed.theme)
+    throw Error("Les libellés ou le thème ont changé depuis la revue. Rouvrez la fiche avant publication.");
   const sourceDigest=await pngDigest(source.blob);
+  const reviewedDigest=await pngDigest(reviewed.blob);
+  if(source.blob.size!==reviewed.blob.size||sourceDigest!==reviewedDigest)
+    throw Error("L'image PNG a changé depuis l'aperçu. Rouvrez la fiche avant publication.");
   await requireAdmin(client,uid);
   const path="items/"+assetId+".png",bucket=client.storage.from(CATALOG_BUCKET);
   const uploaded=await bucket.upload(path,source.blob,{contentType:"image/png",cacheControl:"0",upsert:false});
@@ -247,6 +303,9 @@ export async function publishReviewedPictogram(client,uid,assetId){
       throw Error("Conflit de pictogramme : le PNG privé existant n'est pas identique. Aucun remplacement.");
     await requireAdmin(client,uid);
   }
+  // Après l'upload (ou sa reprise), ne pas publier des métadonnées périmées.
+  // Sur erreur, garder la copie PNG privée pour une reprise contrôlée.
+  await verifyReviewedDraftStillCurrent(client,uid,source.asset);
   let insertError=null;
   try{
     await requireAdmin(client,uid);

@@ -146,8 +146,9 @@ async function archivePdfWithStableId(client,uid,file,metadata){
     if(later)return confirmExistingPdfBytes(client,uid,later,metadata);
     throw row.error||Error("L'archivage n'a pas été confirmé par le serveur.");
   }
-  await verifiedUser(client,uid);
-  return assertSameArchivedPdf(row.data,{...metadata,path});
+  // La ligne SQL confirmée ne garantit pas les octets privés : relire et
+  // vérifier SHA-256, chemin, métadonnées et session avant tout reçu de succès.
+  return confirmExistingPdfBytes(client,uid,row.data,metadata);
 }
 export async function archivePdf(client,uid,file,{title,documentType="routine",pageCount=null,sourceDraftId=null,documentId=null}){
   const cleanTitle=normalizeDocumentTitle(title);
@@ -177,17 +178,20 @@ export async function archivePdf(client,uid,file,{title,documentType="routine",p
       id,owner_id:uid,title:cleanTitle,document_type:documentType,
       storage_path:path,...fingerprint,...(pageCount===null?{}:{page_count:pageCount}),
       ...(sourceDraftId===null?{}:{source_draft_id:sourceDraftId})
-    }).select(COLUMNS).single();
+    }).select(IDEMPOTENT_COLUMNS).single();
     if(row.error)throw row.error;
-    if(row.data?.id!==id||row.data?.sha256!==fingerprint.sha256||
-      (sourceDraftId!==null&&row.data?.source_draft_id!==sourceDraftId))
-      throw Error("L'archivage n'a pas été confirmé par le serveur.");
-    await verifiedUser(client,uid);
-    return row.data;
+    if(!row.data)throw Error("L'archivage n'a pas été confirmé par le serveur.");
+    // Même avec un UUID généré ici, le retour SQL seul ne prouve pas
+    // que le vrai PDF privé existe encore ni que ses octets sont intacts.
+    // Unifier les garanties avec le parcours à identifiant stable.
+    return confirmExistingPdfBytes(client,uid,row.data,{
+      id,title:cleanTitle,documentType,pageCount,sourceDraftId,fingerprint
+    });
   }catch(error){
-    // Compensation uniquement si la session n'a pas changé. Pas de statut « sauvegardé ».
-    try{await verifiedUser(client,uid);await client.storage.from(FILES_BUCKET).remove([path]);}
-    catch{ /* Un objet orphelin exige une vérification administrative; ne jamais masquer l'échec. */ }
+    // Un échec réseau après INSERT ne signifie pas que la transaction a échoué.
+    // Ne JAMAIS effacer ce PDF privé : une ligne SQL peut déjà le référencer,
+    // et un nettoyage compensatoire détruirait alors l'original du client.
+    // Ne pas confirmer l'archivage : une vérification/reprise explicite est requise.
     throw error;
   }
 }
@@ -204,8 +208,14 @@ export async function listMyDocuments(client,uid,{page=0,query="",type="all",sor
     .range(page*DOCUMENTS_PAGE_SIZE,(page+1)*DOCUMENTS_PAGE_SIZE-1);
   if(result.error)throw result.error;
   if(!Number.isSafeInteger(result.count)||result.count<0)throw Error("Décompte des fichiers indisponible.");
+  // Une réponse absente ou contradictoire ne prouve jamais que le dossier est vide.
+  // Ne masquer ni une panne PostgREST ni une mutation simultanée par data || [].
+  if(!Array.isArray(result.data))throw Error("Réponse de la liste des fichiers invalide.");
+  if(result.data.length>DOCUMENTS_PAGE_SIZE||result.data.length>result.count||
+    (page*DOCUMENTS_PAGE_SIZE>=result.count&&result.data.length>0))
+    throw Error("Pagination des fichiers incohérente. Actualisez la liste.");
   await verifiedUser(client,uid);
-  return{items:result.data||[],total:result.count,page};
+  return{items:result.data,total:result.count,page};
 }
 // Une suppression sur un autre appareil peut rendre la page courante vide alors
 // qu'il reste des PDF. Revenir au dernier feuillet réellement disponible.
@@ -221,11 +231,14 @@ export async function listMyDocumentsAvailablePage(client,uid,filters={}){
   for(let attempt=0;attempt<3;attempt++){
     const result=await listMyDocuments(client,uid,{...filters,page});
     const last=lastDocumentPage(result.total);
-    if(page<=last)return {...result,page};
     if(result.total===0)return {...result,page:0};
-    page=last;
+    if(page>last){page=last;continue;}
+    // Le serveur annonce des fichiers sur cette page : relire une réponse
+    // temporairement vide, avec le même compte, les mêmes filtres et un maximum
+    // de trois essais. Ne jamais afficher « aucun PDF » à tort.
+    if(result.items.length>0)return {...result,page};
   }
-  throw Error("La liste a changé sur un autre appareil. Actualisez vos créations.");
+  throw Error("La liste a changé sur un autre appareil. Actualisez vos fichiers.");
 }
 
 export async function downloadMyDocument(client,uid,id){
@@ -248,7 +261,17 @@ export async function renameMyDocument(client,uid,id,oldTitle,newTitle){
   documentPath(uid,id);
   const clean=normalizeDocumentTitle(newTitle),previous=normalizeDocumentTitle(oldTitle);
   await verifiedUser(client,uid);
-  if(clean===previous)return{changed:false,title:clean};
+  if(clean===previous){
+    // Même sans changement de titre, ne pas annoncer de succès pour un PDF
+    // supprimé, renommé ailleurs ou devenu inaccessible entre deux appareils.
+    const current=await client.from("pictau_documents").select("id,title")
+      .eq("id",id).eq("owner_id",uid).maybeSingle();
+    if(current.error)throw current.error;
+    if(current.data?.id!==id||current.data.title!==clean)
+      throw Error("Le document a changé. Actualisez la liste.");
+    await verifiedUser(client,uid);
+    return{changed:false,title:clean};
+  }
   const r=await client.from("pictau_documents").update({title:clean}).eq("id",id)
     .eq("owner_id",uid).eq("title",previous).select("id,title").maybeSingle();
   if(r.error)throw r.error;
