@@ -5188,6 +5188,13 @@ root.addEventListener("submit",function(event){
           separatorMode:"simple",preset:{...DEFAULT_PRESET,color:"#111111",colored:false}
         });
         if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        // Le rendu peut durer : relire l'approbation de chaque PNG et la
+        // permission de légende juste avant toute création d'archive.
+        await verifyApprovedPrintSnapshots(client,uid,rows);
+        const finalCaptionPermission=await readCaptionPermission(client,uid);
+        if(authStatus.user?.id!==uid||epoch!==officialComposer.request)return;
+        if(finalCaptionPermission.enabled!==beforePdf.enabled)
+          throw Error("Le droit de modifier les légendes a changé : réessayez l'impression.");
         pdfRecoveryError="";
         pendingGeneratedPdf={uid,blob,pageCount,title,documentType:kind,sourceDraftId:savedDraft.id,
           documentId:crypto.randomUUID()};
