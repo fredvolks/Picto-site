@@ -1,3 +1,25 @@
+// Seuls les originaux non archivés du compte actuellement vérifié doivent
+// déclencher une alerte lors d'une sortie. L'UID seul ne suffit pas : vérifier
+// aussi la présence du vrai Blob en mémoire.
+export function hasUnarchivedPdfForAccount(pending,uid){
+ return typeof uid==="string"&&uid.length>0&&
+   Boolean(pending&&pending.uid===uid&&pending.blob instanceof Blob);
+}
+
+// Une erreur réseau Auth n'est pas une déconnexion. Conserver seulement
+// en mémoire le PDF non archivé du compte qui était VÉRIFIÉ auparavant.
+export function holdPdfOnAuthError(pending,uid){
+ if(typeof uid!=="string"||!uid||
+   !pending||pending.uid!==uid||!(pending.blob instanceof Blob))return null;
+ return {uid,pending};
+}
+export function releasePdfForVerifiedUser(held,verifiedUid){
+ if(!held||typeof verifiedUid!=="string"||!verifiedUid||held.uid!==verifiedUid)
+   return null;
+ return held.pending?.uid===verifiedUid&&held.pending.blob instanceof Blob
+   ?held.pending:null;
+}
+
 // Présentation pure du PDF déjà produit, mais non confirmé dans l'archive privée.
 // Aucune donnée conservée dans localStorage, aucun transfert, aucune impression prétendue.
 export function renderPdfRecovery({pending,uid,busy=false,retrying=false,error="",language="fr",escape,icon}){
