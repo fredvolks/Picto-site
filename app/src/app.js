@@ -2262,6 +2262,24 @@ function renderAdminCaptionSettings(){
     +'<p class="pa-client-context">'+esc(fr?"Les anciens textes des brouillons sont conservés même lorsque la modification est désactivée.":"Old captions stay saved in drafts even when editing is disabled.")+'</p>'
     +'</section>';
 }
+// Exact logo assets used by the public home page; never recreate its symbol.
+function adminBrandPicture(){
+  const path=SITE_EMBEDDED?"../branding/":"./branding/";
+  return '<picture class="admin-brand-picture"><source media="(max-width: 680px)" srcset="'+path+'pictau-logo-le-fil-mobile.svg">'
+    +'<img src="'+path+'pictau-logo-le-fil.svg" alt="" width="760" height="116" decoding="async"></picture>';
+}
+function adminProfileControls(){
+  if(!authStatus.user)return googleButton();
+  const fr=state.language==="fr";
+  const meta=authStatus.user.user_metadata||{};
+  const full=String(meta.full_name||meta.name||meta.display_name||"").trim();
+  const local=String(authStatus.user.email||"").split("@")[0];
+  const words=(full||local).split(/[\s._-]+/u).filter(Boolean);
+  const initials=(words.length>1?words[0].slice(0,1)+words[words.length-1].slice(0,1):(words[0]||"PA").slice(0,2)).toLocaleUpperCase();
+  return '<details class="admin-profile-menu"><summary aria-label="'+esc(fr?"Options du compte":"Account options")+'"><span class="admin-avatar" aria-hidden="true">'+esc(initials)+'</span></summary>'
+    +'<div class="admin-profile-panel"><button type="button" class="login-control login-signout" data-action="google-logout">'
+    +esc(fr?"Déconnexion":"Sign out")+'</button></div></details>';
+}
 function renderAdminWorkspace(){
   if(!canOpenAdmin())return renderRoleChecking();
   const fr=state.language==="fr";
@@ -2278,24 +2296,25 @@ function renderAdminWorkspace(){
     '<button type="button" class="'+(compact?'admin-mobile-link':'admin-side-link')+(state.adminTab===tab?' active':'')
     +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+'>'
     +icon(ico)+'<span>'+esc(label)+'</span></button>';
-  return '<div class="admin-workspace'+(state.adminTab==="overview"?' admin-overview-elevated':'')+(state.adminMenuOpen?' menu-open':'')+'">'
+  return '<div class="admin-workspace admin-sage-unified'+(state.adminTab==="overview"?' admin-overview-elevated':'')+(state.adminMenuOpen?' menu-open':'')+'">'
     +'<a href="#admin-main" class="skip">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
     +'<button class="admin-drawer-scrim" type="button" tabindex="-1" data-action="admin-menu-close" aria-label="'+esc(fr?'Fermer le menu d’administration':'Close administration menu')+'"></button>'
     +'<aside id="pictau-admin-drawer" class="admin-sidebar'+(state.adminMenuOpen?' is-open':'')+'" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'
     +'<div class="admin-mobile-drawer-head"><strong>PICT-AU · ADMIN</strong>'
     +'<button type="button" class="admin-drawer-close" data-action="admin-menu-close" aria-label="'+esc(fr?'Fermer le menu':'Close menu')+'">'+icon("close")+'</button></div>'
-    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview"><span class="admin-brand-mark">P</span><span class="admin-brand-identity"><strong>Pict-<span class="admin-brand-hand">a</span>u</strong><small>SUPER ADMIN</small></span></button>'
+    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview" aria-label="'+esc(fr?"Retour à l’accueil Super Admin":"Super Admin home")+'">'+adminBrandPicture()+'</button>'
     +'<div class="admin-sidebar-caption">'+esc(fr?'ADMINISTRATION':'ADMINISTRATION')+'</div>'
     +'<nav class="admin-side-nav">'+tabs.map(tab=>button(tab)).join('')+'</nav>'
     +'<div class="admin-sidebar-status">'+esc(fr?'Espace administrateur sécurisé':'Secure administrator workspace')+'</div></aside>'
     +'<div class="admin-area"><header class="admin-topbar">'
     +'<button type="button" id="admin-menu-toggle" class="admin-menu-trigger" data-action="admin-menu-toggle" aria-controls="pictau-admin-drawer" aria-expanded="'+(state.adminMenuOpen?'true':'false')+'" aria-label="'+esc(fr?'Ouvrir le menu administrateur':'Open administrator menu')+'">'+icon("menu")+'<span>'+esc(fr?'Menu':'Menu')+'</span></button>'
+    +'<span class="admin-topbar-brand-mobile" aria-hidden="true">'+adminBrandPicture()+'</span>'
     +'<div class="admin-topbar-intro"><span>'+esc(fr?'PICT-AU · GESTION':'PICT-AU · MANAGEMENT')+'</span>'
     +'<strong>'+esc(tabs.find(t=>t[0]===state.adminTab)?.[1]||tabs[0][1])+'</strong></div>'
     +'<div class="admin-topbar-actions"><div class="lang-switch" role="group" aria-label="Language">'
     +'<button type="button" class="lang-btn'+(fr?' active':'')+'" data-action="lang" data-lang="fr" aria-pressed="'+fr+'">FR</button>'
     +'<button type="button" class="lang-btn'+(!fr?' active':'')+'" data-action="lang" data-lang="en" aria-pressed="'+!fr+'">EN</button></div>'
-    +googleButton()+'</div></header>'
+    +adminProfileControls()+'</div></header>'
     +'<main id="admin-main" class="admin-main">'+(state.adminTab==="overview"?renderAdminHome():state.adminTab==="settings"?renderAdminCaptionSettings():renderAdmin())+'</main></div>'
     +'</div>';
 }
