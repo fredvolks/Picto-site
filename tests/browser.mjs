@@ -400,8 +400,10 @@ try{
     assert.ok(o.docW<=o.viewport+1,"Inscription desktop sans overflow "+width);
     if(width>=1280)assert.ok(o.intro.right+5<=o.offer.x&&o.offer.right+5<=o.form.x,
       "PC trois colonnes sans collision "+width);
+    else if(height>=width)assert.ok(o.offer.right+5<=o.form.x&&o.intro.bottom<=o.form.y+1,
+      "Tablette portrait : titre au-dessus, offre et formulaire côte à côte "+width+" "+JSON.stringify(o));
     else assert.ok(o.intro.right+5<=o.form.x&&o.offer.right+5<=o.form.x,
-      "Tablette deux colonnes sans collision "+width);
+      "Tablette paysage deux colonnes sans collision "+width+" "+JSON.stringify(o));
     await command("Page.navigate",{url:base+"/app/index.html"});
     await waitFor("return !!document.querySelector('.hosted-access-panel')",16000);
     const loginW=await evaluate("return document.documentElement.scrollWidth");
