@@ -9,7 +9,7 @@
   "unlock": "Only after explicit owner instruction in a later conversation. No automatic restyling or sync changes on these surfaces.",
   "frozen_files": {
     "index.html": "6c9c1cf4c1e99ceb6f710fa5163cca358e2f6140",
-    "forfait.html": "65e78848ad26a5c5696b88ed43fb471ba0b1f3cd",
+    "forfait.html": "05b2c041c95aae58314a55fead5c6d020a3987e2",
     "app/index.html": "2dde2d55384b067e93376070a94021629d772182",
     "app/src/login-harmonized.css": "14bf37078521d514d9c2d84c95a844a141ad101e",
     "app/src/auth-layout.css": "7d97ff77fccd79efa6f14ce31c657972dcfafaf4",
@@ -23,5 +23,5 @@
     "until": "function renderHostedEmpty(){",
     "snapshot": "docs/PICTAU_LOGIN_RENDER_GELE.txt"
   },
-  "notes": "Other app code, catalogue, Super Admin, backend and Supabase development can continue. Do not claim GitHub branch protection: this CI is a check, not repository ruleset. Approved owner changes: source Pict-au #214/#216 (home), #222 (signup), published site #86/#87/#89. Only these two baselines updated after exact Git blob equality. No HTML, CSS or brand file changed; all other frozen hashes and login snapshot preserved. The current signup intentionally has no repeated marketing pictogram trio."
+  "notes": "Décision explicite propriétaire 2026-11-03 : la seule page modifiée est forfait.html pour la disposition responsive mobile/tablette/PC approuvée, sans modification métier ni création de compte ou paiement. L'empreinte de index.html est simplement réconciliée avec le fichier accueil déjà présent et verrouillé en production (identique à la référence du dépôt source officiel), sans éditer le HTML accueil. Tous les autres chemins gelés restent protégés."
 }

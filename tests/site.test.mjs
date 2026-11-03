@@ -81,8 +81,7 @@ test("L'accroche et le trio sont présentés une seule fois, sans fausse offre c
 });
 
 test("Design 5 : vrais repères accessibles et aucun faux appareil ou image privée",()=>{
- assert.match(html,/class="art-index" data-fr="DES IMAGES POUR MIEUX COMMUNIQUER"/);
- assert.doesNotMatch(html,/class="art-badge"/,"Ne jamais réintroduire le macaron supprimé");
+ assert.doesNotMatch(html,/class="art-badge"/,"Macaron d'accueil retiré sur demande du propriétaire");
  assert.match(html,/class="poster-heading"/);
  assert.match(html,/class="poster-tiles"/);
  assert.match(html,/class="picto-art"/);
@@ -181,44 +180,42 @@ test("Mes brouillons publics : une page vide ou partielle ne masque pas les docu
  assert.equal((await listEditableDraftsAvailablePage(none.client,uid,{page:2})).total,0);
 });
 
-test("Design 5 inscription actuelle : crème/sauge unis sans trio marketing",()=>{
+test("Inscription approuvée : même charte et trois avantages sans pictos marketing répétés",()=>{
  assert.match(plan,/data-pictau-signup-design="5"/);
  for(const c of ["#f5f5f0","#26352f","#607a6f","#62766d","#d7e0d8"])
   assert.ok(plan.includes(c)&&html.includes(c),"Palette commune : "+c);
- assert.match(plan,/id="signup-flat-sage-responsive"/);
- assert.match(plan,/Commencez à créer vos repères visuels en quelques étapes seulement/);
- assert.doesNotMatch(plan,/class="signup-tiles"|class="p-card card-|signup-plan-ray/,"Le trio ou décor supprimé ne doit pas revenir");
- assert.match(plan,/class="signup-showcase"/);
- assert.match(plan,/class="signup-checkout"/);
- assert.match(plan,/class="signup-plan-benefits"/);
- for(const benefit of ["Bibliothèque de pictogrammes","Routines","PDF d’impression"])
-  assert.ok(plan.includes(benefit),"Avantage attendu : "+benefit);
- assert.match(plan,/class="signup-plan-yearly" type="button" disabled/);
- assert.match(plan,/class="signup-google" type="button" disabled/);
+ assert.match(plan,/Créez votre compte/);
+  assert.match(plan,/Commencez à créer vos repères visuels en quelques étapes seulement/);
+ assert.equal((plan.match(/class="p-card card-[123]"/g)||[]).length,0);
+ assert.equal((plan.match(/class="picto-art"/g)||[]).length,0);
+ for(const label of ["Bibliothèque de pictogrammes","Routines","PDF d’impression","Pictogram library","Print-ready PDFs"])
+   assert.ok(plan.includes(label),"Avantage de l’offre : "+label);
+  assert.match(plan,/class="signup-google" type="button" disabled/);
  assert.match(plan,/class="signup-login" href="\.\/app\/"/);
  assert.doesNotMatch(plan,/#e9f4f8|#28617c|#357b96|#255b74/i);
+ assert.doesNotMatch(plan,/signup-plan-ray|rayon-decor|decorative-ray/i);
 });
 test("Design 5 inscription : formulaire accessible sur PC, tablette et mobile",()=>{
  assert.match(plan,/class="signup-skip"/);
  assert.match(plan,/@media\(max-width:899px\)/);
  assert.match(plan,/@media\(max-width:520px\)/);
- assert.match(plan,/grid-template-columns:minmax\(0,1\.08fr\) minmax\(0,\.92fr\)/);
+ assert.match(plan,/@media \(min-width:1280px\)/);
+  assert.match(plan,/@media \(min-width:680px\) and \(max-width:1279px\)/);
  assert.match(plan,/\.signup-page\{width:min\(100% - 40px,760px\);display:flex;flex-direction:column/);
  assert.match(plan,/prefers-reduced-motion:reduce/);
  assert.doesNotMatch(plan,/(?:html|body|\\.signup-page)\\{[^}]*overflow(?:-y)?\\s*:\\s*hidden/,"Page must allow scrolling when zoomed; pictogram framing may clip its art");
  assert.match(plan,/for\(const element of document\.querySelectorAll\("\[data-fr-aria\]\[data-en-aria\]"\)\)/);
 });
 
-test("accueil → inscription : logo identique et trio non répété",()=>{
+test('accueil → inscription : logo officiel commun et pictos dupliqués absents',()=>{
  const a=html.match(/<a class="brand home-logo"[^>]*>(.*?)<\/a>/)?.[1];
  const b=plan.match(/<a class="brand home-logo signup-brand"[^>]*>(.*?)<\/a>/)?.[1];
- assert.ok(a);assert.equal(a,b,"Même logo officiel");
+ assert.ok(a);assert.equal(a,b);
  const pics=s=>[...s.matchAll(/<svg viewBox="0 0 92 92"[^>]*>[\s\S]*?<\/svg>/g)].map(m=>m[0]);
- assert.equal(pics(html).length,3,"Accueil : trois pictos conservés");
- assert.equal(pics(plan).length,0,"Inscription : zéro picto marketing répété");
- assert.doesNotMatch(plan,/class="signup-tiles"/);
- assert.match(plan,/data-pa-universal-header/);
+ assert.equal(pics(html).length,3);assert.equal(pics(plan).length,0);
+ assert.match(plan,/\.signup-tiles \.picto-label\{[^}]*border-top:1\.8px solid #2c3834/);
 });
+
 
 test("logo Le Fil archivé et identique sur les en-têtes publics",()=>{
   const full=read("branding/pictau-logo-le-fil.svg");

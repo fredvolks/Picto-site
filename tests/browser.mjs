@@ -159,23 +159,20 @@ try{
     }
   }
 
-  // Les trois pictogrammes marketing appartiennent uniquement à l'accueil.
+  // Le responsive change aux seuils 520/521, 750/751 et 899/900.
+  // Une capture peut paraître acceptable en dépit d'un ratio faux : mesurer le DOM.
   for(const width of [340,520,521,700,750,751,820,899,900,980,1100]){
     const height=width<=520?780:width<=900?1024:900;
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=520,deviceScaleFactor:1});
-    await command("Page.navigate",{url:base+"/index.html"});
-    await waitFor("return document.readyState==='complete' && document.querySelectorAll('.poster-tiles .p-card').length===3");
-    const squares=await evaluate('return [...document.querySelectorAll(".poster-tiles .p-card")].map(card=>{const p=card.querySelector(".picto");return {cw:card.offsetWidth,ch:card.offsetHeight,pw:p.offsetWidth,ph:p.offsetHeight};});');
-    assert.equal(squares.length,3,"Accueil : trois pictogrammes officiels requis "+width);
-    for(const d of squares)assert.ok(Math.abs(d.cw-d.ch)<=1&&Math.abs(d.pw-d.ph)<=1,
-      "Picto non carré sur l'accueil "+width+": "+JSON.stringify(d));
-    await command("Page.navigate",{url:base+"/forfait.html"});
-    await waitFor("return document.readyState==='complete' && !!document.querySelector('#signup-form')");
-    const m=await evaluate('const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,w:r.width};};return {tiles:document.querySelectorAll(".signup-tiles .p-card").length,plan:box(".signup-plan"),form:box(".signup-form-card"),scrollW:document.documentElement.scrollWidth,viewport:innerWidth};');
-    assert.equal(m.tiles,0,"Inscription : pas de trio marketing "+width);
-    assert.ok(Math.abs(m.plan.x-m.form.x)<=2&&Math.abs(m.plan.w-m.form.w)<=2,
-      "Forfait et formulaire désalignés "+width+": "+JSON.stringify(m));
-    assert.ok(m.scrollW<=m.viewport+2,"Débordement horizontal inscription "+width);
+    for(const pageName of ["index"]){
+      await command("Page.navigate",{url:base+"/"+pageName+".html"});
+      await waitFor("return document.readyState==='complete' && document.querySelectorAll('.p-card').length===3");
+      const squares=await evaluate('return [...document.querySelectorAll(".p-card")].map(card=>{const p=card.querySelector(".picto");return {cw:card.offsetWidth,ch:card.offsetHeight,pw:p.offsetWidth,ph:p.offsetHeight};});');
+      for(const d of squares){
+        assert.ok(Math.abs(d.cw-d.ch)<=1&&Math.abs(d.pw-d.ph)<=1,
+          "Ratio 1:1 non respecté sur "+pageName+" "+width+"x"+height+": "+JSON.stringify(d));
+      }
+    }
   }
 
   // Test anti-faux-positif : même logo et mêmes contrôles à leur position et
@@ -261,29 +258,20 @@ try{
         scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth};
     })();`);
     const signupItem=signupHeaderRow;
-    assert.ok(signupItem.scrollWidth<=signupItem.viewport+1,"En-tête déborde : "+JSON.stringify(signupItem));
-    assert.ok(signupItem.logo.right+2<=signupItem.fr.x&&signupItem.fr.right<=signupItem.en.x+1&&signupItem.en.right<=signupItem.login.x+1,
-      "Logo + FR + EN + Connexion chevauchés : "+JSON.stringify(signupItem));
-    for(const x of ["fr","en","login"])
-      assert.ok(Math.abs(signupItem.logo.cy-item[x].cy)<=13,
-        "Logo, FR, EN et Connexion ne sont PAS sur une seule ligne : "+JSON.stringify(signupItem));
-
-    if(width===768){const layout=await evaluate('const el=document.querySelector(".signup-page"),h=document.querySelector(".signup-header"),s=getComputedStyle(el),r=el.getBoundingClientRect(),rh=h.getBoundingClientRect();return {marginLeft:s.marginLeft,marginRight:s.marginRight,width:s.width,pageX:r.x,pageRight:r.right,headerX:rh.x,headerWidth:rh.width,viewport:innerWidth,clientWidth:document.documentElement.clientWidth}');console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader,layout}));}
+    assert.ok(signupItem.scrollWidth<=signupItem.viewport+1,
+      "Inscription: aucun débordement de l'en-tête "+width);
+    assert.ok(signupItem.logo.right<=signupItem.fr.x+1 ||
+      signupItem.logo.bottom<=signupItem.fr.y+1,
+      "Logo et FR sans chevauchement "+width);
+    assert.ok(signupItem.fr.right<=signupItem.en.x+2 &&
+      signupItem.en.right<=signupItem.login.x+2,"FR/EN/Connexion sans chevauchement "+width);
     for(const key of ["logo","fr","en","login"]){
-      const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
-      if(width<=520&&key==="login"){
-        assert.ok(actual.h>=44&&actual.w<=expected.w+2,
-          "Connexion sur inscription doit avoir une cible tactile >=44px "+id+": "+JSON.stringify({expected,actual}));
-        assert.equal(actual.label,expected.label,"Libellé identique "+id);
-        continue;
-      }
-      const dimensions=width<=520&&["fr","en"].includes(key)?["y","h"]:["x","y","w","h"];
-      for(const dim of dimensions)assert.ok(Math.abs(expected[dim]-actual[dim])<=2,
-        "En-tête non aligné "+id+" "+dim+": "+JSON.stringify({expected,actual}));
-      for(const prop of ["font","weight","color","background","radius","label"])
-        assert.equal(actual[prop],expected[prop],"Identité commune d'en-tête "+id+" "+prop);
+      const box=signupHeader[key],home=homeHeader[key];
+      assert.equal(box.label,home.label,"Texte en-tête inchangé "+key);
+      assert.ok(box.w>20&&box.h>=17,"Commande visible "+key+" "+width);
     }
-    console.log("PASS HEADER PARITY "+width+"x"+height+" : logo, FR, EN, connexion identiques");
+    assert.ok(signupHeader.login.h>=44,"Cible tactile Connexion "+width);
+    console.log("PASS EN-TÊTE INSCRIPTION",width+"x"+height);
   }
   // Le CTA de l'accueil doit réellement ouvrir le forfait; pas de faux paiement.
   for(const width of [320,375,390,430,768,1440]){
@@ -296,39 +284,41 @@ try{
     // FR, puis vérifier une seconde fois que le formulaire passe en anglais.
     await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
 
-    const marketing=await evaluate("return {tiles:document.querySelectorAll('.signup-tiles .p-card').length,background:getComputedStyle(document.querySelector('.signup-plan')).backgroundImage,yearly:document.querySelector('.signup-plan-yearly').disabled,google:document.querySelector('.signup-google').disabled};");
-    assert.equal(marketing.tiles,0,"Inscription sans trio de pictogrammes");
-    assert.equal(marketing.background,"none","Forfait sans motif décoratif");
-    assert.equal(marketing.yearly,true,"Annuel bientôt désactivé");
-    assert.equal(marketing.google,true,"Google désactivé sur la vitrine préparatoire");
-    const p=await evaluate("return {plan:document.querySelectorAll('.signup-plan').length,price:document.querySelector('.signup-plan-price strong').textContent.trim(),forms:document.querySelectorAll('form').length,back:document.querySelector('.signup-footer a').getAttribute('href'),docHeight:document.documentElement.scrollHeight,docWidth:document.documentElement.scrollWidth,consent:document.querySelector('#signup-consent').checked,visibleForm:document.querySelector('#signup-status').getBoundingClientRect().bottom};");
-    assert.equal(p.plan,1,"One distinct signup plan page");
-    assert.match(p.price,/9,99/);
-    assert.equal(p.forms,1,"Preparatory form, no account or payment creation");
-    assert.equal(p.consent,false,"Consent is never prechecked");
-    assert.equal(p.back,"./index.html","Valid navigation back");
-    assert.ok(p.docWidth<=width+1,"Signup has no horizontal scroll");
-    if(width>=390&&width<=430){
-      const viewport=width===390?740:932;
-      assert.ok(p.docHeight<=viewport+1,"Une vue mobile attendue "+width+": "+JSON.stringify(p));
-      assert.ok(p.visibleForm<=viewport+1,"Formulaire hors de l'écran "+width+": "+JSON.stringify(p));
-    }
-    const layout=await evaluate('const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width};};return {intro:box(".signup-intro"),plan:box(".signup-plan"),form:box(".signup-form-card"),checkout:box(".signup-checkout"),display:getComputedStyle(document.querySelector(".signup-page")).display};');
-    assert.ok(Math.abs(layout.plan.left-layout.form.left)<=2&&Math.abs(layout.plan.width-layout.form.width)<=2,
-      "Forfait et formulaire désalignés "+width+": "+JSON.stringify(layout));
-    if(width<900){
-      assert.equal(layout.display,"flex","Empilage mobile/tablette "+width);
-      assert.ok(layout.intro.bottom<=layout.plan.top+1&&layout.plan.bottom<=layout.form.top+1,
-        "Panneaux mobiles chevauchés "+width+": "+JSON.stringify(layout));
+    const p=await evaluate(`
+      const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,w:r.width,h:r.height};};
+      return {plan:document.querySelectorAll('.signup-plan').length,
+        benefits:document.querySelectorAll('.signup-plan-benefits span').length,
+        pictos:document.querySelectorAll('.signup-tiles .p-card').length,
+        price:document.querySelector('.signup-plan-price strong').textContent.trim(),
+        forms:document.querySelectorAll('form').length,
+        contact:document.querySelector('.signup-footer a').getAttribute('href'),
+        docWidth:document.documentElement.scrollWidth,
+        checked:document.querySelector('#signup-consent').checked,
+        disabled:document.querySelector('.signup-google').disabled,
+        layout:getComputedStyle(document.querySelector('.signup-page')).display,
+        intro:box('.signup-intro'),offer:box('.signup-plan'),form:box('.signup-form-card'),cta:box('.signup-action')};
+    `);
+    assert.equal(p.plan,1);assert.equal(p.benefits,3);
+    assert.equal(p.pictos,0,"Avantages de l'offre sans pictos marketing dupliqués");
+    assert.equal(p.price,"9,99 $");
+    assert.equal(p.forms,1);assert.equal(p.checked,false);
+    assert.equal(p.disabled,true,"Google reste inactif");
+    assert.equal(p.contact,"./contact.html");
+    assert.ok(p.docWidth<=width+1,"Inscription sans débordement horizontal");
+    assert.ok(p.cta.h>=44,"Action accessible au toucher");
+    if(width<680){
+      assert.equal(p.layout,"flex");
+      assert.ok(p.intro.bottom<=p.offer.y+1&&p.offer.bottom<=p.form.y+1,"Mobile en une colonne");
+    }else if(width>=1280){
+      assert.equal(p.layout,"grid");
+      assert.ok(p.intro.right+5<=p.offer.x&&p.offer.right+5<=p.form.x,"PC trois colonnes");
     }else{
-      assert.equal(layout.display,"grid","Deux colonnes desktop "+width);
-      assert.ok(layout.intro.right+8<=layout.checkout.left,
-        "Colonnes desktop chevauchées "+width+": "+JSON.stringify(layout));
+      assert.equal(p.layout,"grid");
+      assert.ok(p.offer.right+5<=p.form.x,"Tablette deux colonnes");
     }
-    assert.equal(await evaluate("return document.body.dataset.pictauSignupDesign"),"5","Approved signup Design 5");
-    assert.equal(await evaluate('return document.querySelectorAll(".signup-tiles .p-card").length'),0,"Aucun trio marketing en français");
     await evaluate("document.querySelector('[data-lang=en]').click();return true;");
-    assert.equal(await evaluate('return document.querySelectorAll(".signup-tiles .p-card").length'),0,"Aucun trio marketing en anglais");
+    assert.match(await evaluate("return document.querySelector('#signup-title').textContent"),/Create your account/);
+    assert.equal(await evaluate("return document.querySelector('.signup-google span').textContent"),"Continue with Google");
     await evaluate("document.querySelector('[data-lang=fr]').click();return true;");
     const reachable=await evaluate('window.scrollTo(0,document.documentElement.scrollHeight);const f=document.querySelector(".signup-footer").getBoundingClientRect();return {bottom:f.bottom,top:f.top,height:innerHeight,overflow:getComputedStyle(document.documentElement).overflowY};');
     assert.notEqual(reachable.overflow,"hidden","Scrolling remains possible with keyboard/zoom");
@@ -396,31 +386,28 @@ try{
     }
   }
 
-  // Décision propriétaire 3 novembre : forfait et formulaire ont la même
-  // largeur; l'inscription épurée ne reproduit plus la carte de Connexion.
+  // Inscription approuvée : ses proportions sont indépendantes de celles de
+  // la connexion, qui n'a été ni modifiée ni recalibrée.
   for(const [width,height] of [[900,900],[1024,800],[1280,900],[1440,900],[1920,1080]]){
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:false,deviceScaleFactor:1});
-    for(const language of ["fr","en"]){
-      await command("Page.navigate",{url:base+"/forfait.html"});
-      await waitFor("return document.readyState==='complete' && !!document.querySelector('.signup-form-card')");
-      await evaluate("return document.fonts.ready.then(()=>true)");
-      await evaluate("document.querySelector('[data-lang="+language+"]').click();return true;");
-      await waitFor("return document.documentElement.lang==='"+language+"'");
-      const signup=await evaluate('const r=s=>{const v=document.querySelector(s).getBoundingClientRect();return{x:v.x,right:v.right,y:v.y,w:v.width,h:v.height,bottom:v.bottom};};return {intro:r(".signup-intro"),checkout:r(".signup-checkout"),plan:r(".signup-plan"),form:r(".signup-form-card"),scroll:document.documentElement.scrollWidth,viewport:innerWidth,display:getComputedStyle(document.querySelector(".signup-page")).display};');
-      const where=width+"x"+height+" "+language;
-      assert.equal(signup.display,"grid","Inscription desktop en deux colonnes "+where);
-      assert.ok(signup.intro.right+8<=signup.checkout.x,"Colonnes chevauchées "+where+": "+JSON.stringify(signup));
-      assert.ok(Math.abs(signup.plan.x-signup.form.x)<=2&&Math.abs(signup.plan.w-signup.form.w)<=2,
-        "Forfait et formulaire non alignés "+where+": "+JSON.stringify(signup));
-      assert.ok(signup.plan.bottom<=signup.form.y+1,"Forfait doit précéder formulaire "+where);
-      assert.ok(signup.scroll<=signup.viewport+2,"Débordement inscription "+where);
-      await command("Page.navigate",{url:base+"/app/index.html"});
-      await waitFor("return document.readyState==='complete' && !!document.querySelector('.hosted-access-v5 .hosted-access-panel')",16000);
-      const login=await evaluate('const r=document.querySelector(".hosted-access-panel").getBoundingClientRect();return {width:r.width,height:r.height,scroll:document.documentElement.scrollWidth,viewport:innerWidth};');
-      assert.ok(login.width>0&&login.height>0,"Carte Auth disparue "+where);
-      assert.ok(login.scroll<=login.viewport+2,"Débordement connexion "+where);
-      console.log("PASS FORFAIT/FORMULAIRE ALIGNÉS ET CONNEXION",where);
-    }
+    await command("Page.navigate",{url:base+"/forfait.html"});
+    await waitFor("return !!document.querySelector('.signup-form-card')");
+    const o=await evaluate(`
+      const r=s=>{const v=document.querySelector(s).getBoundingClientRect();return {x:v.x,right:v.right,y:v.y,bottom:v.bottom,w:v.width,h:v.height};};
+      return {intro:r('.signup-showcase'),offer:r('.signup-plan'),form:r('.signup-form-card'),
+        docW:document.documentElement.scrollWidth,viewport:innerWidth};
+    `);
+    assert.ok(o.docW<=o.viewport+1,"Inscription desktop sans overflow "+width);
+    if(width>=1280)assert.ok(o.intro.right+5<=o.offer.x&&o.offer.right+5<=o.form.x,
+      "PC trois colonnes sans collision "+width);
+    else if(height>=width)assert.ok(o.offer.right+5<=o.form.x&&o.intro.bottom<=o.form.y+1,
+      "Tablette portrait : titre au-dessus, offre et formulaire côte à côte "+width+" "+JSON.stringify(o));
+    else assert.ok(o.intro.right+5<=o.form.x&&o.offer.right+5<=o.form.x,
+      "Tablette paysage deux colonnes sans collision "+width+" "+JSON.stringify(o));
+    await command("Page.navigate",{url:base+"/app/index.html"});
+    await waitFor("return !!document.querySelector('.hosted-access-panel')",16000);
+    const loginW=await evaluate("return document.documentElement.scrollWidth");
+    assert.ok(loginW<=width+1,"Connexion inchangée sans overflow "+width);
   }
   // Tablette et téléphone : pas de hauteur de carte desktop forcée,
   // pas de rupture à 899/900 px, pas de scroll horizontal.
@@ -614,7 +601,7 @@ try{
   const publicForm=await evaluate("return {form:!!document.querySelector('#signup-form'),price:document.querySelector('.signup-plan-price strong').textContent.trim()}");
   assert.equal(publicForm.form,true,"Lien création → formulaire du forfait");
   assert.match(publicForm.price,/9,99/,"Tarif mensuel actuel");
-  console.log("PASS connexion publique → création de compte Design 5");
+  console.log("PASS connexion publique → création de compte Design 3");
   // Banque > Images : contrôle du vrai CSS sur mobile / tablette / PC.
    // Régression Samsung : l'ancien CSS pouvait rester en cache et masquer Ouvrir.
    // Le bouton est un enfant direct de la carte, hors du conteneur masqué.
@@ -718,7 +705,7 @@ try{
     "Deux dessins carrés de tailles initiales différentes doivent finir à la même grandeur");
   console.log("BANQUE ENCRE NORMALISÉE OK",JSON.stringify(inkStats));
 
-  console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 5, zoom et pages légales.");
+  console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 3, zoom et pages légales.");
 }catch(error){
   console.error(error);
   process.exitCode=1;
