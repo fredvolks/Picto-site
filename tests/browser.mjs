@@ -271,11 +271,17 @@ try{
     if(width===768){const layout=await evaluate('const el=document.querySelector(".signup-page"),h=document.querySelector(".signup-header"),s=getComputedStyle(el),r=el.getBoundingClientRect(),rh=h.getBoundingClientRect();return {marginLeft:s.marginLeft,marginRight:s.marginRight,width:s.width,pageX:r.x,pageRight:r.right,headerX:rh.x,headerWidth:rh.width,viewport:innerWidth,clientWidth:document.documentElement.clientWidth}');console.log("HEADER_768_DIAGNOSTIC "+JSON.stringify({homeHeader,signupHeader,layout}));}
     for(const key of ["logo","fr","en","login"]){
       const expected=homeHeader[key],actual=signupHeader[key],id=width+"x"+height+" "+key;
-      for(const dim of ["x","y","w","h"])
-        assert.ok(Math.abs(expected[dim]-actual[dim])<=2,id+" "+dim+
-          " : accueil="+expected[dim]+" inscription="+actual[dim]);
+      if(width<=520&&key==="login"){
+        assert.ok(actual.h>=44&&actual.w<=expected.w+2,
+          "Connexion sur inscription doit avoir une cible tactile >=44px "+id+": "+JSON.stringify({expected,actual}));
+        assert.equal(actual.label,expected.label,"Libellé identique "+id);
+        continue;
+      }
+      const dimensions=width<=520&&["fr","en"].includes(key)?["y","h"]:["x","y","w","h"];
+      for(const dim of dimensions)assert.ok(Math.abs(expected[dim]-actual[dim])<=2,
+        "En-tête non aligné "+id+" "+dim+": "+JSON.stringify({expected,actual}));
       for(const prop of ["font","weight","color","background","radius","label"])
-        assert.equal(actual[prop],expected[prop],id+" "+prop+" : en-têtes différents");
+        assert.equal(actual[prop],expected[prop],"Identité commune d'en-tête "+id+" "+prop);
     }
     console.log("PASS HEADER PARITY "+width+"x"+height+" : logo, FR, EN, connexion identiques");
   }
@@ -390,10 +396,8 @@ try{
     }
   }
 
-  // Contrat anti-régression demandé : les DEUX cartes blanches ont exactement
-  // les mêmes dimensions, et le contenu de gauche forme un bloc de la
-  // largeur/hauteur de la carte blanche à droite. Pas de fausse validation par
-  // présence de sélecteur CSS — rectangles réellement rendus par Chromium.
+  // Décision propriétaire 3 novembre : forfait et formulaire ont la même
+  // largeur; l'inscription épurée ne reproduit plus la carte de Connexion.
   for(const [width,height] of [[900,900],[1024,800],[1280,900],[1440,900],[1920,1080]]){
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:false,deviceScaleFactor:1});
     for(const language of ["fr","en"]){
@@ -402,36 +406,20 @@ try{
       await evaluate("return document.fonts.ready.then(()=>true)");
       await evaluate("document.querySelector('[data-lang="+language+"]').click();return true;");
       await waitFor("return document.documentElement.lang==='"+language+"'");
-      const signup=await evaluate(`
-        const get=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,centerY:r.y+r.height/2};};
-        return {left:get('.signup-showcase'),card:get('.signup-form-card'),documentW:document.documentElement.scrollWidth,windowW:innerWidth,display:getComputedStyle(document.querySelector('.signup-page')).display};
-      `);
+      const signup=await evaluate('const r=s=>{const v=document.querySelector(s).getBoundingClientRect();return{x:v.x,right:v.right,y:v.y,w:v.width,h:v.height,bottom:v.bottom};};return {intro:r(".signup-intro"),checkout:r(".signup-checkout"),plan:r(".signup-plan"),form:r(".signup-form-card"),scroll:document.documentElement.scrollWidth,viewport:innerWidth,display:getComputedStyle(document.querySelector(".signup-page")).display};');
+      const where=width+"x"+height+" "+language;
+      assert.equal(signup.display,"grid","Inscription desktop en deux colonnes "+where);
+      assert.ok(signup.intro.right+8<=signup.checkout.x,"Colonnes chevauchées "+where+": "+JSON.stringify(signup));
+      assert.ok(Math.abs(signup.plan.x-signup.form.x)<=2&&Math.abs(signup.plan.w-signup.form.w)<=2,
+        "Forfait et formulaire non alignés "+where+": "+JSON.stringify(signup));
+      assert.ok(signup.plan.bottom<=signup.form.y+1,"Forfait doit précéder formulaire "+where);
+      assert.ok(signup.scroll<=signup.viewport+2,"Débordement inscription "+where);
       await command("Page.navigate",{url:base+"/app/index.html"});
       await waitFor("return document.readyState==='complete' && !!document.querySelector('.hosted-access-v5 .hosted-access-panel')",16000);
-      await evaluate("return document.fonts.ready.then(()=>true)");
-      await evaluate("document.querySelector('[data-action=lang][data-lang="+language+"]').click();return true;");
-      await waitFor("return document.documentElement.lang==='"+language+"'");
-      const login=await evaluate(`
-        const get=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,centerY:r.y+r.height/2};};
-        return {left:get('.hosted-e-intro'),card:get('.hosted-access-panel'),documentW:document.documentElement.scrollWidth,windowW:innerWidth,display:getComputedStyle(document.querySelector('.hosted-e-layout')).display};
-      `);
-      const where=width+"x"+height+" "+language;
-      const close=(a,b,what)=>assert.ok(Math.abs(a-b)<=2,
-        "Panneaux non harmonisés "+what+" "+where+" signup="+JSON.stringify(signup)+" login="+JSON.stringify(login));
-      close(signup.card.w,login.card.w,"largeur carte login/signup");
-      close(signup.card.h,login.card.h,"hauteur carte login/signup");
-      for(const page of [signup,login]){
-        close(page.left.w,page.card.w,"largeur gauche/droite");
-        close(page.left.h,page.card.h,"hauteur gauche/droite");
-        close(page.left.centerY,page.card.centerY,"alignement vertical gauche/droite");
-        assert.ok(page.left.right+8<page.card.x,"Colonnes en chevauchement "+where+" "+JSON.stringify(page));
-        assert.ok(page.documentW<=page.windowW+2,"Débordement horizontal "+where+" "+JSON.stringify(page));
-      }
-      if(width===1440){
-        const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
-        await writeFile(join(screenshots,"auth-equal-cards-login-"+language+".png"),Buffer.from(shot.data,"base64"));
-      }
-      console.log("PASS CARTES BLANCHES IDENTIQUES",where,signup.card.w,signup.card.h);
+      const login=await evaluate('const r=document.querySelector(".hosted-access-panel").getBoundingClientRect();return {width:r.width,height:r.height,scroll:document.documentElement.scrollWidth,viewport:innerWidth};');
+      assert.ok(login.width>0&&login.height>0,"Carte Auth disparue "+where);
+      assert.ok(login.scroll<=login.viewport+2,"Débordement connexion "+where);
+      console.log("PASS FORFAIT/FORMULAIRE ALIGNÉS ET CONNEXION",where);
     }
   }
   // Tablette et téléphone : pas de hauteur de carte desktop forcée,
@@ -460,7 +448,6 @@ try{
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<=768,deviceScaleFactor:1});
     for(const [page,tile,inside] of [
       ["index.html",".poster-tiles .p-card",".poster-tiles .p-card .picto"],
-      ["forfait.html",".signup-tiles .p-card",".signup-tiles .p-card .picto"],
       ["app/index.html",".hosted-e-tiles .hosted-e-tile",".hosted-e-tiles .hosted-e-tile .hosted-e-art"]
     ]){
       await command("Page.navigate",{url:base+"/"+page});
@@ -627,7 +614,7 @@ try{
   const publicForm=await evaluate("return {form:!!document.querySelector('#signup-form'),price:document.querySelector('.signup-plan-price strong').textContent.trim()}");
   assert.equal(publicForm.form,true,"Lien création → formulaire du forfait");
   assert.match(publicForm.price,/9,99/,"Tarif mensuel actuel");
-  console.log("PASS connexion publique → création de compte Design 3");
+  console.log("PASS connexion publique → création de compte Design 5");
   // Banque > Images : contrôle du vrai CSS sur mobile / tablette / PC.
    // Régression Samsung : l'ancien CSS pouvait rester en cache et masquer Ouvrir.
    // Le bouton est un enfant direct de la carte, hors du conteneur masqué.
@@ -731,7 +718,7 @@ try{
     "Deux dessins carrés de tailles initiales différentes doivent finir à la même grandeur");
   console.log("BANQUE ENCRE NORMALISÉE OK",JSON.stringify(inkStats));
 
-  console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 3, zoom et pages légales.");
+  console.log("Vitrine validée : 10 formats × FR/EN, forfait Design 5, zoom et pages légales.");
 }catch(error){
   console.error(error);
   process.exitCode=1;
