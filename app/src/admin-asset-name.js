@@ -46,3 +46,14 @@ export async function renameAdminAsset(client,uid,assetId,expectedName,newName){
   await requireAdmin(client,uid);
   return{changed:true,admin_name:r.data.admin_name,id:assetId};
 }
+
+// Une copie conserve son nom privé de classement si la source en possède un.
+// Le nouvel actif est déjà un brouillon privé créé par le même Super Admin.
+export async function copyAdminAssetName(client,uid,newAssetId,sourceName){
+  if(sourceName===null||sourceName===undefined)
+    return {changed:false,admin_name:null,id:newAssetId};
+  const normalized=normalizeAdminAssetName(sourceName);
+  if(!normalized)return {changed:false,admin_name:null,id:newAssetId};
+  // La nouvelle fiche doit avoir un nom encore NULL : protection CAS existante.
+  return renameAdminAsset(client,uid,newAssetId,null,normalized);
+}
