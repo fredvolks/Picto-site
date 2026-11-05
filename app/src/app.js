@@ -1055,12 +1055,14 @@ function openBankRename(id){
 function hasUnsavedBankEdits(){
   const renamed=privateBank.items.find(item=>item.id===bankRename.id);
   const originalName=renamed?(renamed.admin_name||renamed.title_fr||""):"";
-  if(renamed&&bankRename.value!==originalName)return true;
-  if(draftEditor.id&&draftEditor.original){
-    const original=draftEditor.original,form=draftEditor.form;
-    return form.titleFr!==original.title_fr||form.titleEn!==(original.title_en||"")||form.theme!==original.theme;
-  }
-  return bankSheetDirty();
+  const renameDirty=Boolean(renamed&&bankRename.value!==originalName);
+  const original=draftEditor.original,form=draftEditor.form;
+  const metadataDirty=Boolean(draftEditor.id&&original&&(
+    form.titleFr!==original.title_fr||form.titleEn!==(original.title_en||"")||
+    form.theme!==original.theme));
+  // Un brouillon peut avoir des retouches sur l'image ET un formulaire ouvert.
+  // Tester les deux : ne jamais masquer les retouches quand le formulaire est inchangé.
+  return renameDirty||metadataDirty||bankSheetDirty();
 }
 function confirmDiscardBankEdits(){
   return !hasUnsavedBankEdits()||window.confirm(state.language==="fr"
@@ -4578,7 +4580,10 @@ root.addEventListener("click",function(event){
     if(!canOpenAdmin()||!["list","small","medium"].includes(el.dataset.view))return;
     bankView=el.dataset.view;store("pictau-admin-bank-view",bankView);render();return;
   }
-  if(a==="admin-rename"){openBankRename(el.dataset.id);return;}
+  if(a==="admin-rename"){
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    openBankRename(el.dataset.id);return;
+  }
   if(a==="admin-rename-cancel"){if(!bankRename.busy){clearBankRename();render();}return;}
   if(a==="catalog-unpublish"){
     if(!canOpenAdmin()||publishedCatalog.publishing)return;
@@ -4802,7 +4807,10 @@ root.addEventListener("click",function(event){
     })();
     return;
   }
-  if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
+  if(a==="admin-preview"){
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    void openAdminPreview(el.dataset.id);return;
+  }
   if(a==="pa-bank-sheet-tab"){
     if(!canOpenAdmin()||!bankSelectionId||!privatePreview.id||
        !["name","adjust","classify"].includes(el.dataset.tab))return;
@@ -5030,11 +5038,17 @@ root.addEventListener("click",function(event){
     root.querySelector("#edit-draft-theme")?.focus({preventScroll:true});
     return;
   }
-  if(a==="close-admin-edit"){clearDraftEditor();render();return;}
+  if(a==="close-admin-edit"){
+    if(!canOpenAdmin()||draftEditor.saving||!confirmDiscardBankEdits())return;
+    clearDraftEditor();render();
+    root.querySelector('.pa-bank-primary-theme [data-action="admin-edit-draft"]')?.focus({preventScroll:true});
+    return;
+  }
   if(a==="export-admin-proposal"){exportDraftProposal();return;}
   if(a==="admin-draft-review-start"){
     if(!canOpenAdmin()||!authStatus.user||privateBank.loading||
-       state.page!=="admin"||state.adminTab!=="bank")return;
+       state.page!=="admin"||state.adminTab!=="bank"||
+       !confirmDiscardBankEdits())return;
     stopDraftReviewQueue();
     draftReviewQueue.active=true;draftReviewQueue.pending=true;
     bankFilters.query="";bankFilters.status="draft";
@@ -5067,11 +5081,11 @@ root.addEventListener("click",function(event){
     stopDraftReviewQueue();bankSelectionId=null;clearAdminPreview();render();return;
   }
   if(a==="refresh-admin-bank"){
-    if(!canOpenAdmin() || !authStatus.user)return;
+    if(!canOpenAdmin()||!authStatus.user||!confirmDiscardBankEdits())return;
     stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(a==="admin-bank-page"){
-    if(!canOpenAdmin()||privateBank.loading)return;
+    if(!canOpenAdmin()||privateBank.loading||!confirmDiscardBankEdits())return;
     const lastPage=Math.max(0,Math.ceil(privateBank.total/ADMIN_BANK_PAGE_SIZE)-1);
     const next=privateBank.page+(el.dataset.direction==="next"?1:el.dataset.direction==="previous"?-1:0);
     if(next===privateBank.page||next<0||next>lastPage)return;
