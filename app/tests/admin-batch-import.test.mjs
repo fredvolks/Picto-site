@@ -200,6 +200,20 @@ test("Un import sans reçu confirmé stoppe le lot sans afficher un faux succès
  assert.match(missing.error,/Reçu du brouillon invalide/);
 });
 
+test("Lot interrompu : conserver les reçus SQL et ouvrir leur fiche sans publication",()=>{
+ const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+ assert.match(app,/batchImport\.confirmedIds=Array\.isArray\(report\.confirmedIds\)/);
+ assert.match(app,/if\(batchImport\.confirmedIds\.length\)/);
+ assert.match(app,/bankFilters\.status="draft";bankFilters\.theme="all"/);
+ assert.match(app,/if\(current\(\)&&report\.error/);
+ assert.match(app,/if\(current\(\)&&!report\.error/);
+ assert.match(app,/data-action="admin-batch-open-confirmed"/);
+ assert.match(app,/batchImport\.confirmedIds\.includes\(el\.dataset\.id\)/);
+ assert.match(app,/row\.created_by===authStatus\.user\.id&&row\.status==="draft"/);
+ assert.match(app,/batchImport\.confirmedIds=\[\]/);
+ assert.match(app,/confirmedIds:\[\]/);
+});
+
 test("Après un lot complet, seuls les IDs SQL des trois vrais reçus sont conservés",async()=>{
  let sent=0;
  const report=await importPrivateDraftBatch({},"admin",files(),"autres",{

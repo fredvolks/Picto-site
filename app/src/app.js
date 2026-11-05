@@ -786,7 +786,7 @@ async function fetchAdminNamedTemplates(){
 }
 let bankQueryTimer=null;
 const privateImport={file:null,loading:false,checking:false,validated:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
-const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false,request:0};
+const batchImport={files:[],titles:[],confirmedIds:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false,request:0};
 const privatePreview={id:null,asset:null,review:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
 const privateNamedGallery={items:[],assetId:null,loaded:false,loading:false,error:"",request:0};
@@ -1320,7 +1320,7 @@ function resetPrivateBank(){
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
   bankFilters.query="";bankFilters.status="all";bankFilters.theme="all";bankFilters.sort="recent";
   privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.checking=false;privateImport.validated=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
-  batchImport.request++;Object.assign(batchImport,{files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false});
+  batchImport.request++;Object.assign(batchImport,{files:[],titles:[],confirmedIds:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false});
 }
 async function refreshPrivateBank(client,userId){
   clearBankThumbs();
@@ -2063,6 +2063,10 @@ function renderAdmin(){
      .concat(themeUI.items.filter(t=>!t.merged_into&&!["autres","hygiene","autonomie","alimentation","ecole","loisirs","socialisation","consignes","etapes","transport","sensoriel","objets","lieux"].includes(t.code))
        .map(t=>[t.code,fr?t.label_fr:t.label_en]))
      .filter(([code])=>!themeUI.items.some(t=>t.code===code&&t.merged_into));
+  // IDs privés : vérifier dans la page relue sous le même compte avant ouverture.
+  const batchConfirmedRows=canOpenAdmin()?[...batchImport.confirmedIds].reverse()
+    .map(id=>privateBank.items.find(row=>row.id===id&&
+      row.created_by===authStatus.user.id&&row.status==="draft")).filter(Boolean):[];
   const importForm='<section class="admin-surface admin-import-panel"><div class="admin-surface-head"><div><h2>'+esc(fr?"Importer un pictogramme PNG":"Import a PNG pictogram")+'</h2><p>'
    +esc(fr?"Image privée, fiche brouillon. Ce formulaire ne publie rien.":"Private image, draft record. This form cannot publish.")+'</p></div>'
    +'<span class="admin-chip">'+esc(fr?"Brouillon seulement":"Draft only")+'</span></div>'
@@ -2110,7 +2114,20 @@ function renderAdmin(){
       (batchImport.currentName?" · "+batchImport.currentName:""))+'</p>':"")
    +(batchImport.error?'<p id="pa-batch-file-error" class="admin-import-alert" role="alert" tabindex="-1">'+esc(batchImport.error)+'</p>':"")
    +(batchImport.message?'<p class="admin-import-success" role="status">'+esc(batchImport.message)+'</p>':"")
-   +'<p class="admin-batch-note">'+esc(fr?
+   +(batchImport.confirmedIds.length?
+      '<details class="admin-batch-receipts"><summary>'+
+      esc(fr?"Ouvrir les "+batchImport.confirmedIds.length+" brouillon(s) confirmé(s)":
+        "Open "+batchImport.confirmedIds.length+" confirmed draft(s)")+'</summary>'+
+      (batchConfirmedRows.length?
+        '<div class="admin-import-actions">'+batchConfirmedRows.map(row=>
+          '<button type="button" class="btn btn-light" data-action="admin-batch-open-confirmed" data-id="'+esc(row.id)+'"'+
+          (batchImport.busy||privateBank.loading?' disabled':'')+'>'+
+          esc((fr?"Ouvrir : ":"Open: ")+(row.admin_name||row.title_fr||"—"))+'</button>').join("")+'</div>':
+        '<p>'+esc(fr?
+          "Ces fiches ne sont pas visibles sur la page récente. Retrouvez-les dans Banque > Brouillons.":
+          "These records are not visible on the recent page. Find them under Bank > Drafts.")+'</p>')+
+      '</details>':"")
+    +'<p class="admin-batch-note">'+esc(fr?
       "Le lot s’arrête à la première erreur. Vérifiez les brouillons déjà créés avant de sélectionner de nouveau les fichiers restants : aucune reprise automatique.":
       "The batch stops at the first error. Check drafts already created before selecting remaining files again; no automatic retry.")+'</p>'
    +'</section>'
@@ -5078,6 +5095,19 @@ root.addEventListener("click",function(event){
     clearAdminPreview();clearDraftEditor();clearBankRename();
     queueAdminBankRefresh();return;
   }
+  if(a==="admin-batch-open-confirmed"){
+    if(!canOpenAdmin()||batchImport.busy||privateBank.loading||
+       state.page!=="admin"||state.adminTab!=="bank"||
+       !batchImport.confirmedIds.includes(el.dataset.id)||
+       !confirmDiscardAdminBankEdits())return;
+    const row=privateBank.items.find(item=>item.id===el.dataset.id&&
+      item.created_by===authStatus.user.id&&item.status==="draft");
+    if(!row)return;
+    clearDraftEditor();clearBankRename();
+    bankPanel="browse";bankSelectionId=row.id;
+    void openAdminPreview(row.id);
+    return;
+  }
   if(a==="admin-preview-retry"){
     if(!canOpenAdmin()||!privatePreview.id||privatePreview.loading||
        publishedCatalog.publishing||!confirmDiscardBankEdits())return;
@@ -5986,7 +6016,7 @@ root.addEventListener("submit",function(event){
       "Préparer "+files.length+" brouillon(s) privé(s) avec les noms corrigés ? Aucun pictogramme ne sera publié.":
       "Prepare "+files.length+" private draft(s) using the edited titles? No pictogram will be published."))return;
     const current=()=>ticket===batchImport.request&&authStatus.user?.id===uid&&canOpenAdmin();
-    batchImport.busy=true;batchImport.completed=0;batchImport.total=files.length;
+    batchImport.confirmedIds=[];batchImport.busy=true;batchImport.completed=0;batchImport.total=files.length;
     batchImport.error="";batchImport.message="";batchImport.currentName="";render();
     void(async()=>{
       try{
@@ -6000,6 +6030,8 @@ root.addEventListener("submit",function(event){
           }
         });
         if(!current())return;
+        // Conserver les seuls reçus SQL confirmés, même après une erreur partielle.
+        batchImport.confirmedIds=Array.isArray(report.confirmedIds)?[...report.confirmedIds]:[];
         // Ne jamais relancer automatiquement une écriture dont le reçu est incertain.
         batchImport.files=[];batchImport.titles=[];batchImport.checked=0;batchImport.validated=false;batchImport.checking=false;
         if(report.error){
@@ -6016,11 +6048,13 @@ root.addEventListener("submit",function(event){
         // a été confirmé par la relecture SQL/RLS et retrouvé dans cette
         // page privée, sous le même compte et avec status=draft.
         // En cas d'échec partiel : NE PAS masquer l'erreur par une navigation.
-        if(!report.error){
+        if(batchImport.confirmedIds.length){
           bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
           bankFilters.sort="recent";privateBank.page=0;
         }
         await refreshPrivateBank(client,uid);
+        if(current()&&report.error&&state.page==="admin"&&state.adminTab==="bank")
+          root.querySelector("#pa-batch-file-error")?.focus({preventScroll:true});
         if(current()&&!report.error&&privateBank.allowed&&
            state.page==="admin"&&state.adminTab==="bank"&&
            Array.isArray(report.confirmedIds)){
@@ -6169,6 +6203,7 @@ root.addEventListener("change",function(event){
     if(!canOpenAdmin()||batchImport.busy)return;
     const chosen=[...(event.target.files||[])];
     const ticket=++batchImport.request;
+    batchImport.confirmedIds=[];
     batchImport.checking=false;batchImport.checked=0;batchImport.validated=false;
     try{
       if(!chosen.length||chosen.length>MAX_PRIVATE_DRAFT_BATCH)
