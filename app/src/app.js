@@ -3,6 +3,7 @@ import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters,planNextPrivateDraftReview} from "./admin-bank.js";
+import {readAdminLibraryReadiness} from "./admin-library-readiness.js";
 import {listTestClients,createTestClient,setTestClientPlan,deleteTestClient} from "./test-clients.js";
 import {renderTestClients} from "./test-clients-ui.js";
 import {CLIENT_CATEGORIES,clientCategoryLabel} from "./client-categories.js";
@@ -13,9 +14,9 @@ import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPic
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
 
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,copyAdditionalAssetThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
-import {importPrivateDraft,validateDraftMetadata,importPrivateDraftBatch,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
+import {importPrivateDraft,validateDraftPng,validateDraftMetadata,importPrivateDraftBatch,preflightPrivateDraftFiles,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
 import {editPrivateDraftMetadata} from "./admin-draft-edit.js";
-import {assessDraftQuality} from "./admin-quality.js";
+import {assessDraftQuality,assessDraftPrimaryTheme} from "./admin-quality.js";
 import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
 import {loadPrivateAdminPreview} from "./admin-preview.js";
 import {createPrivateDraftProof} from "./admin-proof.js";
@@ -697,9 +698,33 @@ function requestDate(value){const ms=Date.parse(value||"");return Number.isFinit
 const privateBank={allowed:false,loading:false,items:[],error:"",request:0,total:0,page:0};
 // Les brouillons sont revus un par un; jamais d'approbation implicite.
 const draftReviewQueue={active:false,pending:false,seen:new Set(),message:""};
+function draftReviewProgress(fr){
+  if(privateBank.loading)return fr?"Chargement de la file privée…":"Loading private review queue…";
+  if(privateBank.error)return fr?"File privée indisponible. Réessayez le chargement.":"Private queue unavailable. Retry loading.";
+  const opened=draftReviewQueue.seen.size,total=privateBank.total;
+  return fr?
+    opened+" image(s) ouvertes dans cette séance · "+total+" brouillon(s) dans la file. Aucune approbation automatique.":
+    opened+" image(s) opened this session · "+total+" draft(s) in the queue. No automatic approval.";
+}
 function stopDraftReviewQueue(){
   draftReviewQueue.active=false;draftReviewQueue.pending=false;
   draftReviewQueue.seen.clear();draftReviewQueue.message="";
+}
+// Accueil Super Admin -> première image privée à examiner, sans publier.
+// Réutilise la file de la Banque et ses contrôles Auth/RLS; aucune écriture.
+function startPrivateDraftReviewFromHome(){
+  if(!canOpenAdmin()||!authStatus.user||privateBank.loading||
+     publishedCatalog.publishing||state.page!=="admin"||state.adminTab!=="overview")return false;
+  stopDraftReviewQueue();
+  draftReviewQueue.active=true;draftReviewQueue.pending=true;
+  bankFilters.query="";bankFilters.status="draft";
+  bankFilters.theme="all";bankFilters.sort="oldest";
+  privateBank.page=0;
+  bankPanel="browse";bankSelectionId=null;
+  clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
+  state.adminTab="bank";state.adminMenuOpen=false;state.toast="";
+  queueAdminBankRefresh();render();
+  return true;
 }
 function advanceDraftReviewQueue(){
   if(!draftReviewQueue.active||privateBank.loading||privateBank.error||
@@ -709,8 +734,9 @@ function advanceDraftReviewQueue(){
     total:privateBank.total,page:privateBank.page
   });
   if(plan.kind==="open"){
-    draftReviewQueue.seen.add(plan.id);
     draftReviewQueue.message="";
+    // La Banque publique rend la fiche entière uniquement après sélection.
+    bankPanel="browse";bankSelectionId=plan.id;
     void openAdminPreview(plan.id);
   }else if(plan.kind==="page"){
     privateBank.page=plan.page;
@@ -720,6 +746,7 @@ function advanceDraftReviewQueue(){
     draftReviewQueue.message=state.language==="fr"?
       "Fin des brouillons à réviser dans cette file. Aucun pictogramme n’a été publié automatiquement.":
       "End of drafts to review in this queue. No pictogram was published automatically.";
+    bankSelectionId=null;bankPanel="browse";
     render();
   }
 }
@@ -758,8 +785,8 @@ async function fetchAdminNamedTemplates(){
   }
 }
 let bankQueryTimer=null;
-const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
-const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",request:0};
+const privateImport={file:null,loading:false,checking:false,validated:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
+const batchImport={files:[],titles:[],confirmedIds:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false,request:0};
 const privatePreview={id:null,asset:null,review:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
 const privateNamedGallery={items:[],assetId:null,loaded:false,loading:false,error:"",request:0};
@@ -975,11 +1002,11 @@ function renderClientPictoTemplateModal(){
 }
 
 const bankFilters={query:"",status:"all",theme:"all",sort:"recent"};
-const themeUI={items:[],links:{},error:"",message:"",assetId:null,editCode:"",
+const themeUI={items:[],links:{},loaded:false,error:"",message:"",assetId:null,editCode:"",
  form:{code:"",fr:"",en:""},edit:{fr:"",en:""},
  merge:{source:"",target:""},busy:false,request:0};
 function clearThemeUI(){
-  themeUI.request++;themeUI.items=[];themeUI.links={};themeUI.error="";themeUI.message="";
+  themeUI.request++;themeUI.items=[];themeUI.links={};themeUI.loaded=false;themeUI.error="";themeUI.message="";
   themeUI.assetId=null;themeUI.editCode="";themeUI.busy=false;
   themeUI.form={code:"",fr:"",en:""};themeUI.edit={fr:"",en:""};
   themeUI.merge={source:"",target:""};
@@ -1028,14 +1055,18 @@ function openBankRename(id){
 function hasUnsavedBankEdits(){
   const renamed=privateBank.items.find(item=>item.id===bankRename.id);
   const originalName=renamed?(renamed.admin_name||renamed.title_fr||""):"";
-  if(renamed&&bankRename.value!==originalName)return true;
-  if(draftEditor.id&&draftEditor.original){
-    const original=draftEditor.original,form=draftEditor.form;
-    return form.titleFr!==original.title_fr||form.titleEn!==(original.title_en||"")||form.theme!==original.theme;
-  }
-  return bankSheetDirty();
+  const renameDirty=Boolean(renamed&&bankRename.value!==originalName);
+  const original=draftEditor.original,form=draftEditor.form;
+  const metadataDirty=Boolean(draftEditor.id&&original&&(
+    form.titleFr!==original.title_fr||form.titleEn!==(original.title_en||"")||
+    form.theme!==original.theme));
+  // Un brouillon peut avoir des retouches sur l'image ET un formulaire ouvert.
+  // Tester les deux : ne jamais masquer les retouches quand le formulaire est inchangé.
+  return renameDirty||metadataDirty||bankSheetDirty();
 }
 function confirmDiscardBankEdits(){
+  // Ne jamais abandonner une opération réseau dont le reçu est encore incertain.
+  if(bankImageSheet.busy||draftEditor.saving||bankRename.busy||publishedCatalog.publishing||privateImport.loading||batchImport.busy)return false;
   return !hasUnsavedBankEdits()||window.confirm(state.language==="fr"
     ?"Abandonner les modifications non enregistrées de cette fiche ?"
     :"Discard unsaved changes to this record?");
@@ -1129,6 +1160,51 @@ function observeBankThumbnails(){
   },{rootMargin:"160px"});
   for(const node of nodes)bankThumbs.observer.observe(node);
 }
+const libraryReadiness={loaded:false,loading:false,error:"",result:null,request:0};
+// Retour depuis Banque/Gabarits : ne jamais présenter d'anciens comptes comme actuels.
+// La requête reste strictement en lecture seule avec vérification Auth/UID/RLS.
+function refreshReadinessOnOverviewReturn(){
+  if(!canOpenAdmin()||!authStatus.user||state.page!=="admin"||state.adminTab!=="overview")return;
+  const uid=authStatus.user.id,ticket=++libraryReadiness.request;
+  libraryReadiness.loaded=false;libraryReadiness.loading=true;
+  libraryReadiness.result=null;libraryReadiness.error="";
+  // La vue appelante effectue son render() une seule fois après ce changement.
+  void supabaseClient().then(client=>{
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==uid||
+      !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="overview")return;
+    return refreshLibraryReadiness(client,uid);
+  }).catch(()=>{
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==uid||
+      !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="overview")return;
+    libraryReadiness.loading=false;
+    libraryReadiness.error=state.language==="fr"?
+      "Vérification indisponible. Réessayez avec votre session Super Admin.":
+      "Check unavailable. Retry with your Super Admin session.";
+    render();
+  });
+}
+async function refreshLibraryReadiness(client,userId){
+  if(!canOpenAdmin()||authStatus.user?.id!==userId)return;
+  const ticket=++libraryReadiness.request;
+  libraryReadiness.loading=true;libraryReadiness.loaded=false;
+  libraryReadiness.result=null;libraryReadiness.error="";render();
+  try{
+    const result=await readAdminLibraryReadiness(client,userId);
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==userId||!canOpenAdmin())return;
+    libraryReadiness.result=result;libraryReadiness.loaded=true;
+  }catch{
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==userId)return;
+    // Do not expose backend permission errors in a public/admin UI.
+    libraryReadiness.result=null;libraryReadiness.loaded=false;
+    libraryReadiness.error=state.language==="fr"?
+      "Vérification indisponible. Réessayez avec votre session Super Admin.":
+      "Check unavailable. Retry with your Super Admin session.";
+  }finally{
+    if(ticket===libraryReadiness.request&&authStatus.user?.id===userId){
+      libraryReadiness.loading=false;render();
+    }
+  }
+}
 const draftEditor={id:null,original:null,form:{titleFr:"",titleEn:"",theme:"autres"},saving:false,error:"",message:"",request:0};
 function clearDraftEditor(){
   draftEditor.request++;draftEditor.id=null;draftEditor.original=null;
@@ -1140,7 +1216,7 @@ function openDraftEditor(assetId){
   const item=privateBank.items.find(asset=>asset.id===assetId);
   if(!item||item.status!=="draft"||item.created_by!==authStatus.user?.id)return;
   clearDraftEditor();if(privatePreview.id!==assetId)clearAdminPreview();
-  bankImageSheet.tab="name";draftEditor.id=item.id;
+  bankImageSheet.tab="classify";draftEditor.id=item.id;
   draftEditor.original={title_fr:item.title_fr,title_en:item.title_en??null,theme:item.theme};
   draftEditor.form={titleFr:item.title_fr,titleEn:item.title_en||"",theme:item.theme};
   render();focusBankInspector();
@@ -1186,7 +1262,6 @@ async function openAdminPreview(assetId){
   const userId=authStatus.user.id,request=++privatePreview.request;
   privatePreview.id=assetId;privatePreview.loading=true;
   initBankNames(privateBank.items.find(item=>item.id===assetId));
-  if(draftReviewQueue.active)draftReviewQueue.seen.add(assetId);
   render();focusBankInspector();
   try{
     const client=await supabaseClient();
@@ -1201,6 +1276,9 @@ async function openAdminPreview(assetId){
     void loadBankImageScale(assetId,userId,request);
     void loadBankNamedGallery(assetId,userId,request);
     privatePreview.url=URL.createObjectURL(result.blob);
+    // Le PNG doit être reçu avant que cette fiche soit comptée comme revue.
+    if(draftReviewQueue.active&&result.asset?.status==="draft")
+      draftReviewQueue.seen.add(assetId);
     privatePreview.inkInfo=crop;privatePreview.inkError=cropError;
     if(crop){privatePreview.inkBlob=crop.blob;privatePreview.inkUrl=URL.createObjectURL(crop.blob);}
   }catch(error){
@@ -1232,6 +1310,8 @@ function resetPrivateBank(){
   testClients.request++;testClients.items=[];testClients.loaded=false;
   testClients.loading=false;testClients.busy=false;testClients.error="";
   testClients.message="";testClients.created=null;
+  libraryReadiness.request++;libraryReadiness.loaded=false;libraryReadiness.loading=false;
+  libraryReadiness.error="";libraryReadiness.result=null;
   resetOfficialComposer();resetEditableDrafts();resetHomeDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();resetClientPictoTemplates();
   templateChoicesProbe++;TEMPLATE_CHOICES_RELEASED=false;
   stopDraftReviewQueue();
@@ -1239,18 +1319,21 @@ function resetPrivateBank(){
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
   bankFilters.query="";bankFilters.status="all";bankFilters.theme="all";bankFilters.sort="recent";
-  privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
-  batchImport.request++;Object.assign(batchImport,{files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:""});
+  privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.checking=false;privateImport.validated=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
+  batchImport.request++;Object.assign(batchImport,{files:[],titles:[],confirmedIds:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false});
 }
 async function refreshPrivateBank(client,userId){
   clearBankThumbs();
   const request=++privateBank.request;
   privateBank.loading=true;privateBank.error="";
+  themeUI.loaded=false;themeUI.error=""; // une lecture en cours n'est jamais une preuve actuelle
   render();
   try{
     const result=await readAdminBankAvailablePage(client,userId,{...bankFilters,page:privateBank.page});
     if(request!==privateBank.request || authStatus.user?.id!==userId)return;
     privateBank.allowed=result.authorized;
+    if(result.authorized&&!libraryReadiness.loaded&&!libraryReadiness.loading)
+      void refreshLibraryReadiness(client,userId);
     if(SITE_EMBEDDED&&authStatus.user?.id===userId)void probeTemplateChoices(client,userId);
     authStatus.roleReady=true;authStatus.roleError="";
     if(SITE_EMBEDDED&&!captionFeature.loading&&!captionFeature.loaded)
@@ -1270,11 +1353,14 @@ async function refreshPrivateBank(client,userId){
           readThemes(client,userId),readAssetThemes(client,userId,result.items.map(x=>x.id))
         ]);
         if(request!==privateBank.request||authStatus.user?.id!==userId)return;
-        themeUI.items=catalog;themeUI.links=links;themeUI.error="";
+        themeUI.items=catalog;themeUI.links=links;themeUI.error="";themeUI.loaded=true;
       }catch(themeError){
         if(request!==privateBank.request||authStatus.user?.id!==userId)return;
+        themeUI.loaded=false;themeUI.items=[];themeUI.links={};
         themeUI.error=String(themeError?.message||themeError);
       }
+    }else{
+      themeUI.loaded=false;themeUI.items=[];themeUI.links={};
     }
     if(draftEditor.id&&!result.items.some(item=>item.id===draftEditor.id&&item.status==="draft"&&item.created_by===userId))clearDraftEditor();
     if(!result.authorized||(privatePreview.id&&!result.items.some(item=>item.id===privatePreview.id)))clearAdminPreview();
@@ -1284,6 +1370,7 @@ async function refreshPrivateBank(client,userId){
     // la protection réelle des données. Une session réellement invalide
     // est traitée par readAdminBank et la notification Auth.
     privateBank.items=[];privateBank.total=0;
+    themeUI.loaded=false;themeUI.items=[];themeUI.links={};
     clearAdminPreview();clearDraftEditor();
     privateBank.error=String(error?.message||error);
     if(SITE_EMBEDDED&&!authStatus.roleReady)authStatus.roleError=state.language==="fr"?"Impossible de vérifier les droits du compte.":"Unable to verify your account permissions.";
@@ -1782,7 +1869,7 @@ function renderAdmin(){
     edit:"Open templates",soon:"Not connected yet",noReal:"No actual imported assets are loaded in this mockup",
     mustBePrivate:"The real library will only be available to authenticated super admins."
   };
-  const tab=(name,title,ico)=>'<button class="admin-tab'+(state.adminTab===name?' active':'')+'" type="button" data-action="admin-tab" data-tab="'+name+'" aria-pressed="'+(state.adminTab===name)+'">'+icon(ico)+esc(title)+'</button>';
+  const tab=(name,title,ico)=>'<button class="admin-tab'+(state.adminTab===name?' active':'')+'" type="button" data-action="admin-tab" data-tab="'+name+'" aria-pressed="'+(state.adminTab===name)+'"'+(privateImport.loading||batchImport.busy?' disabled':'')+'>'+icon(ico)+esc(title)+'</button>';
   const preview=samples.slice(0,6).map(pic=>'<div class="admin-bank-card">'+customPicto(pic,state.currentPreset,5,true)+'<strong>'+esc(labelFor(pic,state.language))+'</strong><small>'+esc(fr?"Exemple · Non publié":"Sample · Not published")+'</small></div>').join("");
   const info='<div class="admin-surface-note">'+icon("info","btn-icon")+' '+esc(sectionNames.privateInfo)+'</div>';
   const visibleAssets=privateBank.items;
@@ -1810,11 +1897,13 @@ function renderAdmin(){
     +'<button type="button" class="btn btn-primary" data-action="admin-draft-review-start"'
     +(privateBank.loading||draftReviewQueue.active?' disabled':'')+'>'
     +esc(fr?"Réviser les brouillons un par un":"Review drafts one by one")+'</button>'
+    +(draftReviewQueue.active&&!privatePreview.id?'<button type="button" class="btn btn-light" data-action="admin-draft-review-resume"'
+      +(privateBank.loading||privateBank.error||draftReviewQueue.pending?' disabled':'')+'>'+
+      esc(fr?"Reprendre la révision":"Resume draft review")+'</button>':"")
     +(draftReviewQueue.active?'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop">'
       +esc(fr?"Terminer la révision":"End review")+'</button>':"")
     +(draftReviewQueue.active?'<p role="status">'+esc(draftReviewQueue.message||
-      (fr?"File de révision privée : publication seulement après votre approbation.":
-          "Private review queue: publication only after your approval."))+'</p>':"")
+      draftReviewProgress(fr))+'</p>':"")
     +'</div>';
   const bankSummary='<p class="admin-bank-summary" role="status">'
     +esc(fr?privateBank.total+" image(s) trouvée(s)":"Images found: "+privateBank.total)
@@ -1855,6 +1944,19 @@ function renderAdmin(){
         (fr?"Aucune fiche ne correspond à votre recherche.":"No records match your search."))+'</p>';
   const chosen=privateBank.items.find(item=>item.id===privatePreview.id);
   const chosenLabel=chosen?(state.language==="en"?(chosen.title_en||chosen.title_fr):chosen.title_fr):"";
+  const primaryThemePreflight=assessDraftPrimaryTheme(chosen,themeUI.items,{
+    verified:themeUI.loaded&&!themeUI.error&&!privateBank.loading&&privateBank.allowed
+  });
+  const primaryThemeReady=primaryThemePreflight.state==="ready";
+  const primaryThemeNotice=primaryThemePreflight.state==="unknown"?
+    (fr?"Catégories non vérifiées. Actualisez la Banque avant de publier.":
+      "Categories not verified. Refresh the bank before publishing."):
+    primaryThemePreflight.state==="missing"?
+      (fr?"La catégorie principale « "+chosen.theme+" » n'existe plus. Corrigez ce brouillon avant de publier.":
+        "The primary category “"+chosen.theme+"” no longer exists. Correct this draft before publishing."):
+    primaryThemePreflight.state==="merged"?
+      (fr?"Cette catégorie a été fusionnée. Choisissez une catégorie active avant de publier.":
+        "This category was merged. Choose an active category before publishing."):"";
   const review=privatePreview.asset&&privatePreview.technical
     ?assessDraftQuality(privatePreview.asset,privatePreview.technical):null;
   const reviewHtml=!review?"":'<div class="admin-quality-review"><h4>'+esc(fr?"Précontrôle de la fiche":"Draft preliminary checks")+'</h4>'
@@ -1940,21 +2042,16 @@ function renderAdmin(){
     "Informations techniques seulement : qualité graphique et publication à valider manuellement.":
     "Technical information only: artwork quality and publishing still require human review.")+'</p>':"")
     +(privatePreview.inkError?'<p class="admin-import-alert" role="status">'+esc(fr?"Aperçu d'encre indisponible : ":"Ink preview unavailable: ")+esc(privatePreview.inkError)+'</p>':"")
-    +(draftReviewQueue.active?'<div class="admin-draft-review-next">'
-      +'<p>'+esc(fr?"Révision en cours : passez au brouillon suivant après avoir examiné celui-ci.":
-        "Review in progress: continue to the next draft once you have examined this one.")+'</p>'
-      +'<button type="button" class="btn btn-light" data-action="admin-draft-review-next"'
-      +(privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'
-      +esc(fr?"Brouillon suivant sans publier":"Next draft without publishing")+'</button></div>':"")
     +privateInkCard+reviewHtml+privateProofControls
     
     
     +(privatePreview.asset&&privatePreview.technical&&chosen.status==="draft"
        ?'<form data-form="catalog-publish" data-id="'+esc(chosen.id)+'" class="admin-publish-control">'
+        +(!primaryThemeReady?'<p class="admin-import-alert" role="status">'+esc(primaryThemeNotice)+'</p>':'')
         +'<h4>'+esc(fr?'Publication dans la bibliothèque client':'Publish to client library')+'</h4>'
         +'<p>'+esc(fr?'L’original reste privé. Seule une copie PNG expressément approuvée sera visible par les clients connectés.':'The source stays private. Only an explicitly approved PNG copy becomes visible to signed-in clients.')+'</p>'
         +'<label><input type="checkbox" name="confirmed" required>'+esc(fr?'J’ai vérifié le dessin, son cadrage, les droits et le libellé.':'I reviewed the artwork, framing, rights and caption.')+'</label>'
-        +'<button type="submit" class="btn btn-primary"'+(publishedCatalog.publishing?' disabled':'')+'>'+icon("check","btn-icon")+esc(publishedCatalog.publishing?(fr?'Publication…':'Publishing…'):(fr?'Approuver et publier':'Approve and publish'))+'</button></form>'
+        +'<button type="submit" class="btn btn-primary"'+(publishedCatalog.publishing||!primaryThemeReady?' disabled':'')+'>'+icon("check","btn-icon")+esc(publishedCatalog.publishing?(fr?'Publication…':'Publishing…'):(fr?'Approuver et publier':'Approve and publish'))+'</button></form>'
        :chosen.status==="published"
        ?'<div class="admin-publish-control"><p>'+esc(fr?'Ce pictogramme est publié dans le catalogue client.':'This pictogram is published in the client catalogue.')+'</p>'
         +(TEMPLATE_CHOICES_RELEASED?'<button type="button" class="btn btn-light" data-action="admin-template-choices-open" data-id="'+esc(chosen.id)+'">'+esc(fr?"Choisir les gabarits de la fiche client":"Choose customer detail templates")+'</button>':"")
@@ -1966,6 +2063,10 @@ function renderAdmin(){
      .concat(themeUI.items.filter(t=>!t.merged_into&&!["autres","hygiene","autonomie","alimentation","ecole","loisirs","socialisation","consignes","etapes","transport","sensoriel","objets","lieux"].includes(t.code))
        .map(t=>[t.code,fr?t.label_fr:t.label_en]))
      .filter(([code])=>!themeUI.items.some(t=>t.code===code&&t.merged_into));
+  // IDs privés : vérifier dans la page relue sous le même compte avant ouverture.
+  const batchConfirmedRows=canOpenAdmin()?[...batchImport.confirmedIds].reverse()
+    .map(id=>privateBank.items.find(row=>row.id===id&&
+      row.created_by===authStatus.user.id&&row.status==="draft")).filter(Boolean):[];
   const importForm='<section class="admin-surface admin-import-panel"><div class="admin-surface-head"><div><h2>'+esc(fr?"Importer un pictogramme PNG":"Import a PNG pictogram")+'</h2><p>'
    +esc(fr?"Image privée, fiche brouillon. Ce formulaire ne publie rien.":"Private image, draft record. This form cannot publish.")+'</p></div>'
    +'<span class="admin-chip">'+esc(fr?"Brouillon seulement":"Draft only")+'</span></div>'
@@ -1974,11 +2075,14 @@ function renderAdmin(){
    +'<div class="control"><label for="draft-title-en">'+esc(fr?"Nom anglais (facultatif)":"English label (optional)")+'</label><input id="draft-title-en" name="titleEn" type="text" maxlength="100" autocomplete="off" value="'+esc(privateImport.draft.titleEn)+'" placeholder="e.g. wash hands"></div>'
    +'<div class="control"><label for="draft-theme">'+esc(fr?"Thème":"Theme")+'</label><select id="draft-theme" name="theme">'
    +themes.map(([v,label])=>'<option value="'+v+'"'+(v===privateImport.draft.theme?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
-   +'<div class="control"><label for="draft-file">'+esc(fr?"Image PNG * (max. 6 Mo)":"PNG image * (max. 6 MB)")+'</label><input id="draft-file" data-field="admin-import-file" type="file" accept=".png,image/png" aria-describedby="draft-file-status"><small id="draft-file-status" role="status">'
-   +esc(privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):(fr?"Aucun fichier sélectionné":"No file selected"))+'</small></div>'
-   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading||batchImport.busy?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
+   +'<div class="control"><label for="draft-file">'+esc(fr?"Image PNG * (max. 6 Mo)":"PNG image * (max. 6 MB)")+'</label><input id="draft-file" data-field="admin-import-file" type="file" accept=".png,image/png" aria-describedby="draft-file-status"><small id="draft-file-status" role="status" aria-live="polite">'
+   +esc(privateImport.checking?(fr?"Vérification du PNG en cours…":"Checking PNG…"):
+     privateImport.validated?(fr?"PNG vérifié : ":"PNG verified: ")+privateImport.file?.name:
+     privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):
+     (fr?"Aucun fichier sélectionné":"No file selected"))+'</small></div>'
+   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading||privateImport.checking||!privateImport.validated||batchImport.busy?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
    +'<small>'+esc(fr?"PNG seulement; aucune publication automatique.":"PNG only; never auto-published.")+'</small></div></form>'
-   +(privateImport.error?'<p class="admin-import-alert" role="alert">'+esc(privateImport.error)+'</p>':"")
+   +(privateImport.error?'<p id="pa-single-png-error" class="admin-import-alert" role="alert" tabindex="-1">'+esc(privateImport.error)+'</p>':"")
    +(privateImport.message?'<p class="admin-import-success" role="status">'+esc(privateImport.message)+'</p>':"")
    +'<section class="admin-batch-import" aria-labelledby="admin-batch-heading">'
    +'<h3 id="admin-batch-heading">'+esc(fr?"Importer plusieurs PNG à la fois":"Import multiple PNG files at once")+'</h3>'
@@ -1989,8 +2093,10 @@ function renderAdmin(){
    +themes.map(([v,label])=>'<option value="'+v+'"'+(v===batchImport.theme?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
    +'<div class="control"><label for="batch-files">'+esc(fr?"Fichiers PNG (1 à 20, maximum 6 Mo chacun)":"PNG files (1–20, up to 6 MB each)")+'</label>'
    +'<input id="batch-files" data-field="admin-batch-files" type="file" accept=".png,image/png" multiple'+(batchImport.busy?' disabled':'')+' aria-describedby="batch-file-status">'
-   +'<small id="batch-file-status" role="status">'+esc(batchImport.files.length?
-     (fr?batchImport.files.length+" fichier(s) sélectionné(s) :":batchImport.files.length+" selected file(s):"):
+   +'<small id="batch-file-status" role="status" aria-live="polite">'+esc(
+     batchImport.checking?(fr?"Vérification des PNG : ":"Checking PNGs: ")+batchImport.checked+" / "+batchImport.files.length:
+     batchImport.validated?(fr?"PNG vérifiés : ":"PNGs verified: ")+batchImport.files.length+" / "+batchImport.files.length:
+     batchImport.files.length?(fr?batchImport.files.length+" fichier(s) sélectionné(s) :":batchImport.files.length+" selected file(s):"):
      (fr?"Aucun lot sélectionné.":"No batch selected."))+'</small></div>'
    +(batchImport.files.length?'<ol class="admin-batch-list">'+batchImport.files.map((f,index)=>
       '<li><span class="admin-batch-filename">'+esc(f.name)+'</span>'
@@ -2000,15 +2106,28 @@ function renderAdmin(){
       +esc(batchImport.titles[index]??draftTitleFromFilename(f.name))+'"'
       +(batchImport.busy?' disabled':'')+'></label></li>').join("")+'</ol>':"")
    +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+
-     (batchImport.busy||privateImport.loading||!batchImport.files.length?' disabled':'')+'>'+
+     (batchImport.busy||batchImport.checking||!batchImport.validated||privateImport.loading||!batchImport.files.length?' disabled':'')+'>'+
      esc(batchImport.busy?(fr?"Importation en cours…":"Importing…"):(fr?"Créer les brouillons privés du lot":"Create private drafts from batch"))+'</button></div>'
    +'</form>'
    +(batchImport.busy?'<p role="status" aria-live="polite">'+esc(
       (fr?"Importés : ":"Imported: ")+batchImport.completed+" / "+batchImport.total+
       (batchImport.currentName?" · "+batchImport.currentName:""))+'</p>':"")
-   +(batchImport.error?'<p class="admin-import-alert" role="alert">'+esc(batchImport.error)+'</p>':"")
+   +(batchImport.error?'<p id="pa-batch-file-error" class="admin-import-alert" role="alert" tabindex="-1">'+esc(batchImport.error)+'</p>':"")
    +(batchImport.message?'<p class="admin-import-success" role="status">'+esc(batchImport.message)+'</p>':"")
-   +'<p class="admin-batch-note">'+esc(fr?
+   +(batchImport.confirmedIds.length?
+      '<details class="admin-batch-receipts"><summary>'+
+      esc(fr?"Ouvrir les "+batchImport.confirmedIds.length+" brouillon(s) confirmé(s)":
+        "Open "+batchImport.confirmedIds.length+" confirmed draft(s)")+'</summary>'+
+      (batchConfirmedRows.length?
+        '<div class="admin-import-actions">'+batchConfirmedRows.map(row=>
+          '<button type="button" class="btn btn-light" data-action="admin-batch-open-confirmed" data-id="'+esc(row.id)+'"'+
+          (batchImport.busy||privateBank.loading?' disabled':'')+'>'+
+          esc((fr?"Ouvrir : ":"Open: ")+(row.admin_name||row.title_fr||"—"))+'</button>').join("")+'</div>':
+        '<p>'+esc(fr?
+          "Ces fiches ne sont pas visibles sur la page récente. Retrouvez-les dans Banque > Brouillons.":
+          "These records are not visible on the recent page. Find them under Bank > Drafts.")+'</p>')+
+      '</details>':"")
+    +'<p class="admin-batch-note">'+esc(fr?
       "Le lot s’arrête à la première erreur. Vérifiez les brouillons déjà créés avant de sélectionner de nouveau les fichiers restants : aucune reprise automatique.":
       "The batch stops at the first error. Check drafts already created before selecting remaining files again; no automatic retry.")+'</p>'
    +'</section>'
@@ -2071,15 +2190,23 @@ function renderAdmin(){
     const isUpper=value=>typeof value==="string"&&/^[\p{Lu}]/u.test(value.trim());
     const warning=isUpper(proposal.titleFr)||isUpper(proposal.titleEn)
       ?(fr?"Les libellés doivent commencer par une minuscule.":"Captions must start with a lowercase letter."):"";
-    const options=[...new Set([...themes.map(([v])=>v),proposal.theme])];
+    const options=themeUI.loaded&&!themeUI.error?
+      themeUI.items.filter(t=>!t.merged_into).map(t=>t.code):[];
+    const selectedTheme=options.includes(proposal.theme)?proposal.theme:"";
+    const proposedThemeReady=assessDraftPrimaryTheme(
+      {status:"draft",theme:proposal.theme},themeUI.items,
+      {verified:themeUI.loaded&&!themeUI.error}).state==="ready";
     const editableFields='<form data-form="admin-edit-draft" class="admin-import-form">'
       +'<div class="control"><label for="edit-draft-fr">'+esc(fr?"Nom français *":"French caption *")+'</label><input id="edit-draft-fr" name="titleFr" type="text" maxlength="100" required autocomplete="off" value="'+esc(proposal.titleFr)+'"></div>'
       +'<div class="control"><label for="edit-draft-en">'+esc(fr?"Nom anglais (facultatif)":"English caption (optional)")+'</label><input id="edit-draft-en" name="titleEn" type="text" maxlength="100" autocomplete="off" value="'+esc(proposal.titleEn)+'"></div>'
-      +'<div class="control"><label for="edit-draft-theme">'+esc(fr?"Thème":"Theme")+'</label><select id="edit-draft-theme" name="theme">'
-      +options.map(value=>'<option value="'+esc(value)+'"'+(value===proposal.theme?' selected':'')+'>'+esc(themes.find(([v])=>v===value)?.[1]||value)+'</option>').join("")+'</select></div>'
+      +'<div class="control"><label for="edit-draft-theme">'+esc(fr?"Catégorie principale active":"Active primary category")+'</label><select id="edit-draft-theme" name="theme" required>'
+      +(!selectedTheme?'<option value="" selected disabled>'+esc(fr?"Choisir une catégorie active…":"Choose an active category…")+'</option>':'')
+      +options.map(value=>'<option value="'+esc(value)+'"'+(value===selectedTheme?' selected':'')+'>'+esc(themes.find(([v])=>v===value)?.[1]||value)+'</option>').join("")+'</select></div>'
+      +(!themeUI.loaded||themeUI.error?'<p role="status">'+esc(fr?"Catégories indisponibles. Actualisez la Banque.":
+        "Categories unavailable. Refresh the bank.")+'</p>':'')
       +'<div class="control"><label>'+esc(fr?"Aperçu du texte":"Caption preview")+'</label><output id="edit-draft-preview" class="admin-draft-preview-label">'+esc(proposal.titleFr||"—")+'</output></div>'
       +(DRAFT_METADATA_WRITES_ENABLED
-        ?'<div class="admin-import-actions"><button type="submit" class="btn btn-primary"'+(draftEditor.saving?' disabled':'')+'>'+icon("check","btn-icon")+esc(fr?"Enregistrer les textes":"Save captions")+'</button></div>'
+        ?'<div class="admin-import-actions"><button type="submit" class="btn btn-primary"'+(draftEditor.saving||!proposedThemeReady?' disabled':'')+'>'+icon("check","btn-icon")+esc(fr?"Enregistrer les textes":"Save captions")+'</button></div>'
         :'<div class="admin-import-actions"><button type="button" class="btn btn-light" data-action="export-admin-proposal">'+icon("upload","btn-icon")+esc(fr?"Exporter le fichier JSON":"Export JSON file")+'</button></div>')
       +'</form>';
     draftEditBody='<section class="admin-private-preview admin-draft-editor pa-bank-draft-simple" role="region" aria-label="'+esc(fr?"Textes du pictogramme":"Pictogram captions")+'">'
@@ -2127,7 +2254,7 @@ function renderAdmin(){
   }else if(state.adminTab==="bank"){
     const bankModes=[["browse",fr?"Images":"Images"],["import",fr?"Ajouter une image":"Add image"],["themes",fr?"Thèmes":"Themes"]];
     const bankNavigation='<nav class="pa-bank-mode-nav" aria-label="'+esc(fr?"Espaces de la banque":"Library sections")+'">'
-      +bankModes.map(([mode,label])=>'<button type="button" class="pa-bank-mode'+(bankPanel===mode?' is-active':'')+'" data-action="admin-bank-panel" data-panel="'+mode+'" aria-pressed="'+(bankPanel===mode)+'"'+(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing||draftReviewQueue.active?' disabled':'')+'>'+esc(label)+'</button>').join("")
+      +bankModes.map(([mode,label])=>'<button type="button" class="pa-bank-mode'+(bankPanel===mode?' is-active':'')+'" data-action="admin-bank-panel" data-panel="'+mode+'" aria-pressed="'+(bankPanel===mode)+'"'+(bankRename.busy||privateImport.loading||batchImport.busy||themeUI.busy||draftEditor.saving||publishedCatalog.publishing||draftReviewQueue.active?' disabled':'')+'>'+esc(label)+'</button>').join("")
       +'</nav>';
     const inspectorContent=renameForm+themeAssetPanel+privatePreviewBody+draftEditBody;
     const selectedAsset=privateBank.items.find(item=>item.id===bankSelectionId);
@@ -2160,9 +2287,18 @@ function renderAdmin(){
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
       +(!privateBank.loading&&!privateBank.error?pagination:"")+'</section>';
     const sheetTabs=[["name",fr?"Nom":"Name"],["adjust",fr?"Ajuster":"Adjust"],["classify",fr?"Classer":"Classify"]];
+    // Toujours accessible dans Nom / Ajuster / Classer, sans approbation implicite.
+    const reviewStep=draftReviewQueue.active&&privatePreview.id&&bankSelectionId===privatePreview.id?
+      '<div class="pa-bank-review-step" role="group" aria-label="'+esc(fr?"File de révision privée":"Private draft review")+'">'
+      +'<button type="button" class="btn btn-light pa-bank-review-next" data-action="admin-draft-review-next"'
+      +(privatePreview.loading||privateBank.loading||publishedCatalog.publishing||!privatePreview.url?' disabled':'')+'>'
+      +esc(fr?"Brouillon suivant · sans publier":"Next draft · without publishing")+'</button>'
+      +'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop"'
+      +(publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?"Terminer la révision":"End review")+'</button>'
+      +'<p class="pa-bank-review-progress" role="status">'+esc(draftReviewProgress(fr))+'</p></div>':"";
     const sheetNav='<nav class="pa-bank-sheet-tabs" aria-label="'+esc(fr?"Sections de la fiche":"Pictogram details")+'">'+
       sheetTabs.map(([key,label])=>'<button type="button" data-action="pa-bank-sheet-tab" data-tab="'+key+
-        '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>';
+        '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>'+reviewStep;
     const sheetTitle=selectedAsset?(selectedAsset.admin_name||selectedAsset.title_fr||"—"):"";
     const currentNames=bankImageSheet.names||{adminName:sheetTitle,
       titleFr:selectedAsset?.title_fr||"",titleEn:selectedAsset?.title_en||""};
@@ -2174,7 +2310,9 @@ function renderAdmin(){
       (!bankImageSheet.loaded||bankImageSheet.busy||!privatePreview.url?' disabled':'')+'>'+
         esc(fr?"Enregistrer":"Save")+'</button></header>'+
       (privatePreview.loading?'<p role="status">'+esc(fr?"Chargement de l’image…":"Loading image…")+'</p>':'')+
-      (privatePreview.error?'<p role="alert">'+esc(privatePreview.error)+'</p>':'')+
+      (privatePreview.error?'<div class="pa-bank-preview-error"><p role="alert">'+esc(privatePreview.error)+'</p>'
+        +'<button type="button" class="btn btn-light" data-action="admin-preview-retry">'
+        +esc(fr?"Réessayer le chargement du PNG":"Retry loading the PNG")+'</button></div>':'')+
       (privatePreview.url?'<figure class="pa-bank-sheet-hero'+(bankImageSheet.tab==="adjust"?' pa-bank-adjust-hero':'')+'"'+
         (bankImageSheet.tab==="adjust"?' tabindex="0" role="img" aria-label="'+esc(fr?
           "Déplacer le dessin au doigt, à la souris ou avec les flèches":
@@ -2231,11 +2369,21 @@ function renderAdmin(){
       '<div class="pa-bank-adjust-gallery" role="region" tabindex="0" aria-label="'+esc(fr?
         "Galerie de templates défilante":"Scrollable template gallery")+'">'+sheetGallery+'</div></section>':"";
     const chosenThemes=selectedAsset?(themeUI.links[selectedAsset.id]||[selectedAsset.theme]):[];
+    const primaryThemePanel=selectedAsset?.status==="draft"&&chosen?.id===selectedAsset.id?
+      '<div class="pa-bank-primary-theme" role="group" aria-label="'+esc(fr?"Catégorie principale":"Primary category")+'">'+
+      '<p><strong>'+esc(fr?"Catégorie principale : ":"Primary category: ")+'</strong>'+esc(themeLabel(selectedAsset.theme))+'</p>'+
+      (primaryThemeReady?'<p role="status">'+esc(fr?"Catégorie active vérifiée. L’approbation reste manuelle.":
+        "Active category checked. Approval remains manual.")+'</p>':
+        '<p role="alert" id="pa-bank-primary-theme-status" tabindex="-1">'+esc(primaryThemeNotice)+'</p>')+
+      (selectedAsset.created_by===authStatus.user?.id?'<button type="button" class="btn btn-light" data-action="admin-edit-draft" data-id="'+esc(selectedAsset.id)+'">'+
+        esc(fr?"Corriger la catégorie principale":"Edit primary category")+'</button>':"")+'</div>':"";
     const sheetClassify=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Classer":"Classify")+'">'+
       '<h3>'+esc(fr?"Thèmes du pictogramme":"Pictogram themes")+'</h3>'+
       '<p>'+chosenThemes.map(code=>esc(themeLabel(code))).join(" · ")+'</p>'+
+      primaryThemePanel+
       '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+
         esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+themeAssetPanel+
+      (draftEditor.id===selectedAsset.id?draftEditBody:"")+
       (selectedAsset.status==="published"?
         '<div class="pa-bank-customer-templates"><h3>'+esc(fr?"Gabarits proposés aux clients":"Templates offered to customers")+'</h3>'+
         '<p>'+esc(fr?
@@ -2316,7 +2464,58 @@ function renderRoleChecking(){
     +'<div class="hosted-access-action">'+googleButton()+'</div></div></div></section>';
 }
 function renderAdminHome(){
-  const fr=state.language==="fr";
+  const fr=state.language==="fr",status=libraryReadiness;
+  const diagnostic=status.result;
+  const technical=diagnostic&&diagnostic.guard==="available"&&diagnostic.projection==="available";
+  const templateCounts=diagnostic?.templates;
+  const templateReady=templateCounts?.state==="available";
+  const nextTemplateStep=!templateReady?
+    (fr?"Vérifiez l’accès aux gabarits avant de continuer. Aucun modèle n’est publié automatiquement.":
+      "Check template access before continuing. Nothing is published automatically."):
+    templateCounts.published===0?
+      (templateCounts.private>0?
+        (fr?"Un ou plusieurs gabarits privés attendent votre vérification et une publication volontaire.":
+          "Private templates await your review and explicit publication."):
+        (fr?"Créez votre premier gabarit dans la section Gabarits, puis publiez-le volontairement.":
+          "Create your first template in Templates, then publish it explicitly.")):
+      diagnostic.published===0?
+        (fr?"Un gabarit est publié, mais aucune image n’est encore approuvée. Vérifiez les brouillons dans la Banque.":
+          "A template is published, but no artwork is approved yet. Review drafts in Image bank."):
+        (fr?"Après vérification des pictogrammes, confirmez les modèles proposés sur chaque fiche publiée.":
+          "After reviewing artwork, confirm which templates each published pictogram can use.");
+  const stateName=value=>value==="available"?(fr?"Détecté":"Detected"):
+    value==="missing"?(fr?"Non installé":"Not installed"):(fr?"Non vérifié":"Unverified");
+  const readiness=
+    '<section class="admin-surface pa-release-readiness" aria-labelledby="pa-release-title">'
+    +'<div class="admin-surface-head"><div><h2 id="pa-release-title">'+esc(fr?"Préparer la première publication":"Prepare the first publication")+'</h2>'
+    +'<p>'+esc(fr?"Contrôles en lecture seule de ce serveur, sans approbation automatique.":"Read-only checks on this server; nothing is approved automatically.")+'</p></div>'
+    +'<button type="button" class="btn btn-light" data-action="admin-readiness-refresh"'
+    +(status.loading?' disabled':'')+'>'+esc(status.loading?(fr?"Vérification…":"Checking…"):(fr?"Revérifier":"Check again"))+'</button></div>'
+    +(status.error?'<p role="alert">'+esc(status.error)+'</p>':"")
+    +(status.loading?'<p role="status">'+esc(fr?"Lecture des permissions et du catalogue…":"Reading permissions and catalog…")+'</p>':"")
+    +(diagnostic?
+      '<div class="pa-release-grid">'
+      +'<div><span>'+esc(fr?"Brouillons privés":"Private drafts")+'</span><strong>'+diagnostic.drafts+'</strong></div>'
+      +'<div><span>'+esc(fr?"Pictogrammes publiés":"Published pictograms")+'</span><strong>'+diagnostic.published+'</strong></div>'
+      +'<div><span>'+esc(fr?"Édition sécurisée":"Guarded metadata editing")+'</span><strong>'+esc(stateName(diagnostic.guard))+'</strong></div>'
+      +'<div><span>'+esc(fr?"Catégories des images approuvées":"Approved-image categories")+'</span><strong>'+esc(stateName(diagnostic.projection))+'</strong></div>'
+      +'<div><span>'+esc(fr?"Gabarits privés":"Private templates")+'</span><strong>'+esc(templateReady?templateCounts.private:stateName(templateCounts?.state))+'</strong></div>'
+      +'<div><span>'+esc(fr?"Gabarits publiés":"Published templates")+'</span><strong>'+esc(templateReady?templateCounts.published:stateName(templateCounts?.state))+'</strong></div>'
+      +'</div>'
+      +'<p class="pa-release-summary" role="status">'+esc(technical?
+        (fr?"Composants serveur détectés. La validation des permissions client et des images reste obligatoire.":"Server components detected. Client permissions and image review are still required."):
+        (fr?"Activation incomplète ou non vérifiable sur ce serveur. Aucune publication n’est confirmée.":"Activation is incomplete or unverified on this server. No publication is confirmed."))+'</p>'
+      :(!status.loading?'<p class="pa-release-summary">'+esc(fr?"Aucun diagnostic confirmé pour cette session.":"No confirmed diagnostic for this session.")+'</p>':""))
+    +(diagnostic?'<p class="pa-release-next" role="note">'+esc(nextTemplateStep)+'</p>':"")
+    +'<p class="pa-release-caution">'+esc(fr?
+       "Ce panneau ne certifie ni les politiques RLS côté client, ni la qualité d’un PNG. La décision de publier appartient au Super Admin.":
+       "This panel does not certify client RLS or PNG quality. The Super Admin must approve every publication.")+'</p>'
+    +'<div class="pa-release-actions"><button type="button" class="btn btn-primary" data-action="admin-tab" data-tab="bank">'
+    +esc(fr?"Ouvrir la Banque":"Open image bank")+'</button>'
+    +'<button type="button" class="btn btn-light" data-action="admin-tab" data-tab="templates">'
+    +esc(fr?"Ouvrir les gabarits":"Open templates")+'</button></div>'
+    +'</section>';
+
   const links=[
     ["bank",fr?"Banque d’images":"Image bank",fr?"Importer et classer les brouillons privés":"Import and organize private drafts","library"],
     ["requests",fr?"Demandes":"Requests",fr?"Suivre et traiter les demandes reçues":"Review incoming requests","file-text"],
@@ -2329,6 +2528,7 @@ function renderAdminHome(){
     +'<p>'+esc(fr?'Gérez vos pictogrammes, vos demandes et vos gabarits en un seul endroit.':'Manage your pictograms, requests, and templates in one place.')+'</p>'
     +'<div class="admin-dashboard-summary"><div><span>'+esc(fr?'Fiches dans la banque privée':'Private bank records')+'</span><strong>'+privateBank.total+'</strong></div>'
     +'</div>'
+    +readiness
     +'<section class="admin-review-shortcut" aria-labelledby="admin-review-shortcut-title">'
     +'<h2 id="admin-review-shortcut-title">'+esc(fr?'Brouillons à approuver':'Drafts to review')+'</h2>'
     +'<p>'+esc(fr?
@@ -2392,7 +2592,7 @@ function renderAdminWorkspace(){
   ];
   const button=([tab,label,ico],compact=false)=>
     '<button type="button" class="'+(compact?'admin-mobile-link':'admin-side-link')+(state.adminTab===tab?' active':'')
-    +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+'>'
+    +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+(privateImport.loading||batchImport.busy?' disabled':'')+'>'
     +icon(ico)+'<span>'+esc(label)+'</span></button>';
   return '<div class="admin-workspace admin-sage-unified'+(state.adminTab==="overview"?' admin-overview-elevated':'')+(state.adminMenuOpen?' menu-open':'')+'">'
     +'<a href="#admin-main" class="skip">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
@@ -2400,7 +2600,7 @@ function renderAdminWorkspace(){
     +'<aside id="pictau-admin-drawer" class="admin-sidebar'+(state.adminMenuOpen?' is-open':'')+'" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'
     +'<div class="admin-mobile-drawer-head"><strong>PICT-AU · ADMIN</strong>'
     +'<button type="button" class="admin-drawer-close" data-action="admin-menu-close" aria-label="'+esc(fr?'Fermer le menu':'Close menu')+'">'+icon("close")+'</button></div>'
-    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview" aria-label="'+esc(fr?"Retour à l’accueil Super Admin":"Super Admin home")+'">'+adminBrandPicture()+'</button>'
+    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview"'+(privateImport.loading||batchImport.busy?' disabled':'')+' aria-label="'+esc(fr?"Retour à l’accueil Super Admin":"Super Admin home")+'">'+adminBrandPicture()+'</button>'
     +'<div class="admin-sidebar-caption">'+esc(fr?'ADMINISTRATION':'ADMINISTRATION')+'</div>'
     +'<nav class="admin-side-nav">'+tabs.map(tab=>button(tab)).join('')+'</nav>'
     +'<div class="admin-sidebar-status">'+esc(fr?'Espace administrateur sécurisé':'Secure administrator workspace')+'</div></aside>'
@@ -2982,9 +3182,14 @@ window.addEventListener("beforeunload",event=>{
   event.returnValue="";
 });
 window.addEventListener("beforeunload",event=>{
-  // Protection limitée à la fiche Super Admin et à sa requête d’écriture.
-  if(!SITE_EMBEDDED||!canOpenAdmin()||!privatePreview.id||
-     !(bankImageSheet.busy||bankScaleHasUnsavedChanges()))return;
+  // Garder les noms, catégories et réglages de la fiche, même sans aperçu ouvert,
+  // ainsi que toute sauvegarde privée dont le résultat réseau est incertain.
+  // Une alerte native n'est pas garantie lors d'une fermeture forcée sur mobile.
+  if(!SITE_EMBEDDED||!canOpenAdmin()||
+     !(hasUnsavedBankEdits()||bankImageSheet.busy||
+       draftEditor.saving||bankRename.busy||themeUI.busy||
+       privatePreview.adjustBusy||publishedCatalog.publishing||
+        privateImport.loading||batchImport.busy))return;
   event.preventDefault();
   event.returnValue="";
 });
@@ -3914,6 +4119,10 @@ root.addEventListener("click",function(event){
   }
   if(a==="google-login"){authStatus.working=true;render();void loginGoogle(window.location.href).catch(err=>{authStatus.working=false;authStatus.error=String(err.message||err);notify(state.language==="fr"?"Connexion Google impossible : "+authStatus.error:"Google sign-in failed: "+authStatus.error);});return;}
   if(a==="google-logout"){
+    if(canOpenAdmin()&&(privateImport.loading||batchImport.busy)){
+      notify(state.language==="fr"?"Importation privée en cours. Attendez son reçu avant la déconnexion.":"Private import in progress. Wait for its receipt before signing out.");
+      return;
+    }
     if(editableDrafts.busy||draftAutosave.status("routine").busy||draftAutosave.status("board").busy){
       notify(state.language==="fr"?"Une sauvegarde est en cours. Attendez sa confirmation avant de vous déconnecter.":"A draft save is in progress. Wait for confirmation before signing out.");
       return;
@@ -4141,18 +4350,11 @@ root.addEventListener("click",function(event){
     })();return;
   }
   if(a==="admin-review-queue"){
-    if(!canOpenAdmin()||!authStatus.user)return;
-    clearTimeout(bankQueryTimer);bankQueryTimer=null;
-    clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
-    bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
-    bankFilters.sort="recent";privateBank.page=0;
-    state.page="admin";state.adminTab="bank";state.adminMenuOpen=false;
-    state.toast="";render();
-    queueAdminBankRefresh();
-    return;
+    startPrivateDraftReviewFromHome();return;
   }
   if(a==="admin-view-published"){
-    if(!canOpenAdmin()||!authStatus.user||publishedCatalog.publishing)return;
+    if(!canOpenAdmin()||!authStatus.user||publishedCatalog.publishing||
+       !confirmDiscardBankEdits())return;
     clearTimeout(bankQueryTimer);bankQueryTimer=null;
     clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
     bankFilters.query="";bankFilters.status="published";bankFilters.theme="all";
@@ -4165,11 +4367,19 @@ root.addEventListener("click",function(event){
   if(a==="admin-review-next"){
     if(!canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank"||
        bankFilters.status!=="draft"||privateBank.loading||privatePreview.loading||
-       publishedCatalog.publishing)return;
+       publishedCatalog.publishing||!confirmDiscardBankEdits())return;
     const drafts=privateBank.items.filter(item=>item.status==="draft");
     if(!drafts.length)return;
     const current=drafts.findIndex(item=>item.id===privatePreview.id);
+    clearDraftEditor();clearBankRename();
     void openAdminPreview(drafts[(current+1)%drafts.length].id);
+    return;
+  }
+  if(a==="admin-readiness-refresh"){
+    if(!canOpenAdmin()||!authStatus.user||libraryReadiness.loading)return;
+    const uid=authStatus.user.id;
+    void supabaseClient().then(client=>refreshLibraryReadiness(client,uid))
+      .catch(()=>{if(authStatus.user?.id===uid){libraryReadiness.error=state.language==="fr"?"Vérification indisponible.":"Check unavailable.";render();}});
     return;
   }
   if(a==="test-clients-refresh"){
@@ -4202,13 +4412,17 @@ root.addEventListener("click",function(event){
     })();return;
   }
   if(a==="admin-tab"){
-    if(!canOpenAdmin())return;
+    if(!canOpenAdmin()||privateImport.loading||batchImport.busy)return;
+    const returningToOverview=el.dataset.tab==="overview"&&state.adminTab!=="overview";
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
       adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
     }
+    if(state.adminTab==="bank"&&el.dataset.tab!=="bank"&&!confirmDiscardBankEdits())return;
     if(el.dataset.tab!=="bank"){bankPanel="browse";bankSelectionId=null;clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     if(state.adminTab==="test-clients"&&el.dataset.tab!=="test-clients")testClients.created=null;
-    state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
+    state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";
+    if(returningToOverview)refreshReadinessOnOverviewReturn();
+    render();
     if(state.adminTab==="test-clients"&&authStatus.user&&!testClients.loading)
       void fetchTestClientAccounts();
     if(state.adminTab==="settings"&&authStatus.user)void fetchCaptionFeature();
@@ -4349,7 +4563,8 @@ root.addEventListener("click",function(event){
     return;
   }
   if(a==="admin-theme-asset"){
-    if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id))return;
+    if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id)||
+       !confirmDiscardBankEdits())return;
     themeUI.assetId=el.dataset.id;themeUI.error="";themeUI.message="";
     if(privatePreview.id!==el.dataset.id)clearAdminPreview();
     bankImageSheet.tab="classify";clearDraftEditor();clearBankRename();render();focusBankInspector();return;
@@ -4378,7 +4593,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-bank-panel"){
     if(!canOpenAdmin()||state.adminTab!=="bank")return;
-    if(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing)return;
+    if(bankRename.busy||privateImport.loading||batchImport.busy||themeUI.busy||draftEditor.saving||publishedCatalog.publishing)return;
     const panel=el.dataset.panel;
     if(!["browse","import","themes"].includes(panel)||panel===bankPanel)return;
     if(panel!=="browse"&&!confirmDiscardBankEdits())return;
@@ -4402,8 +4617,14 @@ root.addEventListener("click",function(event){
     if(!canOpenAdmin()||!["list","small","medium"].includes(el.dataset.view))return;
     bankView=el.dataset.view;store("pictau-admin-bank-view",bankView);render();return;
   }
-  if(a==="admin-rename"){openBankRename(el.dataset.id);return;}
-  if(a==="admin-rename-cancel"){if(!bankRename.busy){clearBankRename();render();}return;}
+  if(a==="admin-rename"){
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    openBankRename(el.dataset.id);return;
+  }
+  if(a==="admin-rename-cancel"){
+    if(!bankRename.busy&&confirmDiscardBankEdits()){clearBankRename();render();}
+    return;
+  }
   if(a==="catalog-unpublish"){
     if(!canOpenAdmin()||publishedCatalog.publishing)return;
     const asset=privateBank.items.find(x=>x.id===el.dataset.id);
@@ -4626,7 +4847,11 @@ root.addEventListener("click",function(event){
     })();
     return;
   }
-  if(a==="admin-preview"){if(!canOpenAdmin())return;void openAdminPreview(el.dataset.id);return;}
+  if(a==="admin-preview"){
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    clearDraftEditor();clearBankRename();
+    void openAdminPreview(el.dataset.id);return;
+  }
   if(a==="pa-bank-sheet-tab"){
     if(!canOpenAdmin()||!bankSelectionId||!privatePreview.id||
        !["name","adjust","classify"].includes(el.dataset.tab))return;
@@ -4760,7 +4985,10 @@ root.addEventListener("click",function(event){
     })();return;
   }
 
-  if(a==="close-admin-preview"){clearAdminPreview();render();return;}
+  if(a==="close-admin-preview"){
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    clearDraftEditor();clearBankRename();clearAdminPreview();render();return;
+  }
   if(a==="download-admin-proof"){
     if(!canOpenAdmin()||!authStatus.user||privateProof.busy||
        publishedCatalog.publishing||privatePreview.loading||!privatePreview.technical||
@@ -4849,12 +5077,22 @@ root.addEventListener("click",function(event){
     file.href=privatePreview.url;file.download=(base||"pictau")+".png";
     document.body.appendChild(file);file.click();file.remove();return;
   }
-  if(a==="admin-edit-draft"){openDraftEditor(el.dataset.id);return;}
-  if(a==="close-admin-edit"){clearDraftEditor();render();return;}
+  if(a==="admin-edit-draft"){
+    openDraftEditor(el.dataset.id);
+    root.querySelector("#edit-draft-theme")?.focus({preventScroll:true});
+    return;
+  }
+  if(a==="close-admin-edit"){
+    if(!canOpenAdmin()||draftEditor.saving||!confirmDiscardBankEdits())return;
+    clearDraftEditor();render();
+    root.querySelector('.pa-bank-primary-theme [data-action="admin-edit-draft"]')?.focus({preventScroll:true});
+    return;
+  }
   if(a==="export-admin-proposal"){exportDraftProposal();return;}
   if(a==="admin-draft-review-start"){
     if(!canOpenAdmin()||!authStatus.user||privateBank.loading||
-       state.page!=="admin"||state.adminTab!=="bank")return;
+       state.page!=="admin"||state.adminTab!=="bank"||
+       !confirmDiscardBankEdits())return;
     stopDraftReviewQueue();
     draftReviewQueue.active=true;draftReviewQueue.pending=true;
     bankFilters.query="";bankFilters.status="draft";
@@ -4863,22 +5101,50 @@ root.addEventListener("click",function(event){
     clearAdminPreview();clearDraftEditor();clearBankRename();
     queueAdminBankRefresh();return;
   }
+  if(a==="admin-batch-open-confirmed"){
+    if(!canOpenAdmin()||batchImport.busy||privateBank.loading||
+       state.page!=="admin"||state.adminTab!=="bank"||
+       !batchImport.confirmedIds.includes(el.dataset.id)||
+       !confirmDiscardBankEdits())return;
+    const row=privateBank.items.find(item=>item.id===el.dataset.id&&
+      item.created_by===authStatus.user.id&&item.status==="draft");
+    if(!row)return;
+    clearDraftEditor();clearBankRename();
+    bankPanel="browse";bankSelectionId=row.id;
+    void openAdminPreview(row.id);
+    return;
+  }
+  if(a==="admin-preview-retry"){
+    if(!canOpenAdmin()||!privatePreview.id||privatePreview.loading||
+       publishedCatalog.publishing||!confirmDiscardBankEdits())return;
+    clearDraftEditor();clearBankRename();
+    void openAdminPreview(privatePreview.id);return;
+  }
+  if(a==="admin-draft-review-resume"){
+    if(!draftReviewQueue.active||draftReviewQueue.pending||privatePreview.id||
+       privateBank.loading||privateBank.error||draftEditor.id||bankRename.id||
+       !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank")return;
+    advanceDraftReviewQueue();return;
+  }
   if(a==="admin-draft-review-next"){
-    if(!draftReviewQueue.active||privatePreview.loading||
+    if(!draftReviewQueue.active||privatePreview.loading||!privatePreview.url||
        publishedCatalog.publishing||privateBank.loading||!canOpenAdmin())return;
-    clearAdminPreview();
+    // Refus => conserver la fiche et ses réglages locaux (aucune perte silencieuse).
+    if(!confirmDiscardBankEdits())return;
+    clearDraftEditor();clearBankRename();clearAdminPreview();
     advanceDraftReviewQueue();return;
   }
   if(a==="admin-draft-review-stop"){
-    if(!canOpenAdmin())return;
-    stopDraftReviewQueue();clearAdminPreview();render();return;
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    stopDraftReviewQueue();bankSelectionId=null;
+    clearDraftEditor();clearBankRename();clearAdminPreview();render();return;
   }
   if(a==="refresh-admin-bank"){
-    if(!canOpenAdmin() || !authStatus.user)return;
+    if(!canOpenAdmin()||!authStatus.user||!confirmDiscardBankEdits())return;
     stopDraftReviewQueue();clearAdminPreview();clearDraftEditor();clearBankRename();queueAdminBankRefresh();return;
   }
   if(a==="admin-bank-page"){
-    if(!canOpenAdmin()||privateBank.loading)return;
+    if(!canOpenAdmin()||privateBank.loading||!confirmDiscardBankEdits())return;
     const lastPage=Math.max(0,Math.ceil(privateBank.total/ADMIN_BANK_PAGE_SIZE)-1);
     const next=privateBank.page+(el.dataset.direction==="next"?1:el.dataset.direction==="previous"?-1:0);
     if(next===privateBank.page||next<0||next>lastPage)return;
@@ -5133,7 +5399,7 @@ root.addEventListener("input",function(event){
     if(!canOpenAdmin()||batchImport.busy||!Number.isInteger(index)||
        index<0||index>=batchImport.files.length)return;
     batchImport.titles[index]=event.target.value;
-    batchImport.error="";
+    if(batchImport.validated)batchImport.error="";
     return;
   }
   if(canOpenAdmin()&&state.adminTab==="templates"&&!adminNamedTemplates.busy){
@@ -5348,6 +5614,13 @@ root.addEventListener("submit",function(event){
     if(!canOpenAdmin()||publishedCatalog.publishing||!publishForm.querySelector('[name="confirmed"]')?.checked)return;
     const asset=privateBank.items.find(x=>x.id===publishForm.dataset.id);
     if(!asset||asset.status!=="draft"||privatePreview.asset?.id!==asset.id||privatePreview.review?.id!==asset.id||!privatePreview.technical)return;
+    if(assessDraftPrimaryTheme(asset,themeUI.items,{
+      verified:themeUI.loaded&&!themeUI.error&&!privateBank.loading&&privateBank.allowed
+    }).state!=="ready"){
+      bankImageSheet.tab="classify";render();
+      root.querySelector("#pa-bank-primary-theme-status")?.focus({preventScroll:true});
+      return;
+    }
     if(!window.confirm(state.language==="fr"?"Confirmer la publication de cette image approuvée dans le catalogue des clients ?":"Publish this reviewed picture to the client catalogue?"))return;
     const reviewed={...privatePreview.review};
     publishedCatalog.publishing=true;publishedCatalog.publishError="";publishedCatalog.publishMessage="";
@@ -5703,6 +5976,16 @@ root.addEventListener("submit",function(event){
        !draftEditor.id||!draftEditor.original||!authStatus.user)return;
     const data=new FormData(reviewForm);
     draftEditor.form={titleFr:data.get("titleFr"),titleEn:data.get("titleEn"),theme:data.get("theme")};
+    if(assessDraftPrimaryTheme({status:"draft",theme:draftEditor.form.theme},
+      themeUI.items,{verified:themeUI.loaded&&!themeUI.error}).state!=="ready"){
+      draftEditor.error=state.language==="fr"?
+        "Choisissez une catégorie principale active et vérifiée.":
+        "Choose an active, verified primary category.";
+      render();return;
+    }
+    if(bankSheetDirty()&&!window.confirm(state.language==="fr"?
+      "Les réglages du dessin non enregistrés seront perdus. Continuer la correction ?":
+      "Unsaved artwork adjustments will be lost. Continue editing the category?"))return;
     const assetId=draftEditor.id,expected={...draftEditor.original};
     const uid=authStatus.user.id,request=++draftEditor.request;
     draftEditor.saving=true;draftEditor.error="";draftEditor.message="";render();
@@ -5712,8 +5995,16 @@ root.addEventListener("submit",function(event){
         const result=await editPrivateDraftMetadata(client,uid,assetId,expected,draftEditor.form);
         if(request!==draftEditor.request||authStatus.user?.id!==uid)return;
         draftEditor.saving=false;
-        if(result.saved){clearDraftEditor();await refreshPrivateBank(client,uid);}
-        else {draftEditor.message=state.language==="fr"?"Aucune modification nécessaire.":"No change needed.";}
+        if(result.saved){
+          clearDraftEditor();
+          draftReviewQueue.seen.delete(assetId);
+          bankSelectionId=null;bankPanel="browse";
+          clearAdminPreview(); // le PNG corrigé doit être rouvert avant toute publication
+          await refreshPrivateBank(client,uid);
+          if(authStatus.user?.id===uid&&canOpenAdmin())notify(state.language==="fr"?
+            "Brouillon corrigé. Rouvrez le PNG pour le revoir avant publication.":
+            "Draft updated. Reopen the PNG before publishing.");
+        }else {draftEditor.message=state.language==="fr"?"Aucune modification nécessaire.":"No change needed.";}
       }catch(error){
         if(request!==draftEditor.request||authStatus.user?.id!==uid)return;
         draftEditor.error=String(error?.message||error);
@@ -5723,7 +6014,7 @@ root.addEventListener("submit",function(event){
   }
   if(event.target.matches('form[data-form="admin-batch-import"]')){
     event.preventDefault();
-    if(!canOpenAdmin()||!authStatus.user||batchImport.busy||privateImport.loading)return;
+    if(!canOpenAdmin()||!authStatus.user||batchImport.busy||batchImport.checking||!batchImport.validated||privateImport.loading)return;
     const files=[...batchImport.files],theme=batchImport.theme,titles=[...batchImport.titles];
     if(!files.length){batchImport.error=state.language==="fr"?"Sélectionnez des PNG.":"Select PNG files.";render();return;}
     const fr=state.language==="fr",uid=authStatus.user.id,ticket=++batchImport.request;
@@ -5731,7 +6022,7 @@ root.addEventListener("submit",function(event){
       "Préparer "+files.length+" brouillon(s) privé(s) avec les noms corrigés ? Aucun pictogramme ne sera publié.":
       "Prepare "+files.length+" private draft(s) using the edited titles? No pictogram will be published."))return;
     const current=()=>ticket===batchImport.request&&authStatus.user?.id===uid&&canOpenAdmin();
-    batchImport.busy=true;batchImport.completed=0;batchImport.total=files.length;
+    batchImport.confirmedIds=[];batchImport.busy=true;batchImport.completed=0;batchImport.total=files.length;
     batchImport.error="";batchImport.message="";batchImport.currentName="";render();
     void(async()=>{
       try{
@@ -5745,8 +6036,10 @@ root.addEventListener("submit",function(event){
           }
         });
         if(!current())return;
+        // Conserver les seuls reçus SQL confirmés, même après une erreur partielle.
+        batchImport.confirmedIds=Array.isArray(report.confirmedIds)?[...report.confirmedIds]:[];
         // Ne jamais relancer automatiquement une écriture dont le reçu est incertain.
-        batchImport.files=[];batchImport.titles=[];
+        batchImport.files=[];batchImport.titles=[];batchImport.checked=0;batchImport.validated=false;batchImport.checking=false;
         if(report.error){
           batchImport.error=(fr?
             report.completed+" / "+report.total+" brouillons confirmés. Échec à « "+(report.name||files[report.failedIndex]?.name||"—")+" » : ":
@@ -5757,11 +6050,44 @@ root.addEventListener("submit",function(event){
             report.completed+" brouillons privés créés. Vérifiez et approuvez chaque fiche séparément.":
             report.completed+" private drafts created. Review and approve each record individually.";
         }
+        // Après l'import complet, rouvrir uniquement une fiche dont l'ID
+        // a été confirmé par la relecture SQL/RLS et retrouvé dans cette
+        // page privée, sous le même compte et avec status=draft.
+        // En cas d'échec partiel : NE PAS masquer l'erreur par une navigation.
+        if(batchImport.confirmedIds.length){
+          bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
+          bankFilters.sort="recent";privateBank.page=0;
+        }
         await refreshPrivateBank(client,uid);
+        if(current()&&!report.error&&privateBank.allowed&&
+           state.page==="admin"&&state.adminTab==="bank"&&
+           Array.isArray(report.confirmedIds)){
+          const imported=[...report.confirmedIds].reverse()
+            .map(id=>privateBank.items.find(row=>row.id===id&&
+              row.created_by===uid&&row.status==="draft"))
+            .find(Boolean);
+          if(imported){
+            state.toast=fr?
+              report.completed+" brouillons privés créés. Vérifiez l'image avant publication.":
+              report.completed+" private drafts created. Review the image before publishing.";
+            bankPanel="browse";bankSelectionId=imported.id;
+            void openAdminPreview(imported.id);
+          }else if(report.confirmedIds.length){
+            batchImport.message=fr?
+              report.completed+" brouillons privés créés. Ouvrez Banque > Brouillons pour les retrouver.":
+              report.completed+" private drafts created. Open Bank > Drafts to find them.";
+            render();
+          }
+        }
       }catch(error){
         if(current())batchImport.error=String(error?.message||error);
       }finally{
-        if(ticket===batchImport.request){batchImport.busy=false;render();}
+        if(ticket===batchImport.request){
+          batchImport.busy=false;render();
+          if(batchImport.error&&authStatus.user?.id===uid&&canOpenAdmin()&&
+             state.page==="admin"&&state.adminTab==="bank")
+            root.querySelector("#pa-batch-file-error")?.focus({preventScroll:true});
+        }
       }
     })();
     return;
@@ -5769,7 +6095,7 @@ root.addEventListener("submit",function(event){
   const form=event.target.closest('form[data-form="admin-import"]');
   if(!form)return;
   event.preventDefault();
-  if(!canOpenAdmin()||privateImport.loading||batchImport.busy||!authStatus.user)return;
+  if(!canOpenAdmin()||privateImport.loading||privateImport.checking||!privateImport.validated||batchImport.busy||!authStatus.user)return;
   const file=privateImport.file;
   if(!file){privateImport.error=state.language==="fr"?"Sélectionnez un fichier PNG.":"Select a PNG file.";render();return;}
   const formData=new FormData(form);
@@ -5780,11 +6106,33 @@ root.addEventListener("submit",function(event){
   void (async()=>{
     try{
       const client=await supabaseClient();
-      await importPrivateDraft(client,userId,file,metadata);
+      const receipt=await importPrivateDraft(client,userId,file,metadata);
       if(privateImport.request!==request||authStatus.user?.id!==userId)return;
-      privateImport.file=null;privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
+      privateImport.file=null;privateImport.checking=false;privateImport.validated=false;privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
       privateImport.message=state.language==="fr"?"Brouillon privé importé. Non publié.":"Private draft imported. Not published.";
+      // Ne jamais reconstituer l'identifiant à partir du nom PNG : utiliser
+      // uniquement l'ID confirmé par la relecture RLS après INSERT/ACK perdu.
+      bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
+      bankFilters.sort="recent";privateBank.page=0;
       await refreshPrivateBank(client,userId);
+      if(privateImport.request!==request||authStatus.user?.id!==userId||
+         !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank")return;
+      const imported=privateBank.items.find(row=>row.id===receipt.id&&
+        row.created_by===userId&&row.status==="draft");
+      if(imported){
+        state.toast=state.language==="fr"?
+          "Brouillon privé créé. Vérifiez l'image avant toute publication.":
+          "Private draft created. Review the image before publishing.";
+        bankPanel="browse";bankSelectionId=imported.id;
+        void openAdminPreview(imported.id);
+      }else{
+        // L'INSERT est déjà confirmé : un échec de navigation ne doit
+        // jamais être présenté comme un échec d'import, ni relancer l'INSERT.
+        privateImport.message=state.language==="fr"?
+          "Brouillon enregistré, non publié. Retrouvez-le dans Banque > Brouillons.":
+          "Draft saved, not published. Find it under Bank > Drafts.";
+        render();
+      }
     }catch(error){
       if(privateImport.request!==request||authStatus.user?.id!==userId)return;
       privateImport.error=String(error?.message||error);
@@ -5847,7 +6195,11 @@ root.addEventListener("change",function(event){
     customerRequests.form.theme=event.target.value;return;
   }
   if(event.target.closest('form[data-form="admin-edit-draft"]')&&event.target.name==="theme"){
-    draftEditor.form.theme=event.target.value;draftEditor.error="";draftEditor.message="";return;
+    if(!canOpenAdmin()||!draftEditor.id||draftEditor.saving)return;
+    draftEditor.form.theme=event.target.value;draftEditor.error="";draftEditor.message="";
+    render();
+    root.querySelector("#edit-draft-theme")?.focus({preventScroll:true});
+    return;
   }
   if(event.target.closest('form[data-form="admin-import"]') && event.target.name==="theme"){
     privateImport.draft.theme=event.target.value;return;
@@ -5859,22 +6211,78 @@ root.addEventListener("change",function(event){
   if(event.target.dataset.field==="admin-batch-files"){
     if(!canOpenAdmin()||batchImport.busy)return;
     const chosen=[...(event.target.files||[])];
+    const ticket=++batchImport.request;
+    batchImport.confirmedIds=[];
+    batchImport.checking=false;batchImport.checked=0;batchImport.validated=false;
     try{
       if(!chosen.length||chosen.length>MAX_PRIVATE_DRAFT_BATCH)
         throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
       const titles=chosen.map(file=>draftTitleFromFilename(file.name));
-      batchImport.files=chosen;batchImport.titles=titles;batchImport.error="";batchImport.message="";
+      batchImport.files=chosen;batchImport.titles=titles;batchImport.error="";batchImport.message="";batchImport.checking=true;
     }catch(error){
       batchImport.files=[];batchImport.titles=[];batchImport.error=String(error?.message||error);
     }
-    render();return;
+    render();
+    if(!batchImport.checking){
+      root.querySelector("#pa-batch-file-error")?.focus({preventScroll:true});
+      return;
+    }
+    const uid=authStatus.user?.id;
+    const current=()=>ticket===batchImport.request&&authStatus.user?.id===uid&&canOpenAdmin();
+    // Une nouvelle sélection, une déconnexion ou un changement de compte
+    // invalide le résultat précédent; ce contrôle n'envoie aucun fichier.
+    void(async()=>{
+      try{
+        const valid=await preflightPrivateDraftFiles(chosen,{
+          isCurrent:current,
+          onChecked:({completed,total})=>{
+            if(!current())return;
+            batchImport.checked=completed;
+            const status=root.querySelector("#batch-file-status");
+            if(status)status.textContent=(state.language==="fr"?"Vérification des PNG : ":"Checking PNGs: ")+completed+" / "+total;
+          }
+        });
+        if(!current())return;
+        batchImport.validated=valid===true;
+      }catch(error){
+        if(!current())return;
+        batchImport.validated=false;
+        batchImport.error=String(error?.message||error);
+      }finally{
+        if(current()){
+          batchImport.checking=false;render();
+          if(batchImport.error)root.querySelector("#pa-batch-file-error")?.focus({preventScroll:true});
+        }
+      }
+    })();
+    return;
   }
   if(event.target.dataset.field==="admin-import-file"){
     if(!canOpenAdmin()||privateImport.loading)return;
-    privateImport.file=event.target.files?.[0]||null;
-    privateImport.error="";privateImport.message="";
-    const status=document.querySelector("#draft-file-status");
-    if(status)status.textContent=privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):(state.language==="fr"?"Aucun fichier sélectionné":"No file selected");
+    // Chaque nouvelle sélection révoque l'ancien résultat de décodage.
+    const uid=authStatus.user?.id,ticket=++privateImport.request;
+    const file=event.target.files?.[0]||null;
+    privateImport.file=file;privateImport.checking=Boolean(file);
+    privateImport.validated=false;privateImport.error="";privateImport.message="";
+    render();
+    if(!file)return;
+    const current=()=>ticket===privateImport.request&&authStatus.user?.id===uid&&
+      canOpenAdmin()&&privateImport.file===file;
+    void(async()=>{
+      try{
+        await validateDraftPng(file);
+        if(!current())return;
+        privateImport.validated=true;
+      }catch(error){
+        if(!current())return;
+        privateImport.error=String(error?.message||error);
+      }finally{
+        if(current()){
+          privateImport.checking=false;render();
+          if(privateImport.error)root.querySelector("#pa-single-png-error")?.focus({preventScroll:true});
+        }
+      }
+    })();
     return;
   }
   const field=event.target.dataset.field;

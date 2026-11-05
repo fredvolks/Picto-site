@@ -29,7 +29,10 @@ on:
       - 'app/src/admin-preview.js'
       - 'app/src/admin-artwork-rotation.js'
       - 'app/src/admin-import.js'
+      - 'app/src/admin-review.js'
       - 'app/tests/admin-batch-import.test.mjs'
+      - 'app/tests/admin-png-preflight.test.mjs'
+      - 'app/tests/admin-import-receipt.test.mjs'
       - 'app/tests/admin-artwork-rotation.test.mjs app/tests/admin-batch-import.test.mjs'
       - 'app/tests/admin-private-proof.test.mjs app/tests/admin-artwork-rotation.test.mjs'
       - 'app/tests/catalog-publication.test.mjs'
@@ -63,7 +66,10 @@ on:
       - 'app/src/admin-preview.js'
       - 'app/src/admin-artwork-rotation.js'
       - 'app/src/admin-import.js'
+      - 'app/src/admin-review.js'
       - 'app/tests/admin-batch-import.test.mjs'
+      - 'app/tests/admin-png-preflight.test.mjs'
+      - 'app/tests/admin-import-receipt.test.mjs'
       - 'app/tests/admin-artwork-rotation.test.mjs'
       - 'app/tests/admin-private-proof.test.mjs'
       - 'app/tests/catalog-publication.test.mjs'
@@ -84,3 +90,5 @@ jobs:
           node-version: '22'
       - name: Tests des modules publication et épreuve privée (sans Supabase réel)
         run: node --experimental-default-type=module --test app/tests/catalog-publication.test.mjs app/tests/admin-private-proof.test.mjs app/tests/catalog-board-navigation.test.mjs app/tests/client-categories.test.mjs app/tests/admin-template-bank.test.mjs app/tests/admin-template-bank-ui.test.mjs app/tests/admin-named-template-live-preview.test.mjs app/tests/picto-template-choices.test.mjs app/tests/picto-template-choices-ui.test.mjs app/tests/admin-picto-template-integration.test.mjs app/tests/client-template-print.test.mjs app/tests/client-template-print-integration.test.mjs app/tests/client-template-paper.test.mjs app/tests/picto-template-modal-a11y.test.mjs
+      - name: Valider l'import PNG et les lots avant toute mutation
+        run: node --experimental-default-type=module --test app/tests/admin-png-preflight.test.mjs app/tests/admin-batch-import.test.mjs app/tests/admin-import-receipt.test.mjs

@@ -44,18 +44,34 @@ async function readMetadataGuard(client){
   }catch{return "unknown";}
 }
 
+// Le simple fait qu'un gabarit existe ne prouve ni sa publication ni son
+// association à une image approuvée. Ne jamais convertir une panne/RLS en zéro.
+async function readTemplateSummary(client){
+  try{
+    const [privateCount,publishedCount]=await Promise.all([
+      readCount(client,"pictau_templates",["is_published",false]),
+      readCount(client,"pictau_templates",["is_published",true])
+    ]);
+    return {state:"available",private:privateCount,published:publishedCount};
+  }catch(error){
+    return {state:MISSING_TABLE_CODES.has(error?.code)?"missing":"unknown",
+      private:null,published:null};
+  }
+}
+
 // Output intentionally contains no identifiers, PNG URLs, user records or
 // hidden RLS policy details; only counts and explicitly qualified signals.
 export async function readAdminLibraryReadiness(client,uid){
   await requireSameAdmin(client,uid);
-  const [drafts,published,guard,projection]=await Promise.all([
+  const [drafts,published,guard,projection,templates]=await Promise.all([
     readCount(client,"pictau_assets",["status","draft"]),
     readCount(client,"pictau_catalog_items"),
     readMetadataGuard(client),
-    readProjection(client)
+    readProjection(client),
+    readTemplateSummary(client)
   ]);
   await requireSameAdmin(client,uid);
-  return {drafts,published,guard,projection:projection.state,
+  return {drafts,published,guard,projection:projection.state,templates,
     // Admin-only probes do NOT independently prove client RLS or real PNG review.
     clientRlsVerified:false,imagesApprovedByHuman:false};
 }

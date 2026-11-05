@@ -1,10 +1,11 @@
+import {inspectCompletePngBytes} from "./admin-review.js";
 // Import volontaire d'un PNG dans la banque PRIVÉE du Super Admin.
 // Aucune approbation ni publication automatique. Les politiques RLS Supabase
 // sont l'autorité finale, indépendamment des contrôles d'interface.
 export const DRAFT_BUCKET = "pictau-drafts";
 export const MAX_DRAFT_BYTES = 6 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const pngSignature = [137,80,78,71,13,10,26,10];
+
 
 export function validateDraftMetadata({titleFr,titleEn="",theme="autres"}={}) {
   const clean = value => typeof value==="string" ? value.trim().replace(/\s+/g," ") : "";
@@ -15,6 +16,46 @@ export function validateDraftMetadata({titleFr,titleEn="",theme="autres"}={}) {
   return {title_fr,title_en:title_en||null,theme:category};
 }
 
+// CRC et blocs corrects ne garantissent pas que les pixels compressés sont
+// lisibles. Dans le navigateur, faire aussi décoder le PNG sans jamais l'envoyer.
+async function ensureBrowserCanDecodeDraft(file,dimensions){
+  const expectedWidth=dimensions.width,expectedHeight=dimensions.height;
+  if(typeof globalThis.createImageBitmap==="function"){
+    let bitmap;
+    try{
+      bitmap=await globalThis.createImageBitmap(file);
+      if(bitmap.width!==expectedWidth||bitmap.height!==expectedHeight)
+        throw Error("Dimensions décodées incompatibles.");
+    }catch{
+      throw Error("Impossible de décoder le dessin PNG. Choisissez une image valide.");
+    }finally{
+      bitmap?.close?.();
+    }
+    return;
+  }
+  // Repli pour les versions Safari sans createImageBitmap.
+  if(typeof globalThis.document==="undefined")return; // tests Node sans DOM
+  if(typeof globalThis.Image!=="function"||
+     typeof globalThis.URL?.createObjectURL!=="function"||
+     typeof globalThis.URL?.revokeObjectURL!=="function")
+    throw Error("Ce navigateur ne peut pas vérifier le PNG avant importation.");
+  const url=globalThis.URL.createObjectURL(file);
+  try{
+    const decoded=await new Promise((resolve,reject)=>{
+      const img=new globalThis.Image();
+      img.onload=()=>resolve({width:img.naturalWidth,height:img.naturalHeight});
+      img.onerror=()=>reject(Error("PNG illisible."));
+      img.src=url;
+    });
+    if(decoded.width!==expectedWidth||decoded.height!==expectedHeight)
+      throw Error("Dimensions PNG décodées incompatibles.");
+  }catch{
+    throw Error("Impossible de décoder le dessin PNG. Choisissez une image valide.");
+  }finally{
+    globalThis.URL.revokeObjectURL(url);
+  }
+}
+
 export async function validateDraftPng(file) {
   if(!file || typeof file.size!=="number" || typeof file.slice!=="function")
     throw new Error("Choisissez un fichier PNG.");
@@ -23,9 +64,13 @@ export async function validateDraftPng(file) {
   if(file.type && file.type!=="image/png")throw new Error("Seuls les fichiers PNG sont acceptés.");
   const name=typeof file.name==="string"?file.name:"";
   if(!/\.png$/i.test(name))throw new Error("Le nom du fichier doit se terminer par .png.");
-  const header=new Uint8Array(await file.slice(0,8).arrayBuffer());
-  if(!pngSignature.every((n,i)=>header[i]===n))
-    throw new Error("Ce fichier ne contient pas la signature d'une image PNG.");
+  // Le fichier (6 Mo maximum) est vérifié entièrement AVANT la première
+  // mutation Supabase, même dans un lot mixte de vingt PNG.
+  const bytes=new Uint8Array(await file.slice(0,file.size).arrayBuffer());
+  if(bytes.length!==file.size)
+    throw new Error("Lecture du fichier PNG incomplète.");
+  const dimensions=inspectCompletePngBytes(bytes);
+  await ensureBrowserCanDecodeDraft(file,dimensions);
   return true;
 }
 
@@ -62,7 +107,8 @@ async function readVerifiedImportedDraft(client,uid,imagePath,expected){
      row.crop_data?.source!=="manual-super-admin-upload")
     throw new Error("La fiche privée importée diffère de celle demandée.");
   await requireAdmin(client,uid,true);
-  return {status:"draft",imagePath};
+// Le véritable id vient de la relecture RLS du serveur, jamais du nom du PNG.
+  return {id:row.id,status:"draft",imagePath};
 }
 
 export async function importPrivateDraft(client,verifiedUserId,file,metadata,makeId=()=>globalThis.crypto.randomUUID()) {
@@ -135,6 +181,33 @@ export async function importPrivateDraft(client,verifiedUserId,file,metadata,mak
 // Une réponse de serveur incertaine arrête le lot, JAMAIS de reprise aveugle.
 export const MAX_PRIVATE_DRAFT_BATCH=20;
 
+/**
+ * Contrôle local des images sélectionnées AVANT de proposer l'importation.
+ * La sélection peut changer pendant un décodage asynchrone : isCurrent
+ * empêche qu'un ancien résultat soit présenté comme valide.
+ * Aucune lecture Supabase ni mutation Storage/SQL ici.
+ */
+export async function preflightPrivateDraftFiles(files,{isCurrent=()=>true,onChecked=()=>{}}={}){
+  if(!Array.isArray(files)||files.length<1||files.length>MAX_PRIVATE_DRAFT_BATCH)
+    throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
+  if(typeof isCurrent!=="function"||typeof onChecked!=="function")
+    throw Error("Contrôle des PNG invalide.");
+  for(const [index,file] of files.entries()){
+    if(!isCurrent())return false;
+    try{
+      await validateDraftPng(file);
+    }catch(error){
+      throw Error("Image "+(index+1)+" sur "+files.length+" : "+
+        String(error?.message||"PNG invalide."));
+    }
+    if(!isCurrent())return false;
+    try{onChecked({completed:index+1,total:files.length});}
+    catch{/* La progression n'est jamais une preuve de validité et ne relance aucun upload. */}
+  }
+  return true;
+}
+
+
 export function draftTitleFromFilename(filename){
   if(typeof filename!=="string"||filename.length>255||
      !/\.png$/i.test(filename)||/[\p{C}/\\]/u.test(filename))
@@ -165,7 +238,14 @@ export async function preparePrivateDraftBatch(files,theme="autres",titles=null,
     const key=normalized.title_fr.toLocaleLowerCase("fr");
     if(seen.has(key))throw Error("Deux PNG du lot portent le même nom : "+normalized.title_fr);
     seen.add(key);
-    await validateDraftPng(file);
+    try{
+      await validateDraftPng(file);
+    }catch(error){
+      // Localiser le fichier fautif dans un lot sans jamais en envoyer une
+      // partie, même si le nom saisi contient des caractères HTML.
+      throw Error("Image "+(index+1)+" sur "+files.length+" : "+
+        String(error?.message||"PNG invalide."));
+    }
     entries.push({file,metadata:{...metadata,titleFr:normalized.title_fr}});
   }
   return entries;
@@ -179,21 +259,32 @@ export async function importPrivateDraftBatch(client,uid,files,theme,{
   if(typeof onProgress!=="function"||typeof isCurrent!=="function"||
      typeof importOne!=="function")throw Error("Opération de lot invalide.");
   let completed=0;
+  // Les identifiants proviennent exclusivement des reçus d'importation
+  // confirmés par la relecture SQL sous Auth/RLS, pas des noms de fichiers.
+  const confirmedIds=[];
   for(let i=0;i<entries.length;i++){
     if(!isCurrent())return {
-      completed,total:entries.length,failedIndex:i,error:"Session ou lot modifié : importation arrêtée."
+      completed,total:entries.length,failedIndex:i,confirmedIds,
+      error:"Session ou lot modifié : importation arrêtée."
     };
     try{
-      await importOne(client,uid,entries[i].file,entries[i].metadata);
+      const receipt=await importOne(client,uid,entries[i].file,entries[i].metadata);
+      // Chaque succès exige un vrai reçu SQL sous Auth/RLS. Sans reçu,
+      // ne jamais compter la ligne comme importée ni lancer l'image suivante :
+      // un INSERT pourrait avoir abouti sans accusé exploitable.
+      if(receipt?.status!=="draft"||!uuid.test(receipt?.id||"")||
+         confirmedIds.includes(receipt.id))
+        throw Error("Reçu du brouillon invalide : vérifiez la banque avant toute nouvelle importation.");
+      confirmedIds.push(receipt.id);
       completed++;
       try{onProgress({completed,total:entries.length,name:entries[i].metadata.titleFr});}
       catch{/* Un message d'interface ne doit pas créer un faux échec d'INSERT. */}
     }catch(error){
       return {
-        completed,total:entries.length,failedIndex:i,
+        completed,total:entries.length,failedIndex:i,confirmedIds,
         name:entries[i].metadata.titleFr,error:String(error?.message||error)
       };
     }
   }
-  return {completed,total:entries.length,failedIndex:null,error:""};
+  return {completed,total:entries.length,failedIndex:null,confirmedIds,error:""};
 }
