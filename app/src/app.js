@@ -1131,10 +1131,33 @@ function observeBankThumbnails(){
   for(const node of nodes)bankThumbs.observer.observe(node);
 }
 const libraryReadiness={loaded:false,loading:false,error:"",result:null,request:0};
+// Retour depuis Banque/Gabarits : ne jamais présenter d'anciens comptes comme actuels.
+// La requête reste strictement en lecture seule avec vérification Auth/UID/RLS.
+function refreshReadinessOnOverviewReturn(){
+  if(!canOpenAdmin()||!authStatus.user||state.page!=="admin"||state.adminTab!=="overview")return;
+  const uid=authStatus.user.id,ticket=++libraryReadiness.request;
+  libraryReadiness.loaded=false;libraryReadiness.loading=true;
+  libraryReadiness.result=null;libraryReadiness.error="";
+  // La vue appelante effectue son render() une seule fois après ce changement.
+  void supabaseClient().then(client=>{
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==uid||
+      !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="overview")return;
+    return refreshLibraryReadiness(client,uid);
+  }).catch(()=>{
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==uid||
+      !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="overview")return;
+    libraryReadiness.loading=false;
+    libraryReadiness.error=state.language==="fr"?
+      "Vérification indisponible. Réessayez avec votre session Super Admin.":
+      "Check unavailable. Retry with your Super Admin session.";
+    render();
+  });
+}
 async function refreshLibraryReadiness(client,userId){
   if(!canOpenAdmin()||authStatus.user?.id!==userId)return;
   const ticket=++libraryReadiness.request;
-  libraryReadiness.loading=true;libraryReadiness.error="";render();
+  libraryReadiness.loading=true;libraryReadiness.loaded=false;
+  libraryReadiness.result=null;libraryReadiness.error="";render();
   try{
     const result=await readAdminLibraryReadiness(client,userId);
     if(ticket!==libraryReadiness.request||authStatus.user?.id!==userId||!canOpenAdmin())return;
@@ -4289,12 +4312,15 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-tab"){
     if(!canOpenAdmin())return;
+    const returningToOverview=el.dataset.tab==="overview"&&state.adminTab!=="overview";
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
       adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
     }
     if(el.dataset.tab!=="bank"){bankPanel="browse";bankSelectionId=null;clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     if(state.adminTab==="test-clients"&&el.dataset.tab!=="test-clients")testClients.created=null;
-    state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";render();
+    state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";
+    if(returningToOverview)refreshReadinessOnOverviewReturn();
+    render();
     if(state.adminTab==="test-clients"&&authStatus.user&&!testClients.loading)
       void fetchTestClientAccounts();
     if(state.adminTab==="settings"&&authStatus.user)void fetchCaptionFeature();
