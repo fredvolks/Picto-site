@@ -39,3 +39,23 @@ test("L2: public conserve la Banque existante et rend la correction possible san
  assert.ok(app.includes("DRAFT_METADATA_WRITES_ENABLED"));
  assert.ok(css.includes(".pa-bank-sheet .pa-bank-primary-theme .btn{min-height:44px"));
 });
+
+test("La navigation ne perd jamais les deux sortes de modifications d'une fiche",()=>{
+ const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
+ const start=app.indexOf("function hasUnsavedBankEdits(){");
+ const end=app.indexOf("function confirmDiscardBankEdits(){",start);
+ assert.ok(start>0&&end>start,"Détecteur de modifications en attente présent");
+ const body=app.slice(start,end);
+ assert.match(body,/const renameDirty=Boolean/);
+ assert.match(body,/const metadataDirty=Boolean/);
+ assert.match(body,/return renameDirty\|\|metadataDirty\|\|bankSheetDirty\(\)/,
+   "Ne pas oublier les ajustements du PNG pendant l'édition des métadonnées");
+ for(const action of ["close-admin-edit","refresh-admin-bank","admin-bank-page",
+   "admin-draft-review-start","admin-preview","admin-rename"]){
+   const begin=app.indexOf('if(a==="'+action+'")');
+   assert.ok(begin>0,action+" doit exister");
+   const control=app.slice(begin,begin+480);
+   assert.ok(control.includes("confirmDiscardBankEdits()"),
+     action+" doit refuser la navigation lorsque l'utilisateur annule");
+ }
+});
