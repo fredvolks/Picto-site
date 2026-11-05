@@ -29,3 +29,15 @@ export function assessDraftQuality(asset,technical=null){
     publishable:false
   };
 }
+
+// Contrôle purement indicatif de la catégorie principale, issu du référentiel
+// PRIVÉ déjà relu sous Auth/RLS. Ne certifie jamais une approbation humaine.
+// La publication serveur revalide le thème avant Storage puis avant INSERT.
+export function assessDraftPrimaryTheme(asset,themes,{verified=false}={}){
+  if(!asset||asset.status!=="draft")return {state:"not-draft",target:null};
+  if(!verified||!Array.isArray(themes))return {state:"unknown",target:null};
+  const row=themes.find(item=>item&&item.code===asset.theme);
+  if(!row)return {state:"missing",target:null};
+  if(row.merged_into!=null)return {state:"merged",target:row.merged_into};
+  return {state:"ready",target:null};
+}
