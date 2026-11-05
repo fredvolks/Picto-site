@@ -6053,8 +6053,6 @@ root.addEventListener("submit",function(event){
           bankFilters.sort="recent";privateBank.page=0;
         }
         await refreshPrivateBank(client,uid);
-        if(current()&&report.error&&state.page==="admin"&&state.adminTab==="bank")
-          root.querySelector("#pa-batch-file-error")?.focus({preventScroll:true});
         if(current()&&!report.error&&privateBank.allowed&&
            state.page==="admin"&&state.adminTab==="bank"&&
            Array.isArray(report.confirmedIds)){
@@ -6078,7 +6076,12 @@ root.addEventListener("submit",function(event){
       }catch(error){
         if(current())batchImport.error=String(error?.message||error);
       }finally{
-        if(ticket===batchImport.request){batchImport.busy=false;render();}
+        if(ticket===batchImport.request){
+          batchImport.busy=false;render();
+          if(batchImport.error&&authStatus.user?.id===uid&&canOpenAdmin()&&
+             state.page==="admin"&&state.adminTab==="bank")
+            root.querySelector("#pa-batch-file-error")?.focus({preventScroll:true});
+        }
       }
     })();
     return;

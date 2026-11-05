@@ -268,7 +268,8 @@ test("L'écran ouvre après succès uniquement un brouillon revenu de la Banque 
  const end=app.indexOf("const form=event.target.closest('form[data-form=\"admin-import\"]')",start);
  assert.ok(start>0&&end>start);
  const body=app.slice(start,end);
- assert.match(body,/if\(!report\.error\)/);
+ assert.match(body,/if\(batchImport\.confirmedIds\.length\)/);
+ assert.match(body,/if\(current\(\)&&!report\.error/);
  assert.match(body,/Array\.isArray\(report\.confirmedIds\)/);
  assert.match(body,/report\.confirmedIds\]\.reverse\(\)/);
  assert.match(body,/row\.id===id&&/);
