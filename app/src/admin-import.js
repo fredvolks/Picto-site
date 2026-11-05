@@ -269,14 +269,13 @@ export async function importPrivateDraftBatch(client,uid,files,theme,{
     };
     try{
       const receipt=await importOne(client,uid,entries[i].file,entries[i].metadata);
-      // Les doublures de tests historiques peuvent ne pas renvoyer de reçu.
-      // En production, un reçu non nul doit désigner un brouillon valide.
-      if(receipt!=null){
-        if(receipt.status!=="draft"||!uuid.test(receipt.id||"")||
-           confirmedIds.includes(receipt.id))
-          throw Error("Reçu du brouillon invalide : vérifiez la banque avant toute nouvelle importation.");
-        confirmedIds.push(receipt.id);
-      }
+      // Chaque succès exige un vrai reçu SQL sous Auth/RLS. Sans reçu,
+      // ne jamais compter la ligne comme importée ni lancer l'image suivante :
+      // un INSERT pourrait avoir abouti sans accusé exploitable.
+      if(receipt?.status!=="draft"||!uuid.test(receipt?.id||"")||
+         confirmedIds.includes(receipt.id))
+        throw Error("Reçu du brouillon invalide : vérifiez la banque avant toute nouvelle importation.");
+      confirmedIds.push(receipt.id);
       completed++;
       try{onProgress({completed,total:entries.length,name:entries[i].metadata.titleFr});}
       catch{/* Un message d'interface ne doit pas créer un faux échec d'INSERT. */}

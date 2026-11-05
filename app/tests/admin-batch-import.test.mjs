@@ -13,6 +13,13 @@ function png(name,bytes=VALID_TEST_PNG_BYTES,type="image/png"){
 }
 const files=()=>[png("se_laver_les_mains.png"),png("ÉCOLE-02.PNG"),png("pomme.png")];
 
+const confirmedDraftIds=[
+ "11111111-1111-4111-8111-111111111111",
+ "22222222-2222-4222-8222-222222222222",
+ "33333333-3333-4333-8333-333333333333"
+];
+const mockReceipt=index=>({id:confirmedDraftIds[index],status:"draft"});
+
 test("Émilie prépare 1 à 20 brouillons depuis les noms français, sans créer de doublon",async()=>{
  assert.equal(MAX_PRIVATE_DRAFT_BATCH,20);
  assert.equal(draftTitleFromFilename("École-12.PNG"),"École 12");
@@ -47,7 +54,7 @@ test("Le lot crée des brouillons strictement séquentiels et confirme chaque su
    inFlight++;peak=Math.max(peak,inFlight);
    assert.equal(uid,"verified-admin");
    calls.push({file:file.name,title:metadata.titleFr,theme:metadata.theme});
-   await Promise.resolve();inFlight--;
+   await Promise.resolve();inFlight--;return mockReceipt(calls.length-1);
   },
   onProgress:value=>progress.push(value)
  });
@@ -65,6 +72,7 @@ test("Une erreur de serveur stoppe le lot sans réessayer ni importer les autres
   importOne:async(_c,_u,file)=>{
    calls.push(file.name);
    if(file.name==="ÉCOLE-02.PNG")throw new Error("Importation incertaine : PNG conservé");
+    return mockReceipt(calls.length-1);
   }
  });
  assert.deepEqual(calls,["se_laver_les_mains.png","ÉCOLE-02.PNG"]);
@@ -77,7 +85,7 @@ test("Changement de session arrête les fichiers restants, sans créer de deuxi�
  let sent=0,confirmed=0;
  const report=await importPrivateDraftBatch({},"admin",files(),"autres",{
   isCurrent:()=>confirmed===0,
-  importOne:async()=>{sent++;confirmed++;}
+  importOne:async()=>{sent++;confirmed++;return mockReceipt(0);}
  });
  assert.equal(sent,1);assert.equal(report.completed,1);
  assert.equal(report.failedIndex,1);
@@ -86,7 +94,7 @@ test("Changement de session arrête les fichiers restants, sans créer de deuxi�
 test("Une erreur d'affichage après INSERT n'entraîne aucune répétition de l'import",async()=>{
  let sent=0;
  const report=await importPrivateDraftBatch({},"admin",[png("pause.png")],"autres",{
-  importOne:async()=>{sent++;},onProgress:()=>{throw new Error("DOM indisponible");}
+  importOne:async()=>{sent++;return mockReceipt(0);},onProgress:()=>{throw new Error("DOM indisponible");}
  });
  assert.equal(sent,1);assert.equal(report.completed,1);assert.equal(report.error,"");
 });
@@ -117,7 +125,7 @@ test("Émilie corrige chaque nom français avant l'import sans modifier les PNG"
  assert.deepEqual(titles,[" Se laver  les mains ","École","Pomme verte"]);
  const calls=[];
  const report=await importPrivateDraftBatch({},"verified-admin",input,"hygiene",{
-  titles,importOne:async(_c,_uid,file,metadata)=>{calls.push([file.name,metadata.titleFr]);}
+  titles,importOne:async(_c,_uid,file,metadata)=>{calls.push([file.name,metadata.titleFr]);return mockReceipt(calls.length-1);}
  });
  assert.equal(report.completed,3);
  assert.equal(report.failedIndex,null);
@@ -169,11 +177,28 @@ test("Formulaire de lot : titres éditables bilingues, sauvegardés au clavier e
  assert.match(style,/@media\(max-width:480px\)\{\.admin-batch-list li/);
 });
 
-const confirmedDraftIds=[
- "11111111-1111-4111-8111-111111111111",
- "22222222-2222-4222-8222-222222222222",
- "33333333-3333-4333-8333-333333333333"
-];
+
+test("Un import sans reçu confirmé stoppe le lot sans afficher un faux succès",async()=>{
+ let sent=0;
+ const progress=[];
+ const report=await importPrivateDraftBatch({},"admin",files(),"autres",{
+  importOne:async()=>{sent++;return sent===1?mockReceipt(0):undefined;},
+  onProgress:value=>progress.push(value.completed)
+ });
+ assert.equal(sent,2,"Ne pas envoyer le troisième PNG après un reçu absent");
+ assert.equal(report.completed,1);
+ assert.equal(report.failedIndex,1);
+ assert.deepEqual(report.confirmedIds,[confirmedDraftIds[0]]);
+ assert.deepEqual(progress,[1]);
+ assert.match(report.error,/Reçu du brouillon invalide/);
+ const missing=await importPrivateDraftBatch({},"admin",[png("seul.png")],"autres",{
+  importOne:async()=>null
+ });
+ assert.equal(missing.completed,0);
+ assert.deepEqual(missing.confirmedIds,[]);
+ assert.equal(missing.failedIndex,0);
+ assert.match(missing.error,/Reçu du brouillon invalide/);
+});
 
 test("Après un lot complet, seuls les IDs SQL des trois vrais reçus sont conservés",async()=>{
  let sent=0;
