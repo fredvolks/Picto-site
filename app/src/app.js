@@ -4340,6 +4340,7 @@ root.addEventListener("click",function(event){
     const drafts=privateBank.items.filter(item=>item.status==="draft");
     if(!drafts.length)return;
     const current=drafts.findIndex(item=>item.id===privatePreview.id);
+    clearDraftEditor();clearBankRename();
     void openAdminPreview(drafts[(current+1)%drafts.length].id);
     return;
   }
@@ -4816,6 +4817,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-preview"){
     if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    clearDraftEditor();clearBankRename();
     void openAdminPreview(el.dataset.id);return;
   }
   if(a==="pa-bank-sheet-tab"){
@@ -4953,7 +4955,7 @@ root.addEventListener("click",function(event){
 
   if(a==="close-admin-preview"){
     if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
-    clearAdminPreview();render();return;
+    clearDraftEditor();clearBankRename();clearAdminPreview();render();return;
   }
   if(a==="download-admin-proof"){
     if(!canOpenAdmin()||!authStatus.user||privateProof.busy||
@@ -5070,6 +5072,7 @@ root.addEventListener("click",function(event){
   if(a==="admin-preview-retry"){
     if(!canOpenAdmin()||!privatePreview.id||privatePreview.loading||
        publishedCatalog.publishing||!confirmDiscardBankEdits())return;
+    clearDraftEditor();clearBankRename();
     void openAdminPreview(privatePreview.id);return;
   }
   if(a==="admin-draft-review-resume"){
@@ -5083,12 +5086,13 @@ root.addEventListener("click",function(event){
        publishedCatalog.publishing||privateBank.loading||!canOpenAdmin())return;
     // Refus => conserver la fiche et ses réglages locaux (aucune perte silencieuse).
     if(!confirmDiscardBankEdits())return;
-    clearAdminPreview();
+    clearDraftEditor();clearBankRename();clearAdminPreview();
     advanceDraftReviewQueue();return;
   }
   if(a==="admin-draft-review-stop"){
     if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
-    stopDraftReviewQueue();bankSelectionId=null;clearAdminPreview();render();return;
+    stopDraftReviewQueue();bankSelectionId=null;
+    clearDraftEditor();clearBankRename();clearAdminPreview();render();return;
   }
   if(a==="refresh-admin-bank"){
     if(!canOpenAdmin()||!authStatus.user||!confirmDiscardBankEdits())return;
