@@ -32,14 +32,14 @@ import {layoutArtwork,normalizeArtSettings,CENTER_WHOLE,CENTER_UPPER} from "./ar
 import {restoreVersionedPreset,serializeVersionedPreset} from "./preset-version.js";
 import {submitPictogramRequest,listMyPictogramRequestsAvailablePage,listAdminPictogramRequestsAvailablePage,updateAdminPictogramRequest,listPictogramRequestHistory,REQUEST_PAGE_SIZE,REQUEST_STATUSES,REQUEST_LABELS,validateRequestForm} from "./pictogram-requests.js";
 import {renderAdminRequestDesk} from "./request-ui.js";
-import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
-import {renderClientFiles,renderVerifiedPdfRetry} from "./client-files-ui.js";
+import {archivePdf,validatePdfBlob,normalizeDocumentTitle,listMyDocumentsAvailablePage,downloadMyDocument,renameMyDocument,duplicateMyDocumentSource,DOCUMENTS_PAGE_SIZE} from "./client-files.js";
+import {renderClientFiles,renderVerifiedPdfRetry,documentRenameFeedback} from "./client-files-ui.js";
 
 import {listPublishedCatalogAvailablePage,loadApprovedSelection,downloadPublishedArtwork,publishReviewedPictogram,unpublishReviewedPictogram,CATALOG_PAGE_SIZE,toggleCatalogChoice,selectVisibleCatalogPage,moveCatalogChoice} from "./catalog.js";
 import {listUsedPictogramsAvailablePage,approvedFromUsage,USED_PAGE_SIZE,toggleUsedChoice,removeUsedChoice,selectedUsedChoices,planUsedBatchApproval} from "./used-pictograms.js";
 import {readCaptionPermission,setCaptionPermission} from "./caption-permission.js";
 import {selectApprovedItem,addApprovedPage,setApprovedItemLabel,approvedItemCaption,changeApprovedOrder,removeApprovedItem,canPrepareApproved,renderOfficialComposer,updateComposerPrintFit} from "./official-composer.js";
-import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
+import {listEditableDraftsAvailablePage,MAX_EDITABLE_DRAFTS,loadEditableDraft,duplicateEditableDraft,renameEditableDraft,summarizeEditableDraftItems,saveEditableDraft,deleteEditableDraft,normalizeEditableDraft} from "./client-drafts.js";
 import {createDraftAutosave,beginDraftReplacement,beginDraftDeletion} from "./draft-autosave.js";
 import {previewPagesFromOriginalPdf} from "./pdf-preview.js";
 import {createPreparedPdf,fitPhysicalCopyColumns,previewPhysicalCopySheet} from "./print-pdf.js";
@@ -243,13 +243,13 @@ async function fetchCaptionFeature(){
     }
   }
 }
-const editableDrafts={items:[],total:0,page:0,kind:"all",query:"",sort:"recent",loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,error:"",message:"",request:0,sessionEpoch:0,
+const editableDrafts={items:[],total:0,page:0,kind:"all",query:"",sort:"recent",loaded:false,loading:false,busy:false,deletingKind:null,copyKind:null,renameId:null,renameTitle:"",renameError:"",error:"",message:"",request:0,sessionEpoch:0,
   openEpoch:{routine:0,board:0},current:{routine:null,board:null},dirty:{routine:false,board:false}};
 function resetEditableDrafts(){
   draftAutosave.reset();editableDrafts.sessionEpoch++;
   editableDrafts.openEpoch.routine++;editableDrafts.openEpoch.board++;
   editableDrafts.request++;editableDrafts.items=[];editableDrafts.total=0;editableDrafts.page=0;editableDrafts.kind="all";editableDrafts.query="";editableDrafts.sort="recent";editableDrafts.loaded=false;
-  editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.deletingKind=null;editableDrafts.copyKind=null;editableDrafts.error="";editableDrafts.message="";
+  editableDrafts.loading=false;editableDrafts.busy=false;editableDrafts.deletingKind=null;editableDrafts.copyKind=null;editableDrafts.renameId=null;editableDrafts.renameTitle="";editableDrafts.renameError="";editableDrafts.error="";editableDrafts.message="";
   editableDrafts.current={routine:null,board:null};editableDrafts.dirty={routine:false,board:false};
 }
 async function fetchEditableDrafts(){
@@ -267,6 +267,39 @@ async function fetchEditableDrafts(){
   }finally{
     if(token===editableDrafts.request&&authStatus.user?.id===uid){
       editableDrafts.loading=false;render();
+    }
+  }
+}
+// Les brouillons récents de l'accueil ont leur propre requête : les filtres
+// de « Mes brouillons » ne doivent jamais masquer une composition enregistrée.
+const homeDrafts={items:[],loaded:false,loading:false,error:"",request:0};
+function resetHomeDrafts(){
+  homeDrafts.request++;homeDrafts.items=[];homeDrafts.loaded=false;
+  homeDrafts.loading=false;homeDrafts.error="";
+}
+async function fetchHomeDrafts(existingClient=null,verifiedUid=null){
+  if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin())return;
+  const uid=authStatus.user.id;
+  if(verifiedUid!==null&&verifiedUid!==uid)return;
+  const ticket=++homeDrafts.request;
+  homeDrafts.loading=true;homeDrafts.error="";render();
+  try{
+    const client=existingClient||await supabaseClient();
+    // Liste privée avec UID/RLS revérifiés dans le service; tri global serveur
+    // récent et page zéro, sans toucher aux filtres de l'écran Créer.
+    const result=await listEditableDraftsAvailablePage(client,uid,{
+      page:0,kind:"all",query:"",sort:"recent"
+    });
+    if(ticket!==homeDrafts.request||authStatus.user?.id!==uid||canOpenAdmin())return;
+    homeDrafts.items=result.items.slice(0,2);
+    homeDrafts.loaded=true;
+  }catch(error){
+    if(ticket!==homeDrafts.request||authStatus.user?.id!==uid||canOpenAdmin())return;
+    homeDrafts.items=[];homeDrafts.error=String(error?.message||error);
+    homeDrafts.loaded=false;
+  }finally{
+    if(ticket===homeDrafts.request&&authStatus.user?.id===uid&&!canOpenAdmin()){
+      homeDrafts.loading=false;render();
     }
   }
 }
@@ -524,7 +557,7 @@ function observePublishedArtwork(){
     }else catalogImageObserver.observe(node);
   });
 }
-const clientFiles={items:[],total:0,page:0,query:"",type:"all",sort:"recent",loading:false,busy:false,error:"",message:"",
+const clientFiles={items:[],total:0,page:0,query:"",type:"all",sort:"recent",period:"all",source:"all",loading:false,busy:false,error:"",message:"",copySourceMessage:null,
  renameId:null,request:0,preview:null,reprintRetry:null,draft:{title:"",documentType:"routine"}};
 function clearPdfReprintRetry(){
   if(clientFiles.reprintRetry?.url)URL.revokeObjectURL(clientFiles.reprintRetry.url);
@@ -548,15 +581,15 @@ function resetClientFiles(){
  pendingGeneratedPdf=null; // effacer toute copie du compte précédent au changement de session
  pdfRecoveryRequest++;pdfRecoveryBusy=false;pdfRecoveryError="";
  clientFiles.request++;clientFiles.items=[];clientFiles.total=0;clientFiles.page=0;
- clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.loading=false;clientFiles.busy=false;
- clientFiles.error="";clientFiles.message="";clientFiles.renameId=null;
+ clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";clientFiles.loading=false;clientFiles.busy=false;
+ clientFiles.error="";clientFiles.message="";clientFiles.copySourceMessage=null;clientFiles.renameId=null;
  clientFiles.draft={title:"",documentType:"routine"};
 }
 async function fetchClientFiles(client,uid){
  const ticket=++clientFiles.request;
  clientFiles.loading=true;clientFiles.error="";render();
  try{
-  const r=await listMyDocumentsAvailablePage(client,uid,{page:clientFiles.page,query:clientFiles.query,type:clientFiles.type,sort:clientFiles.sort});
+  const r=await listMyDocumentsAvailablePage(client,uid,{page:clientFiles.page,query:clientFiles.query,type:clientFiles.type,sort:clientFiles.sort,period:clientFiles.period,source:clientFiles.source});
   if(ticket!==clientFiles.request||authStatus.user?.id!==uid)return;
   clientFiles.page=r.page;clientFiles.items=r.items;clientFiles.total=r.total;
  }catch(error){
@@ -1199,7 +1232,7 @@ function resetPrivateBank(){
   testClients.request++;testClients.items=[];testClients.loaded=false;
   testClients.loading=false;testClients.busy=false;testClients.error="";
   testClients.message="";testClients.created=null;
-  resetOfficialComposer();resetEditableDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();resetClientPictoTemplates();
+  resetOfficialComposer();resetEditableDrafts();resetHomeDrafts();resetUsedPictos();resetCaptionFeature();clearPublishedCatalog();resetRequests();resetClientFiles();clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();clearThemeUI();resetAdminNamedTemplates();resetClientPictoTemplates();
   templateChoicesProbe++;TEMPLATE_CHOICES_RELEASED=false;
   stopDraftReviewQueue();
   clearTimeout(bankQueryTimer);bankQueryTimer=null;
@@ -1223,7 +1256,7 @@ async function refreshPrivateBank(client,userId){
     if(SITE_EMBEDDED&&!captionFeature.loading&&!captionFeature.loaded)
       void fetchCaptionFeature();
     if(SITE_EMBEDDED&&!result.authorized){
-      if(state.page==="home")void fetchClientFiles(client,userId);
+      if(state.page==="home"){void fetchClientFiles(client,userId);if(!homeDrafts.loaded&&!homeDrafts.loading)void fetchHomeDrafts(client,userId);}
       if(!publishedCatalog.loaded&&!publishedCatalog.loading)void fetchPublishedCatalog();
     }
     if(SITE_EMBEDDED&&result.authorized){
@@ -2450,6 +2483,25 @@ function renderClientHome(){
     +'<button type="button" class="btn btn-light" data-action="nav" data-page="used">'+esc(fr?'Déjà utilisés':'Previously used')+'</button></div></div>'
     +'<div class="pa-client-hero-aside"><span class="pa-client-hero-icon">'+icon("library")+'</span><strong>'+esc(fr?'Des supports qui vous ressemblent.':'Supports that fit your needs.')+'</strong>'
     +'<span>'+esc(fr?'Dessins et textes alignés, prêts à être imprimés après publication.':'Clear images and captions, once artwork is published.')+'</span></div></section>'
+    +(homeDrafts.loading||homeDrafts.error||homeDrafts.items.length?
+      '<section class="pa-client-section pa-client-recent-drafts" aria-labelledby="pa-client-recent-drafts-title">'
+      +'<div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'À REPRENDRE':'CONTINUE WORKING')+'</span>'
+      +'<h2 id="pa-client-recent-drafts-title">'+esc(fr?'Mes brouillons récents':'My recent drafts')+'</h2></div>'
+      +'<button class="pa-client-text-link" type="button" data-action="nav" data-page="create">'+esc(fr?'Tous mes brouillons':'All my drafts')+icon("arrow")+'</button></div>'
+      +(homeDrafts.loading?'<p role="status" class="pa-client-context">'+esc(fr?'Chargement de vos brouillons privés…':'Loading your private drafts…')+'</p>':
+        homeDrafts.error?'<div><p role="alert" class="pa-client-context">'+esc(homeDrafts.error)+'</p>'
+          +'<button class="btn btn-light" type="button" data-action="home-drafts-refresh">'+esc(fr?'Réessayer':'Retry')+'</button></div>':
+        '<div class="pa-client-creation-list">'+homeDrafts.items.map(doc=>{
+          const count=summarizeEditableDraftItems(doc,state.language).count;
+          return '<article class="pa-client-creation">'
+          +icon(doc.kind==="routine"?"routine":"library")
+          +'<div class="pa-client-creation-info"><strong>'+esc(doc.title)+'</strong>'
+          +'<small>'+esc(doc.kind==="routine"?(fr?'Routine':'Routine'):(fr?'Tableau':'Board'))
+          +' · '+count+' '+esc(fr?(count===1?'pictogramme':'pictogrammes'):(count===1?'pictogram':'pictograms'))+'</small></div>'
+          +'<div class="pa-client-creation-actions"><button type="button" data-action="draft-open" data-id="'+esc(doc.id)+'"'
+          +(editableDrafts.busy?' disabled':'')+'>'+icon("edit")+esc(fr?'Reprendre':'Resume')+'</button></div></article>';
+        }).join("")+'</div>')
+      +'</section>':"")
     +'<section class="pa-client-section" aria-labelledby="pa-creations-title"><div class="pa-client-section-head"><div><span class="pa-client-overline">'+esc(fr?'PRIVÉ ET ENREGISTRÉ':'PRIVATE AND SAVED')+'</span>'
     +'<h2 id="pa-creations-title">'+esc(fr?'Mes créations':'My creations')+'</h2></div>'
     +'<button class="pa-client-text-link" type="button" data-action="nav" data-page="files">'+esc(fr?'Tout retrouver':'View all')+icon("arrow")+'</button></div>'
@@ -2741,10 +2793,28 @@ function renderClientCreate(){
           (fr?'Aucun brouillon ne correspond à votre recherche. Modifiez les filtres ou choisissez « Tout afficher ».':'No drafts match your search. Adjust the filters or choose Show all.'):
           (fr?'Aucun brouillon sauvegardé. Créez une routine ou un tableau, puis choisissez « Enregistrer le brouillon ».':'No drafts saved. Create a routine or board, then choose Save editable draft.')
        )+'</p>':
-     '<ul class="pa-drafts-list">'+editableDrafts.items.map(doc=>'<li class="pa-drafts-row"><div><strong>'+esc(doc.title)+'</strong>'
-       +'<small>'+esc(doc.kind==="routine"?(fr?'Routine':'Routine'):(fr?'Tableau':'Board'))+' · '+esc(fr?'Version ':'Version ')+doc.revision+'</small></div>'
+     '<ul class="pa-drafts-list">'+editableDrafts.items.map(doc=>{
+        const preview=summarizeEditableDraftItems(doc,state.language);
+        return '<li class="pa-drafts-row"><div><strong>'+esc(doc.title)+'</strong>'
+       +'<small>'+esc(doc.kind==="routine"?(fr?'Routine':'Routine'):(fr?'Tableau':'Board'))+' · '+esc(fr?'Version ':'Version ')+doc.revision+'</small>'
+        +'<small>'+preview.count+' '+esc(fr?(preview.count===1?'pictogramme':'pictogrammes'):
+           (preview.count===1?'pictogram':'pictograms'))+'</small>'
+        +(preview.count?'<details class="pa-drafts-preview"><summary>'+esc(fr?'Voir les pictogrammes':'View pictograms')+'</summary><ol>'
+          +preview.labels.map(label=>'<li>'+esc(label)+'</li>').join("")+'</ol></details>':'')
+        +'</div>'
        +'<div class="pa-drafts-actions"><button type="button" data-action="draft-open" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Modifier':'Edit')+'</button>'
-       +'<button type="button" data-action="draft-delete" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Supprimer':'Delete')+'</button></div></li>').join("")+'</ul>')
+       +'<button type="button" data-action="draft-duplicate" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Dupliquer':'Duplicate')+'</button>'
+       +'<button type="button" data-action="draft-rename-open" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Renommer':'Rename')+'</button>'
+       +'<button type="button" data-action="draft-delete" data-id="'+esc(doc.id)+'"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Supprimer':'Delete')+'</button></div>'
+       +(editableDrafts.renameId===doc.id?
+         '<form class="pa-drafts-rename-form" data-form="draft-rename" data-id="'+esc(doc.id)+'">'
+         +'<label for="draft-rename-input">'+esc(fr?'Nouveau nom du brouillon':'New draft name')+'</label>'
+         +'<input id="draft-rename-input" name="title" type="text" autocomplete="off" maxlength="120" required value="'+esc(editableDrafts.renameTitle)+'" aria-describedby="draft-rename-help"'+(editableDrafts.busy?' disabled':'')+'>'
+         +'<small id="draft-rename-help">'+esc(fr?'De 1 à 120 caractères. Le contenu et les PDF restent inchangés.':'1 to 120 characters. Content and PDFs remain unchanged.')+'</small>'
+         +(editableDrafts.renameError?'<p role="alert">'+esc(editableDrafts.renameError)+'</p>':'')
+         +'<div class="pa-drafts-rename-actions"><button class="btn btn-primary" type="submit"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Enregistrer le nom':'Save name')+'</button>'
+         +'<button class="btn btn-light" type="button" data-action="draft-rename-cancel"'+(editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Annuler':'Cancel')+'</button></div></form>':'')
+       +'</li>';}).join("")+'</ul>')
    +(editableDrafts.loaded&&editableDrafts.total>MAX_EDITABLE_DRAFTS?'<nav class="pa-drafts-pages" aria-label="'+esc(fr?'Pages de Mes brouillons':'My drafts pages')+'">'
      +'<button class="btn btn-light" type="button" data-action="draft-page" data-direction="-1"'+(editableDrafts.page===0||editableDrafts.loading||editableDrafts.busy?' disabled':'')+'>'+esc(fr?'Précédent':'Previous')+'</button>'
      +'<span role="status">'+esc(fr?'Page ':'Page ')+(editableDrafts.page+1)+' / '+Math.ceil(editableDrafts.total/MAX_EDITABLE_DRAFTS)+' · '+editableDrafts.total+' '+esc(fr?'brouillons':'drafts')+'</span>'
@@ -3072,7 +3142,7 @@ root.addEventListener("click",function(event){
     if(!SITE_EMBEDDED||!canOpenAdmin())return;
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
-  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;clientNavigationEpoch++;resetSingleApprovedAdd();if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";refreshFilesForCurrentUser();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
+  if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;clientNavigationEpoch++;resetSingleApprovedAdd();if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";refreshFilesForCurrentUser();void fetchHomeDrafts();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
   if(a==="draft-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.loading&&!editableDrafts.busy){
     const direction=Number(el.dataset.direction),next=editableDrafts.page+direction;
     if(![-1,1].includes(direction)||!Number.isSafeInteger(next)||next<0||
@@ -3149,6 +3219,41 @@ root.addEventListener("click",function(event){
       }
     })();return;
   }
+  if(a==="files-copy-source"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+      !clientFiles.busy&&!editableDrafts.busy&&!officialComposer.busy){
+    const file=clientFiles.items.find(row=>row.id===el.dataset.id);
+    if(!file?.source_draft_id||!["routine","board"].includes(file.document_type))return;
+    const uid=authStatus.user.id,epoch=++clientFiles.request,
+      originPage=state.page,navigation=clientNavigationEpoch,language=state.language;
+    clientFiles.busy=true;clientFiles.error="";clientFiles.message="";clientFiles.copySourceMessage=null;render();
+    void(async()=>{
+      try{
+        const client=await supabaseClient();
+        // Auth/RLS vérifiés dans le service privé. Copie INSERT uniquement,
+        // pas d'UPDATE du brouillon source ni du PDF original archivé.
+        await duplicateMyDocumentSource(client,uid,file.id,{
+          sourceId:file.source_draft_id,kind:file.document_type,language
+        });
+        if(authStatus.user?.id!==uid||epoch!==clientFiles.request||
+          state.page!==originPage||clientNavigationEpoch!==navigation)return;
+        editableDrafts.loaded=false;
+        clientFiles.message=language==="fr"?
+          "Copie modifiable créée dans Mes brouillons (Créer). Le PDF original et sa source restent inchangés.":
+          "Editable copy saved in My drafts (Create). The original PDF and its source are unchanged.";
+        // Raccourci uniquement après confirmation serveur, jamais sur un échec.
+        // Un message d'une autre opération n'héritera pas de ce bouton.
+        clientFiles.copySourceMessage=clientFiles.message;
+      }catch(error){
+        if(authStatus.user?.id===uid&&epoch===clientFiles.request&&
+          state.page===originPage&&clientNavigationEpoch===navigation)
+          clientFiles.error=String(error?.message||error);
+      }finally{
+        if(authStatus.user?.id===uid&&epoch===clientFiles.request){
+          clientFiles.busy=false;render();
+        }
+      }
+    })();return;
+  }
   if(a==="files-edit-source"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!clientFiles.busy&&!officialComposer.busy&&!editableDrafts.busy){
     const file=clientFiles.items.find(row=>row.id===el.dataset.id);
     if(!file?.source_draft_id||!["routine","board"].includes(file.document_type))return;
@@ -3200,8 +3305,9 @@ root.addEventListener("click",function(event){
     })();return;
   }
   if(a==="draft-open"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.busy){
-    const id=el.dataset.id,row=editableDrafts.items.find(x=>x.id===id);
-    if(!row)return;
+    const id=el.dataset.id,
+      row=(state.page==="home"?homeDrafts.items:editableDrafts.items).find(x=>x.id===id);
+    if(!row||(state.page==="home"&&homeDrafts.loading))return;
     const opening=beginDraftReplacement(draftAutosave,row.kind,{
       confirmDiscard:()=>window.confirm(state.language==="fr"?
         "Les modifications non enregistrées de cette composition seront perdues. Ouvrir ce brouillon ?":
@@ -3242,12 +3348,62 @@ root.addEventListener("click",function(event){
               "Ce brouillon a changé ou a été retiré sur un autre appareil. Liste actualisée; votre éditeur est préservé.":
               "This draft changed or was removed on another device. List refreshed; your editor is preserved.";
           }else editableDrafts.error=String(error?.message||error);
+          if(originPage==="home"){
+            // Les erreurs de l'accueil ne sont pas dissimulées dans Créer.
+            // L'action Réessayer relit la liste sous le même compte.
+            homeDrafts.error=stale?
+              (state.language==="fr"?"Ce brouillon a changé sur un autre appareil. Actualisez la liste.":"This draft changed on another device. Refresh the list."):
+              String(error?.message||error);
+          }
         }
       }finally{
         opening.cancel();
         if(authStatus.user?.id===uid&&request===editableDrafts.request){
           editableDrafts.busy=false;render();
-          if(stale)void fetchEditableDrafts();
+          if(stale&&originPage!=="home")void fetchEditableDrafts();
+        }
+      }
+    })();return;
+  }
+  if(a==="draft-rename-open"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+     !editableDrafts.busy&&!editableDrafts.loading){
+    const doc=editableDrafts.items.find(item=>item.id===el.dataset.id);
+    if(!doc)return;
+    editableDrafts.renameId=doc.id;editableDrafts.renameTitle=doc.title;
+    editableDrafts.renameError="";editableDrafts.message="";
+    render();root.querySelector("#draft-rename-input")?.focus({preventScroll:false});return;
+  }
+  if(a==="draft-rename-cancel"&&SITE_EMBEDDED&&!editableDrafts.busy){
+    const id=editableDrafts.renameId;
+    editableDrafts.renameId=null;editableDrafts.renameTitle="";editableDrafts.renameError="";
+    render();root.querySelector('[data-action="draft-rename-open"][data-id="'+id+'"]')?.focus({preventScroll:false});return;
+  }
+  if(a==="draft-duplicate"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&
+     !editableDrafts.loading&&!editableDrafts.busy){
+    const id=el.dataset.id,row=editableDrafts.items.find(x=>x.id===id);
+    if(!row)return;
+    const uid=authStatus.user.id,request=++editableDrafts.request,
+      originPage=state.page,navigation=clientNavigationEpoch,language=state.language;
+    editableDrafts.busy=true;editableDrafts.error="";editableDrafts.message="";render();
+    void(async()=>{
+      let copied=false;
+      try{
+        const client=await supabaseClient();
+        await duplicateEditableDraft(client,uid,id,{language});
+        if(authStatus.user?.id!==uid||request!==editableDrafts.request||
+          state.page!==originPage||clientNavigationEpoch!==navigation)return;
+        copied=true;editableDrafts.page=0;
+        editableDrafts.message=language==="fr"?
+          "Copie enregistrée dans vos brouillons. L’original et les PDF restent inchangés.":
+          "Copy saved to your drafts. The original and PDFs remain unchanged.";
+      }catch(error){
+        if(authStatus.user?.id===uid&&request===editableDrafts.request)
+          editableDrafts.error=String(error?.message||error);
+      }finally{
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          editableDrafts.busy=false;
+          if(copied)void fetchEditableDrafts();
+          else render();
         }
       }
     })();return;
@@ -3664,6 +3820,12 @@ root.addEventListener("click",function(event){
   if(a==="files-refresh"){
     if(authStatus.user&&!clientFiles.busy)refreshFilesForCurrentUser();return;
   }
+  if(a==="files-reset-filters"){
+    if(!authStatus.user||clientFiles.busy)return;
+    clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";
+    clientFiles.page=0;clientFiles.renameId=null;
+    refreshFilesForCurrentUser();return;
+  }
   if(a==="files-page"&&authStatus.user&&!clientFiles.loading&&!clientFiles.busy){
     const next=clientFiles.page+Number(el.dataset.direction);
     const last=Math.max(0,Math.ceil(clientFiles.total/DOCUMENTS_PAGE_SIZE)-1);
@@ -3851,7 +4013,7 @@ root.addEventListener("click",function(event){
         if(pendingGeneratedPdf?.uid===uid&&pendingGeneratedPdf.blob===blob)
           pendingGeneratedPdf=null;
         if(authStatus.user?.id!==uid||clientFiles.request!==epoch)return;
-        state.page="files";clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
+        state.page="files";clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";
         clientFiles.message=state.language==="fr"?"PDF créé et archivé. Réimprimez le même original depuis Mes fichiers.":"PDF created and archived. Reprint the unchanged original from My files.";
         await fetchClientFiles(client,uid);
       }catch(error){
@@ -4448,7 +4610,7 @@ root.addEventListener("click",function(event){
           "Pictogramme imprimable enregistré dans Mes fichiers.":
           "Printable pictogram saved in My files.";
         state.page="files";clientFiles.page=0;clientFiles.query="";clientFiles.type="all";
-        clientFiles.sort="recent";
+        clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";
         await fetchClientFiles(client,uid);
       }catch(error){
         if(current())clientPictoTemplates.error=String(error?.message||error);
@@ -5077,6 +5239,66 @@ root.addEventListener("submit",function(event){
       }finally{if(ticket===testClients.request){testClients.busy=false;render();}}
     })();return;
   }
+  const draftRenameForm=event.target.closest('form[data-form="draft-rename"]');
+  if(draftRenameForm){
+    event.preventDefault();
+    if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||editableDrafts.busy||editableDrafts.loading)return;
+    const id=draftRenameForm.dataset.id,doc=editableDrafts.items.find(item=>item.id===id);
+    if(!doc||editableDrafts.renameId!==id)return;
+    const title=String(new FormData(draftRenameForm).get("title")||""),
+      language=state.language;
+    editableDrafts.renameTitle=title;editableDrafts.renameError="";
+    if(!title.trim()||title.trim().length>120){
+      editableDrafts.renameError=language==="fr"?
+        "Le nom doit contenir de 1 à 120 caractères.":"The name must contain 1 to 120 characters.";
+      render();root.querySelector("#draft-rename-input")?.focus({preventScroll:false});return;
+    }
+    const active=editableDrafts.current[doc.kind]?.id===id;
+    const autosave=draftAutosave.status(doc.kind);
+    if(active&&(autosave.busy||autosave.dirty||autosave.paused||autosave.conflict)){
+      editableDrafts.renameError=language==="fr"?
+        "Terminez la sauvegarde ou résolvez le conflit de l’éditeur avant de renommer ce brouillon.":
+        "Finish saving or resolve the editor conflict before renaming this draft.";
+      render();return;
+    }
+    const uid=authStatus.user.id,request=++editableDrafts.request,
+      originPage=state.page,navigation=clientNavigationEpoch;
+    editableDrafts.busy=true;render();
+    void(async()=>{
+      let refreshed=false;
+      try{
+        const client=await supabaseClient();
+        const renamed=await renameEditableDraft(client,uid,id,doc.revision,title);
+        if(authStatus.user?.id!==uid||request!==editableDrafts.request||
+          state.page!==originPage||clientNavigationEpoch!==navigation)return;
+        if(active&&editableDrafts.current[doc.kind]?.id===id&&
+           editableDrafts.current[doc.kind]?.revision===doc.revision){
+          editableDrafts.current[doc.kind].revision=renamed.revision;
+          officialComposer.settings[doc.kind].title=renamed.title;
+        }
+        editableDrafts.renameId=null;editableDrafts.renameTitle="";editableDrafts.renameError="";
+        editableDrafts.message=language==="fr"?
+          "Brouillon renommé. Ses pictogrammes et les PDF originaux sont préservés.":
+          "Draft renamed. Its pictograms and original PDFs are preserved.";
+        refreshed=true;
+      }catch(error){
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          if(["DRAFT_REVISION_CONFLICT","DRAFT_NOT_FOUND"].includes(error?.code)){
+            editableDrafts.renameId=null;editableDrafts.renameTitle="";editableDrafts.renameError="";
+            editableDrafts.message=language==="fr"?
+              "Ce brouillon a changé ailleurs. Liste actualisée; vérifiez la dernière version avant de réessayer.":
+              "This draft changed elsewhere. List refreshed; check the latest version before retrying.";
+            refreshed=true;
+          }else editableDrafts.renameError=String(error?.message||error);
+        }
+      }finally{
+        if(authStatus.user?.id===uid&&request===editableDrafts.request){
+          editableDrafts.busy=false;
+          if(refreshed)void fetchEditableDrafts();else render();
+        }
+      }
+    })();return;
+  }
   if(event.target.matches('form[data-form="draft-filter"]')){
     event.preventDefault();
     if(!SITE_EMBEDDED||!authStatus.user||canOpenAdmin()||editableDrafts.busy||editableDrafts.loading)return;
@@ -5084,7 +5306,7 @@ root.addEventListener("submit",function(event){
     editableDrafts.query=String(data.get("query")||"").trim();
     editableDrafts.kind=String(data.get("kind")||"all");
     editableDrafts.sort=String(data.get("sort")||"recent");
-    editableDrafts.page=0;editableDrafts.message="";
+    editableDrafts.page=0;editableDrafts.message="";editableDrafts.renameId=null;editableDrafts.renameError="";
     void fetchEditableDrafts();return;
   }
   if(event.target.matches('form[data-form="email-reset"]')){event.preventDefault();if(authStatus.emailBusy)return;const input=event.target.querySelector("#auth-email");if(!input?.reportValidity())return;authStatus.email=input.value.trim();authStatus.emailBusy=true;authStatus.emailError="";authStatus.emailMessage="";render();void sendPasswordReset(authStatus.email,window.location.href).then(()=>{authStatus.emailMessage=state.language==="fr"?"Si le compte existe et que l’envoi est autorisé, vérifiez votre courriel.":"If the account exists and sending is enabled, check your email.";}).catch(()=>{authStatus.emailError=state.language==="fr"?"Envoi impossible. Veuillez réessayer plus tard.":"Unable to send. Please try again later.";}).finally(()=>{authStatus.emailBusy=false;render();});return;}
@@ -5257,7 +5479,7 @@ root.addEventListener("submit",function(event){
           editableDrafts.current[kind]=null;draftAutosave.discard(kind);
           editableDrafts.dirty[kind]=false;
           state.page="files";
-          clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
+          clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";
           await fetchClientFiles(client,uid);
         }
       }catch(error){
@@ -5303,7 +5525,7 @@ root.addEventListener("submit",function(event){
         clientFiles.message=state.language==="fr"?
           "PDF original archivé dans votre compte. Retrouvez-le sur tout appareil connecté.":
           "Original PDF archived in your account. Find it on any signed-in device.";
-        clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";
+        clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";
         await fetchClientFiles(client,uid);
       }catch(error){
         if(authStatus.user?.id===uid&&clientFiles.request===epoch)
@@ -5320,6 +5542,8 @@ root.addEventListener("submit",function(event){
     clientFiles.query=String(data.get("query")||"");
     clientFiles.type=String(data.get("type")||"all");
     clientFiles.sort=String(data.get("sort")||"recent");
+    clientFiles.period=String(data.get("period")||"all");
+    clientFiles.source=String(data.get("source")||"all");
     clientFiles.page=0;clientFiles.renameId=null;refreshFilesForCurrentUser();return;
   }
   const renameForm=event.target.closest('form[data-form="files-rename"]');
@@ -5334,10 +5558,10 @@ root.addEventListener("submit",function(event){
     void(async()=>{
       try{
         const client=await supabaseClient();
-        await renameMyDocument(client,uid,id,doc.title,title);
+        const result=await renameMyDocument(client,uid,id,doc.title,title);
         if(clientFiles.request!==epoch||authStatus.user?.id!==uid)return;
         clientFiles.busy=false;clientFiles.renameId=null;
-        clientFiles.message=state.language==="fr"?"Nom mis à jour. Le PDF original est inchangé.":"Name updated. Original PDF unchanged.";
+        clientFiles.message=documentRenameFeedback(result,state.language);
         await fetchClientFiles(client,uid);
       }catch(error){
         if(clientFiles.request===epoch&&authStatus.user?.id===uid)clientFiles.error=String(error?.message||error);
