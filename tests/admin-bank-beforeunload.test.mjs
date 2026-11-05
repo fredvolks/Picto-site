@@ -27,6 +27,8 @@ function harness(){
     themeUI:{busy:false},
     privatePreview:{id:null,adjustBusy:false},
     publishedCatalog:{publishing:false},
+    privateImport:{loading:false},
+    batchImport:{busy:false},
     window:{addEventListener:(name,callback)=>{
       assert.equal(name,"beforeunload");
       listener=callback;
@@ -58,7 +60,8 @@ test("Nom/catégorie modifiés : fermeture refusée même sans aperçu PNG ouver
 test("Chaque écriture privée encore en cours protège le rechargement",()=>{
   const paths=[
     ["bankImageSheet","busy"],["draftEditor","saving"],["bankRename","busy"],
-    ["themeUI","busy"],["privatePreview","adjustBusy"],["publishedCatalog","publishing"]
+    ["themeUI","busy"],["privatePreview","adjustBusy"],["publishedCatalog","publishing"],
+    ["privateImport","loading"],["batchImport","busy"]
   ];
   for(const [object,key] of paths){
     const h=harness();
