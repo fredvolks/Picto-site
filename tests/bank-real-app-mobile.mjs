@@ -20,6 +20,19 @@ const authStub=String.raw`const fakeUser={id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa
 // Requêtes de lecture simulées UNIQUEMENT sur ce serveur Chromium local.
 // Le vrai module admin-library-readiness.js est importé sans substitution.
 const client={
+ // Faux Storage limité au serveur Chromium isolé. Aucun appel réseau Supabase.
+ storage:{from(bucket){
+   if(bucket!=="pictau-drafts"||!window.__qaAllowImport)throw Error("Storage QA non autorisé");
+   return{
+     async upload(path,blob,options){
+       if(options?.upsert!==false)throw Error("Écriture QA non sûre");
+       window.__qaUploadCount=(window.__qaUploadCount||0)+1;
+       window.__qaUploadedPath=path;
+       return {error:null};
+     },
+     async remove(){throw Error("Le test ne supprime pas les vrais PNG");}
+   };
+ }},
  auth:{
   getUser:async()=>({data:{user:window.__qaSessionRevoked?
     {id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}:fakeUser},error:null}),
@@ -50,6 +63,24 @@ const client={
    },
    then(resolve,reject){return Promise.resolve(answer()).then(resolve,reject);}
   };
+  if(table==="pictau_assets"&&window.__qaAllowImport)return{
+   async insert(record){
+     if(record.status!=="draft"||record.published_at!==null)throw Error("Publication QA interdite");
+     window.__qaImportInsertCount=(window.__qaImportInsertCount||0)+1;
+     window.__qaImportedDraft={...record,id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd"};
+     if(window.__qaLoseImportAck)throw Error("Accusé INSERT local volontairement perdu");
+     return {error:null};
+   },
+   select(columns){
+     if(columns.includes("image_path"))return{
+       eq(field,path){return{async maybeSingle(){
+         if(field!=="image_path"||path!==window.__qaUploadedPath)throw Error("Path privé incohérent");
+         return {data:window.__qaImportedDraft||null,error:null};
+       }};}
+     };
+     return query;
+   }
+  };
   return {select:()=>query};
  }
 };
@@ -67,13 +98,17 @@ export function normalizeAdminBankFilters(f){return f;}
 // Fixtures strictly hosted by this isolated Chromium server, never in public files.
 function privateRows(){
  if(!window.__qaBankItems)return [];
- return ["Pomme","Lavage des mains","Couverture lestée","Balle sensorielle"].map((title,i)=>({
+ const previous=["Pomme","Lavage des mains","Couverture lestée","Balle sensorielle"].map((title,i)=>({
   id:String(i+1).padStart(8,"0")+"-1111-4111-8111-111111111111",
   created_by:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",admin_name:title,title_fr:title,title_en:title,
   theme:i===0&&window.__qaBankLegacyTheme?(window.__qaBankCorrectedTheme||"tests"):"autres",
   status:"draft",created_at:"2026-11-01T13:00:00Z",
   published_at:null
  }));
+ const draft=window.__qaImportedDraft;
+ return draft?[{id:draft.id,created_by:draft.created_by,admin_name:draft.title_fr,
+   title_fr:draft.title_fr,title_en:draft.title_en,theme:draft.theme,
+   status:"draft",created_at:"2026-11-05T14:24:00Z",published_at:null},...previous]:previous;
 }
 export async function readAdminBank(){return readAdminBankAvailablePage();}
 export async function readAdminBankAvailablePage(){
@@ -472,6 +507,19 @@ try{
       assert.equal(oneReady.error,false,"L'ancienne erreur n'est pas conservée");
       assert.match(oneReady.status,/valide-individuel\.png/);
       console.log("PRECHECK PNG INDIVIDUEL — OK 390px",oneReady.status);
+      // Le vrai module d'importation fait maintenant un aller-retour dans
+      // une base/Storage en mémoire QA : 1 INSERT privé et un reçu relu,
+      // accusé volontairement perdu pour vérifier la reprise sans doublon.
+      await evaluate("window.__qaAllowImport=true;window.__qaLoseImportAck=true;window.__qaUploadCount=0;window.__qaImportInsertCount=0;document.querySelector('#draft-title-fr').value='Pomme importée QA';document.querySelector('#draft-title-fr').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('form[data-form=admin-import]').requestSubmit();return true;");
+      await waitFor("return !!document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth",14000);
+      const imported=await evaluate("return {id:window.__qaImportedDraft?.id,uploads:window.__qaUploadCount,inserts:window.__qaImportInsertCount,browse:!!document.querySelector('.pa-bank-sheet'),inImportPanel:!!document.querySelector('form[data-form=admin-import]'),title:document.querySelector('.pa-bank-sheet')?.textContent.slice(0,450)};");
+      assert.equal(imported.id,"dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+      assert.equal(imported.uploads,1,"Un seul transfert privé malgré la perte de l'ACK");
+      assert.equal(imported.inserts,1,"Aucun doublon de brouillon après réponse perdue");
+      assert.equal(imported.browse,true,"La fiche privée réellement importée doit s'ouvrir");
+      assert.equal(imported.inImportPanel,false,"Après succès, retour à la Banque sans nouveau submit");
+      await evaluate("document.querySelector('[data-action=admin-bank-detail-close]').click();window.__qaImportedDraft=null;window.__qaAllowImport=false;window.__qaLoseImportAck=false;return true;");
+      console.log("IMPORT→FICHE PRIVÉE — QA OK 390px",imported.id);
       // Revenir aux images sans valider le formulaire ni lancer d'upload.
       await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=browse]').click();return true;");
       await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
