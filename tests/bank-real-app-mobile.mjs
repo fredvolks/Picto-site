@@ -399,6 +399,13 @@ try{
         assert.ok(!initial.values.includes("tests")&&initial.values.includes("hygiene")&&initial.disabled);
         await evaluate("const e=document.querySelector('#edit-draft-theme');e.value='hygiene';e.dispatchEvent(new Event('change',{bubbles:true}));return true;");
         await waitFor("return document.querySelector('form[data-form=admin-edit-draft] button[type=submit]')?.disabled===false",12000);
+        // Naviguer ou fermer le formulaire ne doit jamais jeter une catégorie modifiée
+        // sans consentement. Ici le navigateur de QA refuse la confirmation.
+        await evaluate("window.__qaOriginalConfirm=window.confirm;window.__qaDiscardCalls=0;window.confirm=()=>{window.__qaDiscardCalls++;return false;};document.querySelector('[data-action=close-admin-edit]').click();return true;");
+        const editHeld=await evaluate("return {calls:window.__qaDiscardCalls,form:!!document.querySelector('form[data-form=admin-edit-draft]'),theme:document.querySelector('#edit-draft-theme')?.value};");
+        assert.deepEqual(editHeld,{calls:1,form:true,theme:"hygiene"},
+          "Fermer la correction sans confirmer conserve les champs modifiés");
+        await evaluate("window.confirm=window.__qaOriginalConfirm;delete window.__qaOriginalConfirm;return true;");
         await evaluate("document.querySelector('form[data-form=admin-edit-draft]').requestSubmit();return true;");
         await waitFor("return document.querySelector('[data-action=admin-draft-review-resume]')?.disabled===false && !document.querySelector('.pa-bank-sheet')",14000);
         await evaluate("document.querySelector('[data-action=admin-draft-review-resume]').click();return true;");
