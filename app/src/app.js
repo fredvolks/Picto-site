@@ -2357,6 +2357,7 @@ function renderAdmin(){
       primaryThemePanel+
       '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+
         esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+themeAssetPanel+
+      (draftEditor.id===selectedAsset.id?draftEditBody:"")+
       (selectedAsset.status==="published"?
         '<div class="pa-bank-customer-templates"><h3>'+esc(fr?"Gabarits proposés aux clients":"Templates offered to customers")+'</h3>'+
         '<p>'+esc(fr?
