@@ -67,3 +67,58 @@ export function filterAdminAssets(items,{query="",status="all",theme="all",sort=
   }
   return filtered;
 }
+
+// Prévalidation avant import privé : une signature PNG de huit octets ne
+// suffit pas. Les blocs (taille, type et CRC) et le marqueur final sont lus
+// localement avant tout accès Storage/SQL. Aucun fichier n'est publié ici.
+// 32 Mpx limitent la décompression accidentelle d'un PNG très compact sur mobile.
+export const MAX_PRIVATE_PNG_PIXELS=32_000_000;
+const PNG_CRC_TABLE=Uint32Array.from({length:256},(_,initial)=>{
+  let value=initial;
+  for(let bit=0;bit<8;bit++)
+    value=(value&1)?(0xedb88320^(value>>>1)):(value>>>1);
+  return value>>>0;
+});
+function pngChunkCrc32(bytes,start,end){
+  let crc=0xffffffff;
+  for(let index=start;index<end;index++)
+    crc=(crc>>>8)^PNG_CRC_TABLE[(crc^bytes[index])&255];
+  return (crc^0xffffffff)>>>0;
+}
+export function inspectCompletePngBytes(bytes){
+  if(!(bytes instanceof Uint8Array)||bytes.length<8||
+     !PNG_SIGNATURE.every((value,index)=>bytes[index]===value))
+    throw Error("Signature PNG incorrecte.");
+  if(bytes.length<45)throw Error("Image PNG incomplète : blocs manquants.");
+  const header=inspectPngHeader(bytes);
+  if(header.width*header.height>MAX_PRIVATE_PNG_PIXELS)
+    throw Error("Dimensions PNG trop grandes pour la banque (maximum 32 millions de pixels).");
+  const read32=offset=>(bytes[offset]*0x1000000+bytes[offset+1]*0x10000+
+    bytes[offset+2]*0x100+bytes[offset+3])>>>0;
+  let offset=8,chunkCount=0,hasImageData=false,hasEnd=false;
+  while(offset<bytes.length){
+    if(bytes.length-offset<12)throw Error("Image PNG tronquée : bloc incomplet.");
+    const size=read32(offset),end=offset+size+12;
+    if(end>bytes.length)throw Error("Image PNG tronquée : données de bloc manquantes.");
+    const type=String.fromCharCode(...bytes.subarray(offset+4,offset+8));
+    if(!/^[a-zA-Z]{4}$/.test(type))
+      throw Error("Type de bloc PNG invalide.");
+    if(chunkCount===0&&(type!=="IHDR"||size!==13)||chunkCount>0&&type==="IHDR")
+      throw Error("En-tête PNG (IHDR) invalide ou répété.");
+    const checksum=read32(offset+8+size);
+    if(pngChunkCrc32(bytes,offset+4,offset+8+size)!==checksum)
+      throw Error("Intégrité PNG invalide (CRC d'un bloc).");
+    if(type==="IDAT"&&size>0)hasImageData=true;
+    offset=end;
+    if(++chunkCount>10000)throw Error("Fichier PNG contenant trop de blocs.");
+    if(type==="IEND"){
+      if(size!==0||offset!==bytes.length)
+        throw Error("Fin PNG invalide : données après IEND.");
+      hasEnd=true;
+      break;
+    }
+  }
+  if(!hasImageData||!hasEnd)
+    throw Error("Image PNG incomplète : données IDAT ou fin IEND absentes.");
+  return {...header,bytes:bytes.length};
+}
