@@ -168,3 +168,72 @@ test("Formulaire de lot : titres éditables bilingues, sauvegardés au clavier e
  assert.match(style,/min-height:44px/);
  assert.match(style,/@media\(max-width:480px\)\{\.admin-batch-list li/);
 });
+
+const confirmedDraftIds=[
+ "11111111-1111-4111-8111-111111111111",
+ "22222222-2222-4222-8222-222222222222",
+ "33333333-3333-4333-8333-333333333333"
+];
+
+test("Après un lot complet, seuls les IDs SQL des trois vrais reçus sont conservés",async()=>{
+ let sent=0;
+ const report=await importPrivateDraftBatch({},"admin",files(),"autres",{
+  importOne:async()=>({id:confirmedDraftIds[sent++],status:"draft"})
+ });
+ assert.equal(sent,3);
+ assert.equal(report.completed,3);
+ assert.equal(report.error,"");
+ assert.deepEqual(report.confirmedIds,confirmedDraftIds);
+});
+test("En cas d'échec partiel, préserver uniquement les reçus déjà confirmés",async()=>{
+ let calls=0;
+ const report=await importPrivateDraftBatch({},"admin",files(),"autres",{
+  importOne:async()=>{
+   if(calls++===1)throw Error("ACK privé incertain");
+   return{id:confirmedDraftIds[0],status:"draft"};
+  }
+ });
+ assert.equal(calls,2,"Pas de troisième import ni de tentative automatique");
+ assert.equal(report.completed,1);
+ assert.equal(report.failedIndex,1);
+ assert.deepEqual(report.confirmedIds,[confirmedDraftIds[0]]);
+ assert.match(report.error,/incertain/);
+});
+test("Session invalidée après un reçu : conserver le progrès et arrêter sans doublon",async()=>{
+ let count=0,active=true;
+ const report=await importPrivateDraftBatch({},"admin",files(),"autres",{
+  isCurrent:()=>active,
+  importOne:async()=>{count++;active=false;return{id:confirmedDraftIds[0],status:"draft"};}
+ });
+ assert.equal(count,1);
+ assert.equal(report.completed,1);
+ assert.equal(report.failedIndex,1);
+ assert.deepEqual(report.confirmedIds,[confirmedDraftIds[0]]);
+ assert.match(report.error,/Session/);
+});
+test("ID de reçu erroné ou répété : ne jamais annoncer une nouvelle fiche valide",async()=>{
+ for(const ids of [["pas-un-uuid"],[confirmedDraftIds[0],confirmedDraftIds[0]]]){
+  let calls=0;
+  const report=await importPrivateDraftBatch({},"admin",files(),"autres",{
+   importOne:async()=>({id:ids[Math.min(calls++,ids.length-1)],status:"draft"})
+  });
+  assert.equal(report.failedIndex,ids.length-1);
+  assert.equal(report.completed,ids.length-1);
+  assert.deepEqual(report.confirmedIds,ids.length===1?[]:[confirmedDraftIds[0]]);
+  assert.match(report.error,/Reçu du brouillon invalide/);
+ }
+});
+test("L'écran ouvre après succès uniquement un brouillon revenu de la Banque sous le même admin",()=>{
+ const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+ const start=app.indexOf("if(event.target.matches('form[data-form=\"admin-batch-import\"]'))");
+ const end=app.indexOf("const form=event.target.closest('form[data-form=\"admin-import\"]')",start);
+ assert.ok(start>0&&end>start);
+ const body=app.slice(start,end);
+ assert.match(body,/if\(!report\.error\)/);
+ assert.match(body,/Array\.isArray\(report\.confirmedIds\)/);
+ assert.match(body,/report\.confirmedIds\]\.reverse\(\)/);
+ assert.match(body,/row\.id===id&&/);
+ assert.match(body,/row\.created_by===uid&&row\.status==="draft"/);
+ assert.match(body,/void openAdminPreview\(imported\.id\)/);
+ assert.doesNotMatch(body,/publishReviewedPictogram|upsert\(/);
+});
