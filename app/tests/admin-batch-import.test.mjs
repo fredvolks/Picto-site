@@ -104,7 +104,7 @@ test("Le vrai Super Admin affiche le lot, le prévalide et conserve l'import sim
  assert.match(app,/batchImport\.files=\[\]/);
  assert.match(app,/batchImport\.request\+\+/);
  assert.match(app,/batchImport\.busy=true/);
- assert.match(app,/privateImport\.loading\|\|batchImport\.busy/);
+ assert.match(app,/privateImport\.loading\|\|privateImport\.checking\|\|!privateImport\.validated\|\|batchImport\.busy/);
  assert.match(app,/await importPrivateDraft\(client,userId,file,metadata\)/);
 });
 
