@@ -1,5 +1,6 @@
 // « Mes fichiers » : PDF réellement archivé, non un état fictif de window.print.
 // Le contenu reste sur Storage PRIVÉ sous UID/UUID.pdf ; aucun lien permanent public.
+import {duplicateEditableDraft,loadEditableDraft} from "./client-drafts.js";
 export const FILES_BUCKET="pictau-client-files";
 export const DOCUMENTS_PAGE_SIZE=20;
 export const MAX_PDF_BYTES=20*1024*1024; // garde technique du bucket, pas un quota commercial
@@ -17,6 +18,39 @@ export function normalizeDocumentSort(sort="recent"){
     throw Error("Tri de documents invalide.");
   return sort;
 }
+// Filtre de présence d'un brouillon lié à l'archive : seule la fiche privée
+// est lue, pas le contenu du brouillon ni les octets du PDF.
+const DOCUMENT_SOURCE_MODES=Object.freeze(["all","linked","unlinked"]);
+export function normalizeDocumentSourceFilter(source="all"){
+  if(typeof source!=="string"||!DOCUMENT_SOURCE_MODES.includes(source))
+    throw Error("Filtre de source PDF invalide.");
+  return source;
+}
+// Périodes glissantes UTC : le filtre reste côté serveur avant le décompte
+// et la pagination, sans déplacer de documents privés dans le navigateur.
+const DOCUMENT_PERIOD_DAYS=Object.freeze({all:0,week:7,month:30});
+export function normalizeDocumentPeriod(period="all"){
+  if(typeof period!=="string"||(period!=="year"&&!Object.hasOwn(DOCUMENT_PERIOD_DAYS,period)))
+    throw Error("Période de documents invalide.");
+  return period;
+}
+export function documentPeriodStart(period="all",now=Date.now()){
+  const selected=normalizeDocumentPeriod(period);
+  if(typeof now!=="number"||!Number.isFinite(now)||now<0||now>8.64e15)
+    throw Error("Date de recherche invalide.");
+  if(selected==="all")return null;
+  const start=new Date(now);
+  if(selected==="year"){
+    // Douze mois calendaires, pas 365 jours : préserver l'heure UTC et
+    // limiter le 29 février au dernier jour de février l'année précédente.
+    const day=start.getUTCDate();
+    start.setUTCDate(1);
+    start.setUTCFullYear(start.getUTCFullYear()-1);
+    const maxDay=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+1,0)).getUTCDate();
+    start.setUTCDate(Math.min(day,maxDay));
+  }else start.setTime(now-DOCUMENT_PERIOD_DAYS[selected]*86400000);
+  return start.toISOString();
+}
 const COLUMNS="id,title,document_type,sha256,byte_size,page_count,created_at,source_draft_id";
 export function normalizeDocumentTitle(title){
   if(typeof title!=="string"||/[\p{C}]/u.test(title))throw Error("Titre de document invalide.");
@@ -25,7 +59,7 @@ export function normalizeDocumentTitle(title){
   return clean;
 }
 export function normalizeDocumentSearch(value){
-  if(typeof value!=="string"||value.length>80||/[\p{C}%,_\\]/u.test(value))
+  if(typeof value!=="string"||value.length>80||/[\p{C}]/u.test(value))
     throw Error("Recherche de document invalide.");
   return value.trim();
 }
@@ -195,15 +229,23 @@ export async function archivePdf(client,uid,file,{title,documentType="routine",p
     throw error;
   }
 }
-export async function listMyDocuments(client,uid,{page=0,query="",type="all",sort="recent"}={}){
+export async function listMyDocuments(client,uid,{page=0,query="",type="all",sort="recent",period="all",source="all"}={}){
   if(!Number.isSafeInteger(page)||page<0||page>100000)throw Error("Page invalide.");
   const search=normalizeDocumentSearch(query);
   if(type!=="all"&&!TYPES.includes(type))throw Error("Filtre invalide.");
   const order=DOCUMENT_SORT_ORDER[normalizeDocumentSort(sort)];
+  const periodStart=documentPeriodStart(period);
+  const sourceMode=normalizeDocumentSourceFilter(source);
   await verifiedUser(client,uid);
   let q=client.from("pictau_documents").select(COLUMNS,{count:"exact"}).eq("owner_id",uid);
   if(type!=="all")q=q.eq("document_type",type);
-  if(search)q=q.ilike("title","%"+search+"%");
+  // Filtrer sur le serveur avant COUNT/ORDER/RANGE; la RLS propriétaire reste
+  // appliquée, sans accéder à un autre brouillon ni supposer son existence.
+  if(sourceMode==="linked")q=q.not("source_draft_id","is",null);
+  else if(sourceMode==="unlinked")q=q.is("source_draft_id",null);
+  // %, _ et antislash dans un titre sont du texte, jamais des jokers SQL.
+  if(search)q=q.ilike("title","%"+search.replace(/[\\%_]/g,character=>"\\"+character)+"%");
+  if(periodStart)q=q.gte("created_at",periodStart);
   const result=await q.order(order[0],{ascending:order[1]}).order("id",{ascending:true})
     .range(page*DOCUMENTS_PAGE_SIZE,(page+1)*DOCUMENTS_PAGE_SIZE-1);
   if(result.error)throw result.error;
@@ -258,6 +300,44 @@ export async function downloadMyDocument(client,uid,id){
   await verifiedUser(client,uid);
   return{blob:file,document:doc};
 }
+// Lire le lien privé à chaque étape critique : une liste affichée et une
+// lecture initiale peuvent être périmées après un changement sur un appareil.
+async function assertCurrentDocumentSource(client,uid,id,sourceId,kind){
+  const q=await client.from("pictau_documents")
+    .select("id,owner_id,document_type,source_draft_id")
+    .eq("owner_id",uid).eq("id",id).maybeSingle();
+  if(q.error)throw q.error;
+  const row=q.data;
+  if(!row||row.id!==id||row.owner_id!==uid||
+     row.source_draft_id!==sourceId||row.document_type!==kind)
+    throw Error("La source liée à ce PDF a changé ou n'est plus disponible. Actualisez Mes fichiers.");
+}
+// Duplique la source actuelle, sans modifier le PDF original ou sa source.
+// En l'absence de transaction serveur atomique, revérifier au plus près de
+// l'INSERT réduit les courses réseau sans prétendre les éliminer entièrement.
+export async function duplicateMyDocumentSource(client,uid,id,{sourceId,kind,language="fr"}={}){
+  documentPath(uid,id);
+  if(!UUID.test(sourceId||"")||!["routine","board"].includes(kind))
+    throw Error("Source modifiable du PDF invalide.");
+  if(!["fr","en"].includes(language))throw Error("Langue du brouillon invalide.");
+  await verifiedUser(client,uid);
+  await assertCurrentDocumentSource(client,uid,id,sourceId,kind);
+  await verifiedUser(client,uid);
+  // INSERT privé dans Mes brouillons uniquement; aucun UPDATE/DELETE de PDF.
+  return duplicateEditableDraft(client,uid,sourceId,{
+    language,expectedKind:kind,
+    beforeInsert:async(source)=>{
+      await verifiedUser(client,uid);
+      await assertCurrentDocumentSource(client,uid,id,sourceId,kind);
+      // La source peut avoir été modifiée, supprimée ou remplacée entre
+      // deux lectures; ne pas copier silencieusement une ancienne révision.
+      const latest=await loadEditableDraft(client,uid,sourceId);
+      if(latest.revision!==source.revision||latest.kind!==source.kind)
+        throw Error("Le brouillon source a changé sur un autre appareil. Actualisez Mes fichiers.");
+    }
+  });
+}
+
 export async function renameMyDocument(client,uid,id,oldTitle,newTitle){
   documentPath(uid,id);
   const clean=normalizeDocumentTitle(newTitle),previous=normalizeDocumentTitle(oldTitle);
