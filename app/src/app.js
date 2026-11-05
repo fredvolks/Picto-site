@@ -14,7 +14,7 @@ import {getAdminPictoTemplateChoices,saveAdminPictoTemplateDraft,confirmAdminPic
 import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirmationMessage} from "./picto-template-choices-ui.js";
 
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,copyAdditionalAssetThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
-import {importPrivateDraft,validateDraftMetadata,importPrivateDraftBatch,preflightPrivateDraftFiles,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
+import {importPrivateDraft,validateDraftPng,validateDraftMetadata,importPrivateDraftBatch,preflightPrivateDraftFiles,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
 import {editPrivateDraftMetadata} from "./admin-draft-edit.js";
 import {assessDraftQuality,assessDraftPrimaryTheme} from "./admin-quality.js";
 import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
@@ -785,7 +785,7 @@ async function fetchAdminNamedTemplates(){
   }
 }
 let bankQueryTimer=null;
-const privateImport={file:null,loading:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
+const privateImport={file:null,loading:false,checking:false,validated:false,error:"",message:"",request:0,draft:{titleFr:"",titleEn:"",theme:"autres"}};
 const batchImport={files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false,request:0};
 const privatePreview={id:null,asset:null,review:null,url:null,inkUrl:null,inkBlob:null,inkInfo:null,inkError:"",technical:null,loading:false,error:"",rotationDeg:0,adjustBusy:false,adjustError:"",adjustMessage:"",request:0};
 const privateProof={busy:false,error:"",message:"",request:0};
@@ -1319,7 +1319,7 @@ function resetPrivateBank(){
   privateBank.request++;
   privateBank.allowed=false;privateBank.loading=false;privateBank.items=[];privateBank.error="";privateBank.total=0;privateBank.page=0;
   bankFilters.query="";bankFilters.status="all";bankFilters.theme="all";bankFilters.sort="recent";
-  privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
+  privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.checking=false;privateImport.validated=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
   batchImport.request++;Object.assign(batchImport,{files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:"",checking:false,checked:0,validated:false});
 }
 async function refreshPrivateBank(client,userId){
@@ -2071,11 +2071,14 @@ function renderAdmin(){
    +'<div class="control"><label for="draft-title-en">'+esc(fr?"Nom anglais (facultatif)":"English label (optional)")+'</label><input id="draft-title-en" name="titleEn" type="text" maxlength="100" autocomplete="off" value="'+esc(privateImport.draft.titleEn)+'" placeholder="e.g. wash hands"></div>'
    +'<div class="control"><label for="draft-theme">'+esc(fr?"Thème":"Theme")+'</label><select id="draft-theme" name="theme">'
    +themes.map(([v,label])=>'<option value="'+v+'"'+(v===privateImport.draft.theme?' selected':'')+'>'+esc(label)+'</option>').join("")+'</select></div>'
-   +'<div class="control"><label for="draft-file">'+esc(fr?"Image PNG * (max. 6 Mo)":"PNG image * (max. 6 MB)")+'</label><input id="draft-file" data-field="admin-import-file" type="file" accept=".png,image/png" aria-describedby="draft-file-status"><small id="draft-file-status" role="status">'
-   +esc(privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):(fr?"Aucun fichier sélectionné":"No file selected"))+'</small></div>'
-   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading||batchImport.busy?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
+   +'<div class="control"><label for="draft-file">'+esc(fr?"Image PNG * (max. 6 Mo)":"PNG image * (max. 6 MB)")+'</label><input id="draft-file" data-field="admin-import-file" type="file" accept=".png,image/png" aria-describedby="draft-file-status"><small id="draft-file-status" role="status" aria-live="polite">'
+   +esc(privateImport.checking?(fr?"Vérification du PNG en cours…":"Checking PNG…"):
+     privateImport.validated?(fr?"PNG vérifié : ":"PNG verified: ")+privateImport.file?.name:
+     privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):
+     (fr?"Aucun fichier sélectionné":"No file selected"))+'</small></div>'
+   +'<div class="admin-import-actions"><button class="btn btn-primary" type="submit"'+(privateImport.loading||privateImport.checking||!privateImport.validated||batchImport.busy?' disabled':'')+'>'+icon("upload","btn-icon")+esc(privateImport.loading?(fr?"Importation…":"Importing…"):(fr?"Importer comme brouillon":"Import as draft"))+'</button>'
    +'<small>'+esc(fr?"PNG seulement; aucune publication automatique.":"PNG only; never auto-published.")+'</small></div></form>'
-   +(privateImport.error?'<p class="admin-import-alert" role="alert">'+esc(privateImport.error)+'</p>':"")
+   +(privateImport.error?'<p id="pa-single-png-error" class="admin-import-alert" role="alert" tabindex="-1">'+esc(privateImport.error)+'</p>':"")
    +(privateImport.message?'<p class="admin-import-success" role="status">'+esc(privateImport.message)+'</p>':"")
    +'<section class="admin-batch-import" aria-labelledby="admin-batch-heading">'
    +'<h3 id="admin-batch-heading">'+esc(fr?"Importer plusieurs PNG à la fois":"Import multiple PNG files at once")+'</h3>'
@@ -6021,7 +6024,7 @@ root.addEventListener("submit",function(event){
   const form=event.target.closest('form[data-form="admin-import"]');
   if(!form)return;
   event.preventDefault();
-  if(!canOpenAdmin()||privateImport.loading||batchImport.busy||!authStatus.user)return;
+  if(!canOpenAdmin()||privateImport.loading||privateImport.checking||!privateImport.validated||batchImport.busy||!authStatus.user)return;
   const file=privateImport.file;
   if(!file){privateImport.error=state.language==="fr"?"Sélectionnez un fichier PNG.":"Select a PNG file.";render();return;}
   const formData=new FormData(form);
@@ -6034,7 +6037,7 @@ root.addEventListener("submit",function(event){
       const client=await supabaseClient();
       await importPrivateDraft(client,userId,file,metadata);
       if(privateImport.request!==request||authStatus.user?.id!==userId)return;
-      privateImport.file=null;privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
+      privateImport.file=null;privateImport.checking=false;privateImport.validated=false;privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
       privateImport.message=state.language==="fr"?"Brouillon privé importé. Non publié.":"Private draft imported. Not published.";
       await refreshPrivateBank(client,userId);
     }catch(error){
@@ -6162,10 +6165,30 @@ root.addEventListener("change",function(event){
   }
   if(event.target.dataset.field==="admin-import-file"){
     if(!canOpenAdmin()||privateImport.loading)return;
-    privateImport.file=event.target.files?.[0]||null;
-    privateImport.error="";privateImport.message="";
-    const status=document.querySelector("#draft-file-status");
-    if(status)status.textContent=privateImport.file?(privateImport.file.name+" · "+Math.ceil(privateImport.file.size/1024)+" Ko"):(state.language==="fr"?"Aucun fichier sélectionné":"No file selected");
+    // Chaque nouvelle sélection révoque l'ancien résultat de décodage.
+    const uid=authStatus.user?.id,ticket=++privateImport.request;
+    const file=event.target.files?.[0]||null;
+    privateImport.file=file;privateImport.checking=Boolean(file);
+    privateImport.validated=false;privateImport.error="";privateImport.message="";
+    render();
+    if(!file)return;
+    const current=()=>ticket===privateImport.request&&authStatus.user?.id===uid&&
+      canOpenAdmin()&&privateImport.file===file;
+    void(async()=>{
+      try{
+        await validateDraftPng(file);
+        if(!current())return;
+        privateImport.validated=true;
+      }catch(error){
+        if(!current())return;
+        privateImport.error=String(error?.message||error);
+      }finally{
+        if(current()){
+          privateImport.checking=false;render();
+          if(privateImport.error)root.querySelector("#pa-single-png-error")?.focus({preventScroll:true});
+        }
+      }
+    })();
     return;
   }
   const field=event.target.dataset.field;
