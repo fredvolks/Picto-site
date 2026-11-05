@@ -4417,6 +4417,7 @@ root.addEventListener("click",function(event){
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
       adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
     }
+    if(state.adminTab==="bank"&&el.dataset.tab!=="bank"&&!confirmDiscardBankEdits())return;
     if(el.dataset.tab!=="bank"){bankPanel="browse";bankSelectionId=null;clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}
     if(state.adminTab==="test-clients"&&el.dataset.tab!=="test-clients")testClients.created=null;
     state.adminTab=el.dataset.tab;state.adminMenuOpen=false;state.toast="";
