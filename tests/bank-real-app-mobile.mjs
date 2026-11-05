@@ -326,9 +326,17 @@ try{
         "Raccourci d'approbation tactile absent: "+width+" "+JSON.stringify(shortcut));
       await evaluate("window.__qaBankItems=true;document.querySelector('[data-action=admin-review-queue]').click();return true;");
       await waitFor("return !!document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')&&document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth>=400",14000);
-      // Le bouton Suivant appartient à l'onglet Classer de la fiche Banque publique.
-      await evaluate("document.querySelector('[data-action=pa-bank-sheet-tab][data-tab=classify]').click();return true;");
-      await waitFor("return !!document.querySelector('[data-action=admin-draft-review-next]')",14000);
+      // Nom, Ajuster et Classer doivent afficher la même commande de révision.
+      for(const tab of ["name","adjust","classify","name"]){
+        await evaluate("document.querySelector('[data-action=pa-bank-sheet-tab][data-tab="+tab+"]').click();return true;");
+        await waitFor("return !!document.querySelector('.pa-bank-review-step [data-action=admin-draft-review-next]')&&!!document.querySelector('.pa-bank-review-step [data-action=admin-draft-review-stop]')",14000);
+        const metrics=await evaluate("const b=document.querySelector('.pa-bank-review-step [data-action=admin-draft-review-next]'),r=b.getBoundingClientRect(),sheet=document.querySelector('.pa-bank-sheet').getBoundingClientRect();return {count:document.querySelectorAll('[data-action=admin-draft-review-next]').length,height:r.height,left:r.left,right:r.right,top:r.top,bottom:r.bottom,sheetBottom:sheet.bottom,scrollWidth:document.documentElement.scrollWidth,width:innerWidth};");
+        assert.equal(metrics.count,1,"Commande Suivant unique");
+        assert.ok(metrics.height>=44&&metrics.bottom<=metrics.sheetBottom+2,
+          "Commande accessible dans la fiche: "+width+" "+JSON.stringify(metrics));
+        assert.ok(metrics.left>=-2&&metrics.right<=width+2&&metrics.scrollWidth<=width+2,
+          "Pas de débordement horizontal: "+width);
+      }
       const first=await evaluate("return {title:document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')?.textContent.trim(),next:!!document.querySelector('[data-action=admin-draft-review-next]'),bank:!!document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank].active'),published:!!document.querySelector('.pa-admin-publish-feedback')};");
       assert.equal(first.title,"Pomme","Ouvrir le premier brouillon privé, sans détour par une liste");
       assert.equal(first.bank,true,"Navigation Banque activée");

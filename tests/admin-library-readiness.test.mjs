@@ -136,3 +136,17 @@ test("Accueil Super Admin : le raccourci publie rien et ouvre le premier brouill
  assert.ok(app.includes('if(a==="admin-draft-review-next")'));
  assert.ok(app.includes('if(a==="admin-draft-review-stop")'));
 });
+
+test("Revue des brouillons : Suivant et Terminer visibles dans tous les onglets, sans perte silencieuse",()=>{
+ const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../app/src/styles.css",import.meta.url),"utf8");
+ assert.ok(app.includes("const reviewStep=draftReviewQueue.active&&privatePreview.id&&bankSelectionId===privatePreview.id?"));
+ assert.ok(app.includes("+'</nav>'+reviewStep;"));
+ assert.equal(app.split('data-action="admin-draft-review-next"').length-1,1);
+ assert.ok(app.includes("Next draft · without publishing"));
+ assert.ok(app.includes("Brouillon suivant · sans publier"));
+ assert.ok(app.includes("if(!confirmDiscardBankEdits())return;"));
+ assert.ok(app.includes("bankSelectionId=null;bankPanel="));
+ assert.ok(css.includes(".pa-bank-sheet .pa-bank-review-step"));
+ assert.ok(css.includes("min-height:44px"));
+});

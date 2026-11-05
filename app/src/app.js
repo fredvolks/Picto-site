@@ -739,6 +739,7 @@ function advanceDraftReviewQueue(){
     draftReviewQueue.message=state.language==="fr"?
       "Fin des brouillons à réviser dans cette file. Aucun pictogramme n’a été publié automatiquement.":
       "End of drafts to review in this queue. No pictogram was published automatically.";
+    bankSelectionId=null;bankPanel="browse";
     render();
   }
 }
@@ -2008,12 +2009,6 @@ function renderAdmin(){
     "Informations techniques seulement : qualité graphique et publication à valider manuellement.":
     "Technical information only: artwork quality and publishing still require human review.")+'</p>':"")
     +(privatePreview.inkError?'<p class="admin-import-alert" role="status">'+esc(fr?"Aperçu d'encre indisponible : ":"Ink preview unavailable: ")+esc(privatePreview.inkError)+'</p>':"")
-    +(draftReviewQueue.active?'<div class="admin-draft-review-next">'
-      +'<p>'+esc(fr?"Révision en cours : passez au brouillon suivant après avoir examiné celui-ci.":
-        "Review in progress: continue to the next draft once you have examined this one.")+'</p>'
-      +'<button type="button" class="btn btn-light" data-action="admin-draft-review-next"'
-      +(privatePreview.loading||publishedCatalog.publishing?' disabled':'')+'>'
-      +esc(fr?"Brouillon suivant sans publier":"Next draft without publishing")+'</button></div>':"")
     +privateInkCard+reviewHtml+privateProofControls
     
     
@@ -2228,9 +2223,17 @@ function renderAdmin(){
       +'<div class="admin-bank-grid admin-bank-view-'+bankView+'">'+realBankBody+'</div>'
       +(!privateBank.loading&&!privateBank.error?pagination:"")+'</section>';
     const sheetTabs=[["name",fr?"Nom":"Name"],["adjust",fr?"Ajuster":"Adjust"],["classify",fr?"Classer":"Classify"]];
+    // Toujours accessible dans Nom / Ajuster / Classer, sans approbation implicite.
+    const reviewStep=draftReviewQueue.active&&privatePreview.id&&bankSelectionId===privatePreview.id?
+      '<div class="pa-bank-review-step" role="group" aria-label="'+esc(fr?"File de révision privée":"Private draft review")+'">'
+      +'<button type="button" class="btn btn-light pa-bank-review-next" data-action="admin-draft-review-next"'
+      +(privatePreview.loading||privateBank.loading||publishedCatalog.publishing?' disabled':'')+'>'
+      +esc(fr?"Brouillon suivant · sans publier":"Next draft · without publishing")+'</button>'
+      +'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop"'
+      +(publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?"Terminer la révision":"End review")+'</button></div>':"";
     const sheetNav='<nav class="pa-bank-sheet-tabs" aria-label="'+esc(fr?"Sections de la fiche":"Pictogram details")+'">'+
       sheetTabs.map(([key,label])=>'<button type="button" data-action="pa-bank-sheet-tab" data-tab="'+key+
-        '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>';
+        '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>'+reviewStep;
     const sheetTitle=selectedAsset?(selectedAsset.admin_name||selectedAsset.title_fr||"—"):"";
     const currentNames=bankImageSheet.names||{adminName:sheetTitle,
       titleFr:selectedAsset?.title_fr||"",titleEn:selectedAsset?.title_en||""};
@@ -4988,12 +4991,14 @@ root.addEventListener("click",function(event){
   if(a==="admin-draft-review-next"){
     if(!draftReviewQueue.active||privatePreview.loading||
        publishedCatalog.publishing||privateBank.loading||!canOpenAdmin())return;
+    // Refus => conserver la fiche et ses réglages locaux (aucune perte silencieuse).
+    if(!confirmDiscardBankEdits())return;
     clearAdminPreview();
     advanceDraftReviewQueue();return;
   }
   if(a==="admin-draft-review-stop"){
-    if(!canOpenAdmin())return;
-    stopDraftReviewQueue();clearAdminPreview();render();return;
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    stopDraftReviewQueue();bankSelectionId=null;clearAdminPreview();render();return;
   }
   if(a==="refresh-admin-bank"){
     if(!canOpenAdmin() || !authStatus.user)return;
