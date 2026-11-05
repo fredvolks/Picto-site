@@ -399,6 +399,9 @@ try{
         assert.ok(!initial.values.includes("tests")&&initial.values.includes("hygiene")&&initial.disabled);
         await evaluate("const e=document.querySelector('#edit-draft-theme');e.value='hygiene';e.dispatchEvent(new Event('change',{bubbles:true}));return true;");
         await waitFor("return document.querySelector('form[data-form=admin-edit-draft] button[type=submit]')?.disabled===false",12000);
+        // Événement du vrai navigateur sur la fiche sale, sans navigation réelle.
+        const dirtyUnload=await evaluate("const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;");
+        assert.equal(dirtyUnload,true,"Rechargement : catégorie non enregistrée protégée");
         // Naviguer ou fermer le formulaire ne doit jamais jeter une catégorie modifiée
         // sans consentement. Ici le navigateur de QA refuse la confirmation.
         await evaluate("window.__qaOriginalConfirm=window.confirm;window.__qaDiscardCalls=0;window.confirm=()=>{window.__qaDiscardCalls++;return false;};document.querySelector('[data-action=admin-theme-asset]').click();return true;");
