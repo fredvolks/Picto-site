@@ -728,6 +728,8 @@ function advanceDraftReviewQueue(){
   if(plan.kind==="open"){
     draftReviewQueue.seen.add(plan.id);
     draftReviewQueue.message="";
+    // La Banque publique rend la fiche entière uniquement après sélection.
+    bankPanel="browse";bankSelectionId=plan.id;
     void openAdminPreview(plan.id);
   }else if(plan.kind==="page"){
     privateBank.page=plan.page;
