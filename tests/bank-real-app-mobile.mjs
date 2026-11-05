@@ -437,6 +437,9 @@ try{
     await evaluate("document.querySelector('[data-action=refresh-admin-bank]').click();return true;");
     await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
     if(width===390){
+      // La Banque ouvre d'abord « Images »; le sélecteur est dans « Ajouter une image ».
+      await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=import]').click();return true;");
+      await waitFor("return !!document.querySelector('[data-field=admin-batch-files]')",14000);
       // Vérifier la VRAIE interface : un PNG tronqué n'autorise jamais l'import.
       // Données et session factices uniquement dans ce serveur de QA.
       assert.equal(await evaluate("const input=document.querySelector('[data-field=\"admin-batch-files\"]');if(!input)throw Error('Sélecteur PNG absent');const t=new DataTransfer();t.items.add(new File([Uint8Array.from([137,80,78,71,13,10,26,10])],'tronque.png',{type:'image/png'}));input.files=t.files;input.dispatchEvent(new Event('change',{bubbles:true}));return !!document.querySelector('form[data-form=\"admin-batch-import\"] button[type=submit]')?.disabled;"),true,
@@ -455,6 +458,9 @@ try{
       assert.equal(preflightReady.hasError,false);
       assert.match(preflightReady.status,/1 \/ 1/);
       console.log("PRECHECK PNG BANQUE — OK 390px",preflightReady.status);
+      // Revenir aux images sans valider le formulaire ni lancer d'upload.
+      await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=browse]').click();return true;");
+      await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
     }
     await evaluate("document.querySelectorAll('[data-action=admin-bank-open]')[1].click();return true;");
     await waitFor("return !!document.querySelector('.pa-bank-sheet-hero [data-pa-bank-art]')",14000);
