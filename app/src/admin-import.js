@@ -180,6 +180,33 @@ export async function importPrivateDraft(client,verifiedUserId,file,metadata,mak
 // Une réponse de serveur incertaine arrête le lot, JAMAIS de reprise aveugle.
 export const MAX_PRIVATE_DRAFT_BATCH=20;
 
+/**
+ * Contrôle local des images sélectionnées AVANT de proposer l'importation.
+ * La sélection peut changer pendant un décodage asynchrone : isCurrent
+ * empêche qu'un ancien résultat soit présenté comme valide.
+ * Aucune lecture Supabase ni mutation Storage/SQL ici.
+ */
+export async function preflightPrivateDraftFiles(files,{isCurrent=()=>true,onChecked=()=>{}}={}){
+  if(!Array.isArray(files)||files.length<1||files.length>MAX_PRIVATE_DRAFT_BATCH)
+    throw Error("Sélectionnez de 1 à 20 fichiers PNG.");
+  if(typeof isCurrent!=="function"||typeof onChecked!=="function")
+    throw Error("Contrôle des PNG invalide.");
+  for(const [index,file] of files.entries()){
+    if(!isCurrent())return false;
+    try{
+      await validateDraftPng(file);
+    }catch(error){
+      throw Error("Image "+(index+1)+" sur "+files.length+" : "+
+        String(error?.message||"PNG invalide."));
+    }
+    if(!isCurrent())return false;
+    try{onChecked({completed:index+1,total:files.length});}
+    catch{/* La progression n'est jamais une preuve de validité et ne relance aucun upload. */}
+  }
+  return true;
+}
+
+
 export function draftTitleFromFilename(filename){
   if(typeof filename!=="string"||filename.length>255||
      !/\.png$/i.test(filename)||/[\p{C}/\\]/u.test(filename))
