@@ -30,6 +30,8 @@ const client={
        window.__qaUploadedPath=path;
        if(window.__qaFailSecondUpload&&window.__qaUploadCount===2)
          return {error:new Error("QA : deuxième PNG refusé avant INSERT")};
+       if(window.__qaHoldImportUpload)
+         await new Promise(resolve=>{window.__qaReleaseImportUpload=resolve;});
        return {error:null};
      },
      async remove(){throw Error("Le test ne supprime pas les vrais PNG");}
@@ -580,6 +582,27 @@ try{
       assert.equal(await evaluate("return window.__qaOpenedAssetId"),partial.id);
       console.log("LOT PARTIEL → FICHE PRIVÉE — QA OK 390px",partial.id);
       await evaluate("document.querySelector('[data-action=admin-bank-detail-close]')?.click();window.__qaImportedDrafts=[];window.__qaImportedDraft=null;window.__qaAllowImport=false;window.__qaLoseImportAck=false;window.__qaFailSecondUpload=false;document.querySelector('[data-action=refresh-admin-bank]')?.click();return true;");
+      await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
+      // Simulation d'un transfert suspendu : la navigation interne et la
+      // fermeture de page doivent rester protégées jusqu'au reçu SQL.
+      await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=import]').click();return true;");
+      await waitFor("return !!document.querySelector('[data-field=admin-batch-files]')",14000);
+      await evaluate("const c=document.createElement('canvas');c.width=1;c.height=1;c.getContext('2d').fillRect(0,0,1,1);const b=Uint8Array.from(atob(c.toDataURL('image/png').split(',')[1]),x=>x.charCodeAt(0));const i=document.querySelector('[data-field=admin-batch-files]');const d=new DataTransfer();d.items.add(new File([b],'attente.png',{type:'image/png'}));i.files=d.files;i.dispatchEvent(new Event('change',{bubbles:true}));return true;");
+      await waitFor("return document.querySelector('#batch-file-status')?.textContent.includes('PNG vérifiés : 1 / 1')",14000);
+      await evaluate("window.__qaImportedDrafts=[];window.__qaImportedDraft=null;window.__qaAllowImport=true;window.__qaFailSecondUpload=false;window.__qaLoseImportAck=false;window.__qaHoldImportUpload=true;window.__qaUploadCount=0;window.__qaImportInsertCount=0;const old=window.confirm;window.confirm=()=>true;try{document.querySelector('form[data-form=admin-batch-import]').requestSubmit();}finally{window.confirm=old;}return true;");
+      await waitFor("return typeof window.__qaReleaseImportUpload==='function'&&!!document.querySelector('form[data-form=admin-batch-import]')",14000);
+      const busy=await evaluate("const n=document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]'),logo=document.querySelector('.admin-brand[data-action=admin-tab]'),panel=document.querySelector('[data-action=admin-bank-panel][data-panel=browse]');const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);n?.dispatchEvent(new MouseEvent('click',{bubbles:true}));panel?.dispatchEvent(new MouseEvent('click',{bubbles:true}));return {nav:n?.disabled,logo:logo?.disabled,panel:panel?.disabled,warned:e.defaultPrevented,form:!!document.querySelector('form[data-form=admin-batch-import]'),uploads:window.__qaUploadCount,inserts:window.__qaImportInsertCount};");
+      assert.deepEqual(busy,{nav:true,logo:true,panel:true,warned:true,form:true,uploads:1,inserts:0},"Aucun changement d'écran ou faux reçu pendant la mutation en attente");
+      const pendingShot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
+      await writeFile(resolve("artifacts/admin-bank-real/upload-en-attente-390px.png"),Buffer.from(pendingShot.data,"base64"));
+      await evaluate("window.__qaHoldImportUpload=false;const release=window.__qaReleaseImportUpload;window.__qaReleaseImportUpload=null;release();return true;");
+      await waitFor("return window.__qaImportInsertCount===1&&!!document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth",14000);
+      const done=await evaluate("return {uploads:window.__qaUploadCount,inserts:window.__qaImportInsertCount,id:window.__qaOpenedAssetId,approved:document.querySelector('form[data-form=catalog-publish] input[name=confirmed]')?.checked||false};");
+      assert.equal(done.uploads,1);assert.equal(done.inserts,1);
+      assert.equal(done.id,"dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+      assert.equal(done.approved,false,"Pas de publication automatique");
+      console.log("IMPORT EN ATTENTE → BROUILLON CONFIRMÉ — QA OK 390px",done.id);
+      await evaluate("document.querySelector('[data-action=admin-bank-detail-close]')?.click();window.__qaImportedDrafts=[];window.__qaImportedDraft=null;window.__qaAllowImport=false;window.__qaHoldImportUpload=false;window.__qaReleaseImportUpload=null;document.querySelector('[data-action=refresh-admin-bank]')?.click();return true;");
       await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
       // Revenir aux images sans valider le formulaire ni lancer d'upload.
       await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=browse]').click();return true;");
