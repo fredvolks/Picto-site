@@ -1,3 +1,4 @@
+import {VALID_TEST_PNG_BYTES} from "./fixtures/valid-png.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
@@ -7,7 +8,7 @@ import {
 } from "../src/admin-import.js";
 
 const header=Uint8Array.from([137,80,78,71,13,10,26,10]);
-function png(name,bytes=header,type="image/png"){
+function png(name,bytes=VALID_TEST_PNG_BYTES,type="image/png"){
  const blob=new Blob([bytes],{type});return Object.assign(blob,{name});
 }
 const files=()=>[png("se_laver_les_mains.png"),png("ÉCOLE-02.PNG"),png("pomme.png")];
