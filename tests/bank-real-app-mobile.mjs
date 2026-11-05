@@ -325,7 +325,10 @@ try{
       assert.ok(shortcut.present&&!shortcut.disabled&&shortcut.height>=44,
         "Raccourci d'approbation tactile absent: "+width+" "+JSON.stringify(shortcut));
       await evaluate("window.__qaBankItems=true;document.querySelector('[data-action=admin-review-queue]').click();return true;");
-      await waitFor("return !!document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')&&document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth>=400&&!!document.querySelector('[data-action=admin-draft-review-next]')",14000);
+      await waitFor("return !!document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')&&document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth>=400",14000);
+      // Le bouton Suivant appartient à l'onglet Classer de la fiche Banque publique.
+      await evaluate("document.querySelector('[data-action=pa-bank-sheet-tab][data-tab=classify]').click();return true;");
+      await waitFor("return !!document.querySelector('[data-action=admin-draft-review-next]')",14000);
       const first=await evaluate("return {title:document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')?.textContent.trim(),next:!!document.querySelector('[data-action=admin-draft-review-next]'),bank:!!document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank].active'),published:!!document.querySelector('.pa-admin-publish-feedback')};");
       assert.equal(first.title,"Pomme","Ouvrir le premier brouillon privé, sans détour par une liste");
       assert.equal(first.bank,true,"Navigation Banque activée");
