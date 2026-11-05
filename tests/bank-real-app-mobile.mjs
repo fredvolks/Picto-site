@@ -36,7 +36,7 @@ const client={
    if(table==="pictau_templates"){
     if(window.__qaTemplateMode==="missing")return {data:null,count:null,error:{code:"PGRST205"}};
     if(window.__qaTemplateMode==="denied")return {data:null,count:null,error:{code:"42501"}};
-    return {data:null,count:publication===true?2:3,error:null};
+    return {data:null,count:publication===true?(window.__qaPublishedTemplates??2):(window.__qaPrivateTemplates??3),error:null};
    }
    if(table==="pictau_assets")return {data:null,count:4,error:null};
    if(table==="pictau_catalog_items")return {data:null,count:1,error:null};
@@ -303,6 +303,19 @@ try{
         "Une session révoquée masque immédiatement les chiffres du diagnostic.");
       await evaluate("window.__qaSessionRevoked=false;document.querySelector('[data-action=admin-readiness-refresh]').click();return true;");
       await waitFor("return document.querySelector('.pa-release-grid')?.textContent.includes('Gabarits publiés')",12000);
+
+      // Le travail sur la Banque change les comptes; l'accueil doit relire
+      // ces valeurs automatiquement, sans afficher l'ancien résultat comme valide.
+      const changed=await evaluate("window.__qaPublishedTemplates=5;document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank]').click();document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]').click();return {loading:!!document.querySelector('.pa-release-readiness [role=status]'),oldGrid:!!document.querySelector('.pa-release-grid')};");
+      assert.ok(changed.loading&&!changed.oldGrid,
+        "Au retour à Accueil, ne pas afficher le dernier comptage comme actuel");
+      await waitFor("return [...document.querySelectorAll('.pa-release-grid>div')].some(x=>x.querySelector('span')?.textContent.includes('Gabarits publiés')&&x.querySelector('strong')?.textContent.trim()==='5')",12000);
+      assert.equal((await qaReadiness()).labels.find(([label])=>label==="Gabarits publiés")?.[1],"5",
+        "Le retour à Accueil doit relire le nouveau compte sous Auth/RLS");
+      // Une deuxième navigation recharge encore, au lieu d'un cache définitif.
+      await evaluate("window.__qaPublishedTemplates=2;document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank]').click();document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]').click();return true;");
+      await waitFor("return [...document.querySelectorAll('.pa-release-grid>div')].some(x=>x.querySelector('span')?.textContent.includes('Gabarits publiés')&&x.querySelector('strong')?.textContent.trim()==='2')",12000);
+      console.log("QA RETOUR À ACCUEIL — comptes rechargés 2 fois sans état périmé");
     }
     console.log("VRAI DASHBOARD SUPER ADMIN — QA simulée",width+"x"+height,readiness.labels);
     if(width>=1200)continue; // Fiche Banque couverte séparément aux largeurs mobile/tablette.
