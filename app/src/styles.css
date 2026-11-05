@@ -2923,3 +2923,33 @@
   .admin-sage-unified .admin-avatar{width:32px;height:32px;font-size:11px}
 }
 @media print{.admin-sage-unified .admin-profile-menu{display:none}}
+
+/* PICTAU_L4_INTEGRATION_20261104
+   Composants client privés seulement. Ne pas toucher au design de la vitrine. */
+@media screen{
+ .pa-client-workspace .files-filters{grid-template-columns:minmax(0,1.4fr) repeat(4,minmax(90px,1fr));margin-bottom:15px}
+ .pa-client-workspace .files-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:9px}
+ .pa-client-workspace .files-filter-actions .btn{min-width:126px;min-height:44px}
+ .pa-drafts-row{flex-wrap:wrap}
+ .pa-drafts-rename-form{flex:1 0 100%;width:100%;min-width:0;display:grid;gap:8px;padding-top:12px;border-top:1px solid #e4e4e4}
+ .pa-drafts-rename-form label{font-weight:700;font-size:14px}
+ .pa-drafts-rename-form input{width:100%;min-height:44px;border:1px solid #b9b9b9;border-radius:10px;padding:9px 12px;font:inherit}
+ .pa-drafts-rename-form input:focus-visible{outline:2px solid #276b8a;outline-offset:2px}
+ .pa-drafts-rename-form small{font-size:12px;line-height:1.4;color:#575757}
+ .pa-drafts-rename-form p[role="alert"]{color:#8d2020;margin:0;font-weight:700}
+ .pa-drafts-rename-actions{display:flex;gap:10px;flex-wrap:wrap}
+ .pa-drafts-rename-actions .btn{min-height:44px}
+ .pa-drafts-preview{max-width:100%;min-width:0}
+ .pa-drafts-preview summary{cursor:pointer;min-height:44px;padding:11px 0;font-size:13px}
+ .pa-drafts-preview summary:focus-visible{outline:2px solid #111;outline-offset:3px;border-radius:4px}
+ .pa-drafts-preview ol{margin:0 0 8px;padding-left:22px;font-size:13px;color:#454545;line-height:1.55}
+ .pa-drafts-preview li{padding:2px 0;overflow-wrap:anywhere}
+}
+@media screen and (max-width:780px){
+ .pa-client-workspace .files-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media screen and (max-width:520px){
+ .pa-client-workspace .files-filters{grid-template-columns:minmax(0,1fr)}
+ .pa-client-workspace .files-filter-actions{flex-direction:column;align-items:stretch}
+ .pa-client-workspace .files-filter-actions .btn{width:100%}
+}

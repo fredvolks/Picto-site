@@ -45,7 +45,7 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
  // Le premier PDF s'ajoute immédiatement, sans devoir découvrir un panneau fermé.
  // Un résultat vide après filtrage n'est PAS une preuve que le compte n'a aucun document.
  const firstUse=!files.loading&&!files.error&&files.total===0&&files.page===0&&
-   !String(files.query||"").trim()&&(files.type||"all")==="all";
+   !String(files.query||"").trim()&&(files.type||"all")==="all"&&(files.period||"all")==="all"&&(files.source||"all")==="all";
  const form='<details class="panel files-upload-panel"'+(firstUse?' open':'')+'><summary class="files-upload-toggle">'+t("Ajouter un PDF existant","Add an existing PDF")+'</summary><div class="files-upload-panel-inner"><h2>'+t("Archiver un PDF existant","Archive an existing PDF")+'</h2>'
    +'<p>'+t("Choisissez un PDF de votre appareil. Son original sera conservé dans votre compte pour le retrouver et le réimprimer sur un autre appareil.","Choose a PDF from your device. Its original will be saved to your account so you can find and reprint it on another device.")+'</p>'
    +'<form data-form="archive-pdf" class="files-upload-form">'
@@ -61,11 +61,26 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
        "A PDF is awaiting confirmation. Retry archiving or discard that copy before importing another PDF.")
     +'</p>':'')
    +'<button type="submit" class="btn btn-primary"'+(files.busy||pendingPdf?' disabled':'')+'>'+icon("save","btn-icon")+t(files.busy?"Archivage…":"Archiver le PDF",files.busy?"Archiving…":"Archive PDF")+'</button></form></div></details>';
+ const hasActiveFilters=Boolean(String(files.query||"").trim()||(files.type||"all")!=="all"||
+   (files.period||"all")!=="all"||(files.source||"all")!=="all"||(files.sort||"recent")!=="recent");
  const filters='<form data-form="files-filter" class="files-filters"><div class="control"><label for="files-search">'+t("Rechercher par nom","Search by name")+'</label>'
    +'<input id="files-search" name="query" type="search" maxlength="80" value="'+e(files.query)+'" placeholder="'+t("Ex. routine du soir","E.g. evening routine")+'"></div>'
    +'<div class="control"><label for="files-filter-type">'+t("Type","Type")+'</label>'
    +'<select id="files-filter-type" name="type"><option value="all">'+t("Tous les documents","All documents")+'</option>'
    +["routine","sheet","board"].map(key=>'<option value="'+key+'"'+(files.type===key?' selected':'')+'>'+e(typeName[key])+'</option>').join("")+'</select></div>'
+   +'<div class="control"><label for="files-source">'+t("Brouillon associé","Linked draft")+'</label>'
+   +'<select id="files-source" name="source">'+[
+     ["all",t("Tous les PDF","All PDFs")],
+     ["linked",t("Avec brouillon","With draft")],
+     ["unlinked",t("Sans brouillon","Without draft")]
+   ].map(([key,label])=>'<option value="'+key+'"'+((files.source||"all")===key?' selected':'')+'>'+e(label)+'</option>').join("")+'</select></div>'
+   +'<div class="control"><label for="files-period">'+t("Période","Period")+'</label>'
+   +'<select id="files-period" name="period">'+[
+     ["all",t("Toutes les dates","All dates")],
+     ["week",t("7 derniers jours","Last 7 days")],
+     ["month",t("30 derniers jours","Last 30 days")],
+     ["year",t("12 derniers mois","Last 12 months")]
+   ].map(([key,label])=>'<option value="'+key+'"'+((files.period||"all")===key?' selected':'')+'>'+e(label)+'</option>').join("")+'</select></div>'
    +'<div class="control"><label for="files-sort">'+t("Trier par","Sort by")+'</label>'
    +'<select id="files-sort" name="sort">'+[
      ["recent",t("Plus récents","Newest first")],
@@ -73,14 +88,18 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
      ["name-asc",t("Nom A à Z","Name A to Z")],
      ["name-desc",t("Nom Z à A","Name Z to A")]
     ].map(([key,label])=>'<option value="'+key+'"'+((files.sort||"recent")===key?' selected':'')+'>'+e(label)+'</option>').join("")+'</select></div>'
-   +'<button type="submit" class="btn btn-light">'+icon("search","btn-icon")+t("Rechercher","Search")+'</button></form>';
+   +'<div class="files-filter-actions"><button type="submit" class="btn btn-light">'+icon("search","btn-icon")+t("Rechercher","Search")+'</button>'
+   +(hasActiveFilters?'<button type="button" class="btn btn-light" data-action="files-reset-filters">'+t("Tout afficher","Show all")+'</button>':"")
+   +'</div></form>';
  const list=files.error?"":files.loading?'<p class="files-feedback" role="status">'+t("Chargement des fichiers privés…","Loading private files…")+'</p>'
    :files.items.length?'<div class="files-list">'+files.items.map(doc=>{
       const renaming=files.renameId===doc.id;
       return '<article class="files-entry"><div class="files-entry-icon" aria-hidden="true">'+icon("file-text")+'</div>'
        +'<div class="files-entry-body"><strong>'+e(doc.title)+'</strong>'
        +'<div class="files-meta"><span>'+e(typeName[doc.document_type]||doc.document_type)+'</span><span>'+e(date(doc.created_at))+'</span>'
-       +'<span>PDF'+(doc.page_count?" · "+doc.page_count+" "+t("pages","pages"):"")+'</span></div>'
+       +'<span>PDF'+(doc.page_count?" · "+doc.page_count+" "+t("pages","pages"):"")+'</span>'
+       +'<span>'+t(doc.source_draft_id?"Brouillon associé":"Sans brouillon associé",
+         doc.source_draft_id?"Draft linked":"No linked draft")+'</span></div>'
        +(renaming?'<form data-form="files-rename" data-id="'+e(doc.id)+'" class="files-rename"><label for="rename-'+e(doc.id)+'">'+t("Nouveau nom","New name")+'</label>'
         +'<input id="rename-'+e(doc.id)+'" maxlength="120" required name="title" value="'+e(doc.title)+'">'
         +'<button type="submit" class="btn btn-primary btn-small"'+(files.busy?' disabled':'')+'>'+t("Enregistrer","Save")+'</button>'
@@ -95,6 +114,8 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
        +'<button type="button" class="btn btn-light btn-small" data-action="files-download" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+t("Télécharger le PDF original","Download original PDF")+'</button>'
        +(doc.source_draft_id?'<button type="button" class="btn btn-light btn-small" data-action="files-edit-source" data-id="'+e(doc.id)+'"'
          +(files.busy?' disabled':'')+'>'+icon("edit","btn-icon")+t("Modifier la source","Edit source")+'</button>':'')
+       +(doc.source_draft_id&&["routine","board"].includes(doc.document_type)?'<button type="button" class="btn btn-light btn-small" data-action="files-copy-source" data-id="'+e(doc.id)+'"'
+         +(files.busy?' disabled':'')+'>'+t("Créer une copie modifiable","Create editable copy")+'</button>':'')
        +'<button type="button" class="btn btn-light btn-small" data-action="files-rename-open" data-id="'+e(doc.id)+'"'+(files.busy?' disabled':'')+'>'+t("Renommer","Rename")+'</button>'
        +'</div></details></div></article>';
      }).join("")+'</div>'
@@ -126,6 +147,8 @@ export function renderClientFiles({language,logged,files,uid=null,pendingPdf=fal
  return '<div class="files-page">'+panel
    +(files.error?'<p class="request-error" role="alert">'+e(files.error)+'</p>':"")
    +(files.message?'<p class="request-success" role="status">'+e(files.message)+'</p>':"")
+   +(files.message&&files.copySourceMessage===files.message?
+     '<button type="button" class="btn btn-light btn-small" data-action="nav" data-page="create">'+t("Voir Mes brouillons","Open My drafts")+'</button>':"")
    +renderVerifiedPdfRetry({retry:files.reprintRetry,uid,language,escape:e})
    +(firstUse?form:'')+'<section class="panel files-history"><div class="files-history-head"><h2>'+t("Documents enregistrés","Saved documents")+'</h2>'
    +'<button type="button" class="btn btn-light btn-small" data-action="files-refresh"'+(files.loading?' disabled':'')+'>'+t("Actualiser","Refresh")+'</button></div>'
