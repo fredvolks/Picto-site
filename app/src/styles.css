@@ -2912,7 +2912,7 @@
   }
   .admin-sage-unified .admin-topbar-intro{display:none}
   .admin-sage-unified .admin-topbar-actions{margin-left:auto;gap:6px}
-  .admin-sage-unified .admin-menu-trigger{color:#fff;border-color:#789983}
+  .admin-sage-unified .admin-menu-trigger{color:#294b37;border-color:#789983}
 }
 @media screen and (max-width:440px){
   .admin-sage-unified .admin-topbar{gap:5px;padding:8px 8px}
