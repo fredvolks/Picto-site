@@ -2953,3 +2953,42 @@
  .pa-client-workspace .files-filter-actions{flex-direction:column;align-items:stretch}
  .pa-client-workspace .files-filter-actions .btn{width:100%}
 }
+
+/* First-publication readiness lives only inside authenticated Super Admin.
+   No site header, account creation, login or client workspace is touched. */
+.admin-dashboard .pa-release-readiness{margin:20px 0;padding:clamp(16px,2vw,24px)}
+.admin-dashboard .pa-release-readiness .admin-surface-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap
+}
+.admin-dashboard .pa-release-readiness .admin-surface-head h2{margin:0 0 8px}
+.admin-dashboard .pa-release-readiness .admin-surface-head p{margin:0;color:#4f5b51}
+.admin-dashboard .pa-release-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0
+}
+.admin-dashboard .pa-release-grid>div{
+  display:flex;flex-direction:column;gap:6px;padding:12px;
+  border:1px solid #d8ddd7;border-radius:10px;background:#fbfcfa
+}
+.admin-dashboard .pa-release-grid span{font-size:13px;color:#405045}
+.admin-dashboard .pa-release-grid strong{font-size:17px;overflow-wrap:anywhere}
+.admin-dashboard .pa-release-summary{font-weight:600}
+.admin-dashboard .pa-release-caution{font-size:13px;color:#526056;line-height:1.5}
+.admin-dashboard .pa-release-readiness button{min-height:44px}
+@media(max-width:560px){
+  .admin-dashboard .pa-release-grid{grid-template-columns:1fr}
+  .admin-dashboard .pa-release-readiness .admin-surface-head button{width:100%}
+}
+
+
+/* PICTAU_L3_READINESS_TEMPLATE_ACTIONS */
+.admin-dashboard .pa-release-readiness .pa-release-next{
+  font-size:13px;line-height:1.55;margin:14px 0;color:inherit;
+}
+.admin-dashboard .pa-release-readiness .pa-release-actions{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.admin-dashboard .pa-release-readiness .pa-release-actions button{min-height:44px}
+@media screen and (max-width:520px){
+  .admin-dashboard .pa-release-readiness .pa-release-actions{flex-direction:column;align-items:stretch}
+  .admin-dashboard .pa-release-readiness .pa-release-actions button{width:100%}
+}
