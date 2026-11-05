@@ -16,7 +16,7 @@ import {renderAdminPictoTemplatePicker,renderClientPictoTemplateOptions,confirma
 import {readThemes,readAssetThemes,createTheme,editThemeLabels,addAssetTheme,removeAssetTheme,mergeThemes,copyAdditionalAssetThemes,MAX_THEMES_PER_ASSET} from "./admin-themes.js";
 import {importPrivateDraft,validateDraftMetadata,importPrivateDraftBatch,draftTitleFromFilename,MAX_PRIVATE_DRAFT_BATCH} from "./admin-import.js";
 import {editPrivateDraftMetadata} from "./admin-draft-edit.js";
-import {assessDraftQuality} from "./admin-quality.js";
+import {assessDraftQuality,assessDraftPrimaryTheme} from "./admin-quality.js";
 import {sanitizeDemoBoard,addDemoBoardItem,moveDemoBoardItem,removeDemoBoardItem,boardColumnCount,demoBoardFitsWidth,DEMO_BOARD_CAP} from "./communication-board.js";
 import {loadPrivateAdminPreview} from "./admin-preview.js";
 import {createPrivateDraftProof} from "./admin-proof.js";
@@ -1002,11 +1002,11 @@ function renderClientPictoTemplateModal(){
 }
 
 const bankFilters={query:"",status:"all",theme:"all",sort:"recent"};
-const themeUI={items:[],links:{},error:"",message:"",assetId:null,editCode:"",
+const themeUI={items:[],links:{},loaded:false,error:"",message:"",assetId:null,editCode:"",
  form:{code:"",fr:"",en:""},edit:{fr:"",en:""},
  merge:{source:"",target:""},busy:false,request:0};
 function clearThemeUI(){
-  themeUI.request++;themeUI.items=[];themeUI.links={};themeUI.error="";themeUI.message="";
+  themeUI.request++;themeUI.items=[];themeUI.links={};themeUI.loaded=false;themeUI.error="";themeUI.message="";
   themeUI.assetId=null;themeUI.editCode="";themeUI.busy=false;
   themeUI.form={code:"",fr:"",en:""};themeUI.edit={fr:"",en:""};
   themeUI.merge={source:"",target:""};
@@ -1322,6 +1322,7 @@ async function refreshPrivateBank(client,userId){
   clearBankThumbs();
   const request=++privateBank.request;
   privateBank.loading=true;privateBank.error="";
+  themeUI.loaded=false;themeUI.error=""; // une lecture en cours n'est jamais une preuve actuelle
   render();
   try{
     const result=await readAdminBankAvailablePage(client,userId,{...bankFilters,page:privateBank.page});
@@ -1348,11 +1349,14 @@ async function refreshPrivateBank(client,userId){
           readThemes(client,userId),readAssetThemes(client,userId,result.items.map(x=>x.id))
         ]);
         if(request!==privateBank.request||authStatus.user?.id!==userId)return;
-        themeUI.items=catalog;themeUI.links=links;themeUI.error="";
+        themeUI.items=catalog;themeUI.links=links;themeUI.error="";themeUI.loaded=true;
       }catch(themeError){
         if(request!==privateBank.request||authStatus.user?.id!==userId)return;
+        themeUI.loaded=false;themeUI.items=[];themeUI.links={};
         themeUI.error=String(themeError?.message||themeError);
       }
+    }else{
+      themeUI.loaded=false;themeUI.items=[];themeUI.links={};
     }
     if(draftEditor.id&&!result.items.some(item=>item.id===draftEditor.id&&item.status==="draft"&&item.created_by===userId))clearDraftEditor();
     if(!result.authorized||(privatePreview.id&&!result.items.some(item=>item.id===privatePreview.id)))clearAdminPreview();
@@ -1362,6 +1366,7 @@ async function refreshPrivateBank(client,userId){
     // la protection réelle des données. Une session réellement invalide
     // est traitée par readAdminBank et la notification Auth.
     privateBank.items=[];privateBank.total=0;
+    themeUI.loaded=false;themeUI.items=[];themeUI.links={};
     clearAdminPreview();clearDraftEditor();
     privateBank.error=String(error?.message||error);
     if(SITE_EMBEDDED&&!authStatus.roleReady)authStatus.roleError=state.language==="fr"?"Impossible de vérifier les droits du compte.":"Unable to verify your account permissions.";
