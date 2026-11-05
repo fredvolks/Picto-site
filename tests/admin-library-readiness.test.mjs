@@ -119,3 +119,20 @@ test("Retour vers Accueil Super Admin : compteurs invalidés puis relus après n
  assert.ok(app.includes('Brouillons à approuver'));
  assert.ok(app.includes('data-action="admin-review-queue"'));
 });
+
+test("Accueil Super Admin : le raccourci publie rien et ouvre le premier brouillon privé",()=>{
+ const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
+ assert.ok(app.includes('function startPrivateDraftReviewFromHome()'));
+ assert.ok(app.includes('if(a==="admin-review-queue")'));
+ assert.ok(app.includes('startPrivateDraftReviewFromHome();return;'));
+ assert.ok(app.includes('draftReviewQueue.active=true;draftReviewQueue.pending=true'));
+ assert.ok(app.includes('bankFilters.query="";bankFilters.status="draft"'));
+ assert.ok(app.includes('bankFilters.theme="all";bankFilters.sort="oldest"'));
+ assert.ok(app.includes('state.adminTab="bank";state.adminMenuOpen=false'));
+ assert.ok(app.includes('data-action="admin-review-queue"'));
+ assert.ok(app.includes('Brouillons à approuver'));
+ assert.ok(app.includes('Ouvrir la Banque'));
+ assert.ok(app.includes('Open image bank'));
+ assert.ok(app.includes('if(a==="admin-draft-review-next")'));
+ assert.ok(app.includes('if(a==="admin-draft-review-stop")'));
+});
