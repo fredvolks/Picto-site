@@ -74,3 +74,15 @@ test("La navigation protège aussi la fermeture de l’aperçu et les actions hi
      action+" ne doit pas perdre une modification non enregistrée");
  }
 });
+
+test("L'ancien formulaire ne réapparaît pas après un abandon confirmé",()=>{
+ const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
+ for(const action of ["admin-preview","admin-preview-retry","close-admin-preview",
+   "admin-draft-review-next","admin-draft-review-stop","admin-review-next"]){
+   const start=app.indexOf('if(a==="'+action+'")');
+   assert.ok(start>=0,action+" existe");
+   const code=app.slice(start,start+820);
+   assert.match(code,/clearDraftEditor\(\);clearBankRename\(\)/,
+     "L'état du brouillon précédent doit être nettoyé : "+action);
+ }
+});
