@@ -317,6 +317,28 @@ try{
       await waitFor("return [...document.querySelectorAll('.pa-release-grid>div')].some(x=>x.querySelector('span')?.textContent.includes('Gabarits publiés')&&x.querySelector('strong')?.textContent.trim()==='2')",12000);
       console.log("QA RETOUR À ACCUEIL — comptes rechargés 2 fois sans état périmé");
     }
+
+    // Parcours public candidat : le raccourci approuvable ouvre le premier
+    // vrai panneau de la Banque, avec données simulées UNIQUEMENT dans ce serveur QA.
+    if([390,768,1440].includes(width)){
+      const shortcut=await evaluate("const b=document.querySelector('[data-action=admin-review-queue]');return {present:!!b,label:b?.textContent.trim(),height:b?.getBoundingClientRect().height,disabled:b?.disabled};");
+      assert.ok(shortcut.present&&!shortcut.disabled&&shortcut.height>=44,
+        "Raccourci d'approbation tactile absent: "+width+" "+JSON.stringify(shortcut));
+      await evaluate("window.__qaBankItems=true;document.querySelector('[data-action=admin-review-queue]').click();return true;");
+      await waitFor("return !!document.querySelector('#pa-bank-sheet-title')&&!!document.querySelector('.pa-bank-sheet-hero img')",14000);
+      const first=await evaluate("return {title:document.querySelector('#pa-bank-sheet-title')?.textContent.trim(),next:!!document.querySelector('[data-action=admin-draft-review-next]'),bank:!!document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank].active'),published:!!document.querySelector('.pa-admin-publish-feedback')};");
+      assert.equal(first.title,"Pomme","Ouvrir le premier brouillon privé, sans détour par une liste");
+      assert.equal(first.bank,true,"Navigation Banque activée");
+      assert.equal(first.next,true,"La file de révision demeure disponible");
+      assert.equal(first.published,false,"Aucune image publiée par la navigation");
+      await writeFile(resolve("artifacts/admin-bank-real/review-from-home-"+width+"x"+height+".png"),
+        Buffer.from((await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true})).data,"base64"));
+      await evaluate("document.querySelector('[data-action=close-admin-preview]').click();return true;");
+      await waitFor("return !document.querySelector('.pa-bank-sheet')&&!!document.querySelector('[data-action=admin-draft-review-stop]')",14000);
+      await evaluate("document.querySelector('[data-action=admin-draft-review-stop]').click();document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]').click();window.__qaBankItems=false;return true;");
+      await waitFor("return !!document.querySelector('#admin-dashboard-title')",12000);
+      console.log("RACCOURCI REVUE PREMIER BROUILLON — OK",width+"x"+height,first.title);
+    }
     console.log("VRAI DASHBOARD SUPER ADMIN — QA simulée",width+"x"+height,readiness.labels);
     if(width>=1200)continue; // Fiche Banque couverte séparément aux largeurs mobile/tablette.
 
