@@ -325,15 +325,15 @@ try{
       assert.ok(shortcut.present&&!shortcut.disabled&&shortcut.height>=44,
         "Raccourci d'approbation tactile absent: "+width+" "+JSON.stringify(shortcut));
       await evaluate("window.__qaBankItems=true;document.querySelector('[data-action=admin-review-queue]').click();return true;");
-      await waitFor("return !!document.querySelector('#pa-bank-sheet-title')&&!!document.querySelector('.pa-bank-sheet-hero img')",14000);
-      const first=await evaluate("return {title:document.querySelector('#pa-bank-sheet-title')?.textContent.trim(),next:!!document.querySelector('[data-action=admin-draft-review-next]'),bank:!!document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank].active'),published:!!document.querySelector('.pa-admin-publish-feedback')};");
+      await waitFor("return !!document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')&&document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth>=400&&!!document.querySelector('[data-action=admin-draft-review-next]')",14000);
+      const first=await evaluate("return {title:document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')?.textContent.trim(),next:!!document.querySelector('[data-action=admin-draft-review-next]'),bank:!!document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank].active'),published:!!document.querySelector('.pa-admin-publish-feedback')};");
       assert.equal(first.title,"Pomme","Ouvrir le premier brouillon privé, sans détour par une liste");
       assert.equal(first.bank,true,"Navigation Banque activée");
       assert.equal(first.next,true,"La file de révision demeure disponible");
       assert.equal(first.published,false,"Aucune image publiée par la navigation");
       await writeFile(resolve("artifacts/admin-bank-real/review-from-home-"+width+"x"+height+".png"),
         Buffer.from((await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true})).data,"base64"));
-      await evaluate("document.querySelector('[data-action=close-admin-preview]').click();return true;");
+      await evaluate("document.querySelector('[data-action=admin-bank-detail-close]').click();return true;");
       await waitFor("return !document.querySelector('.pa-bank-sheet')&&!!document.querySelector('[data-action=admin-draft-review-stop]')",14000);
       await evaluate("document.querySelector('[data-action=admin-draft-review-stop]').click();document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]').click();window.__qaBankItems=false;return true;");
       await waitFor("return !!document.querySelector('#admin-dashboard-title')",12000);
