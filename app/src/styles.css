@@ -2953,3 +2953,15 @@
  .pa-client-workspace .files-filter-actions{flex-direction:column;align-items:stretch}
  .pa-client-workspace .files-filter-actions .btn{width:100%}
 }
+/* PICTAU_L3_READINESS_TEMPLATE_ACTIONS */
+.admin-dashboard .pa-release-readiness .pa-release-next{
+  font-size:13px;line-height:1.55;margin:14px 0;color:inherit;
+}
+.admin-dashboard .pa-release-readiness .pa-release-actions{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.admin-dashboard .pa-release-readiness .pa-release-actions button{min-height:44px}
+@media screen and (max-width:520px){
+  .admin-dashboard .pa-release-readiness .pa-release-actions{flex-direction:column;align-items:stretch}
+  .admin-dashboard .pa-release-readiness .pa-release-actions button{width:100%}
+}
