@@ -384,6 +384,36 @@ try{
       await evaluate("document.querySelector('[data-action=admin-draft-review-stop]').click();document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]').click();window.__qaBankItems=false;return true;");
       await waitFor("return !!document.querySelector('#admin-dashboard-title')",12000);
       console.log("RACCOURCI REVUE PREMIER BROUILLON — OK",width+"x"+height,first.title);
+      if(width===390){
+        // Parcours du vrai composant public sur données QA uniquement :
+        // thème historique fusionné → correction RLS simulée → PNG rouvert.
+        await evaluate("window.__qaBankItems=true;window.__qaBankLegacyTheme=true;window.__qaBankCorrectedTheme=null;document.querySelector('[data-action=admin-review-queue]').click();return true;");
+        await waitFor("return !!document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth",14000);
+        await evaluate("document.querySelector('[data-action=pa-bank-sheet-tab][data-tab=classify]').click();return true;");
+        await waitFor("return document.querySelector('#pa-bank-primary-theme-status')?.textContent.includes('fusionnée')",14000);
+        const denied=await evaluate("return {disabled:document.querySelector('form[data-form=catalog-publish] button[type=submit]')?.disabled,edit:!!document.querySelector('.pa-bank-primary-theme [data-action=admin-edit-draft]')};");
+        assert.deepEqual(denied,{disabled:true,edit:true},"Publication interdite quand thème fusionné");
+        await evaluate("document.querySelector('.pa-bank-primary-theme [data-action=admin-edit-draft]').click();return true;");
+        await waitFor("return !!document.querySelector('#edit-draft-theme')",12000);
+        const initial=await evaluate("return {values:[...document.querySelector('#edit-draft-theme').options].map(x=>x.value),disabled:document.querySelector('form[data-form=admin-edit-draft] button[type=submit]')?.disabled};");
+        assert.ok(!initial.values.includes("tests")&&initial.values.includes("hygiene")&&initial.disabled);
+        await evaluate("const e=document.querySelector('#edit-draft-theme');e.value='hygiene';e.dispatchEvent(new Event('change',{bubbles:true}));return true;");
+        await waitFor("return document.querySelector('form[data-form=admin-edit-draft] button[type=submit]')?.disabled===false",12000);
+        await evaluate("document.querySelector('form[data-form=admin-edit-draft]').requestSubmit();return true;");
+        await waitFor("return document.querySelector('[data-action=admin-draft-review-resume]')?.disabled===false && !document.querySelector('.pa-bank-sheet')",14000);
+        await evaluate("document.querySelector('[data-action=admin-draft-review-resume]').click();return true;");
+        await waitFor("return !!document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth",14000);
+        await evaluate("document.querySelector('[data-action=pa-bank-sheet-tab][data-tab=classify]').click();return true;");
+        await waitFor("return !!document.querySelector('.pa-bank-primary-theme [role=status]')",12000);
+        const checked=await evaluate("return {text:document.querySelector('.pa-bank-primary-theme')?.textContent||'',progress:document.querySelector('.pa-bank-review-progress')?.textContent||'',approved:document.querySelector('form[data-form=catalog-publish] input[name=confirmed]')?.checked};");
+        assert.match(checked.text,/Hygiène/);
+        assert.match(checked.progress,/1 image/);
+        assert.equal(checked.approved,false,"Aucune approbation automatique");
+        const shot=await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true});
+        await writeFile(resolve("artifacts/admin-bank-real/primary-category-390px.png"),Buffer.from(shot.data,"base64"));
+        await evaluate("document.querySelector('[data-action=admin-draft-review-stop]').click();document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]').click();window.__qaBankLegacyTheme=false;window.__qaBankCorrectedTheme=null;window.__qaBankItems=false;return true;");
+        console.log("CATÉGORIE PUBLIQUE CORRIGÉE — OK",width);
+      }
     }
     console.log("VRAI DASHBOARD SUPER ADMIN — QA simulée",width+"x"+height,readiness.labels);
     if(width>=1200)continue; // Fiche Banque couverte séparément aux largeurs mobile/tablette.
