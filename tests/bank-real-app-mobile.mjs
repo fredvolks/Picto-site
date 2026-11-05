@@ -436,6 +436,26 @@ try{
     await waitFor("return !!document.querySelector('[data-action=refresh-admin-bank]')");
     await evaluate("document.querySelector('[data-action=refresh-admin-bank]').click();return true;");
     await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
+    if(width===390){
+      // Vérifier la VRAIE interface : un PNG tronqué n'autorise jamais l'import.
+      // Données et session factices uniquement dans ce serveur de QA.
+      assert.equal(await evaluate("const input=document.querySelector('[data-field=\"admin-batch-files\"]');if(!input)throw Error('Sélecteur PNG absent');const t=new DataTransfer();t.items.add(new File([Uint8Array.from([137,80,78,71,13,10,26,10])],'tronque.png',{type:'image/png'}));input.files=t.files;input.dispatchEvent(new Event('change',{bubbles:true}));return !!document.querySelector('form[data-form=\"admin-batch-import\"] button[type=submit]')?.disabled;"),true,
+        "Le bouton reste bloqué dès la sélection, avant le décodage PNG");
+      await waitFor("return !!document.querySelector('#pa-batch-file-error')",14000);
+      const preflightFailure=await evaluate("const e=document.querySelector('#pa-batch-file-error'),b=document.querySelector('form[data-form=\"admin-batch-import\"] button[type=submit]');return {message:e?.textContent||'',disabled:b?.disabled,focused:document.activeElement===e};");
+      assert.match(preflightFailure.message,/Image 1 sur 1.*incomplète/i);
+      assert.equal(preflightFailure.disabled,true);
+      assert.equal(preflightFailure.focused,true,"L'erreur doit être focalisable sur mobile");
+      // Un vrai PNG obtenu du canvas lève uniquement le verrou de préparation.
+      // Ne jamais cliquer sur Envoyer/Importer ni créer de brouillon serveur.
+      await evaluate("const canvas=document.createElement('canvas');canvas.width=1;canvas.height=1;canvas.getContext('2d').fillRect(0,0,1,1);const raw=atob(canvas.toDataURL('image/png').split(',')[1]);const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));const t=new DataTransfer();t.items.add(new File([bytes],'pomme.png',{type:'image/png'}));const input=document.querySelector('[data-field=\"admin-batch-files\"]');input.files=t.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;");
+      await waitFor("return document.querySelector('#batch-file-status')?.textContent.includes('PNG vérifiés')",14000);
+      const preflightReady=await evaluate("const btn=document.querySelector('form[data-form=\"admin-batch-import\"] button[type=submit]');const status=document.querySelector('#batch-file-status')?.textContent||'';return {ready:!btn?.disabled,status,hasError:!!document.querySelector('#pa-batch-file-error')};");
+      assert.equal(preflightReady.ready,true);
+      assert.equal(preflightReady.hasError,false);
+      assert.match(preflightReady.status,/1 \/ 1/);
+      console.log("PRECHECK PNG BANQUE — OK 390px",preflightReady.status);
+    }
     await evaluate("document.querySelectorAll('[data-action=admin-bank-open]')[1].click();return true;");
     await waitFor("return !!document.querySelector('.pa-bank-sheet-hero [data-pa-bank-art]')",14000);
     await waitFor("return document.querySelector('.pa-bank-sheet-hero img')?.complete && document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth>=400",14000);
