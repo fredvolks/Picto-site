@@ -1937,6 +1937,19 @@ function renderAdmin(){
         (fr?"Aucune fiche ne correspond à votre recherche.":"No records match your search."))+'</p>';
   const chosen=privateBank.items.find(item=>item.id===privatePreview.id);
   const chosenLabel=chosen?(state.language==="en"?(chosen.title_en||chosen.title_fr):chosen.title_fr):"";
+  const primaryThemePreflight=assessDraftPrimaryTheme(chosen,themeUI.items,{
+    verified:themeUI.loaded&&!themeUI.error&&!privateBank.loading&&privateBank.allowed
+  });
+  const primaryThemeReady=primaryThemePreflight.state==="ready";
+  const primaryThemeNotice=primaryThemePreflight.state==="unknown"?
+    (fr?"Catégories non vérifiées. Actualisez la Banque avant de publier.":
+      "Categories not verified. Refresh the bank before publishing."):
+    primaryThemePreflight.state==="missing"?
+      (fr?"La catégorie principale « "+chosen.theme+" » n'existe plus. Corrigez ce brouillon avant de publier.":
+        "The primary category “"+chosen.theme+"” no longer exists. Correct this draft before publishing."):
+    primaryThemePreflight.state==="merged"?
+      (fr?"Cette catégorie a été fusionnée. Choisissez une catégorie active avant de publier.":
+        "This category was merged. Choose an active category before publishing."):"";
   const review=privatePreview.asset&&privatePreview.technical
     ?assessDraftQuality(privatePreview.asset,privatePreview.technical):null;
   const reviewHtml=!review?"":'<div class="admin-quality-review"><h4>'+esc(fr?"Précontrôle de la fiche":"Draft preliminary checks")+'</h4>'
@@ -2027,10 +2040,11 @@ function renderAdmin(){
     
     +(privatePreview.asset&&privatePreview.technical&&chosen.status==="draft"
        ?'<form data-form="catalog-publish" data-id="'+esc(chosen.id)+'" class="admin-publish-control">'
+        +(!primaryThemeReady?'<p class="admin-import-alert" role="status">'+esc(primaryThemeNotice)+'</p>':'')
         +'<h4>'+esc(fr?'Publication dans la bibliothèque client':'Publish to client library')+'</h4>'
         +'<p>'+esc(fr?'L’original reste privé. Seule une copie PNG expressément approuvée sera visible par les clients connectés.':'The source stays private. Only an explicitly approved PNG copy becomes visible to signed-in clients.')+'</p>'
         +'<label><input type="checkbox" name="confirmed" required>'+esc(fr?'J’ai vérifié le dessin, son cadrage, les droits et le libellé.':'I reviewed the artwork, framing, rights and caption.')+'</label>'
-        +'<button type="submit" class="btn btn-primary"'+(publishedCatalog.publishing?' disabled':'')+'>'+icon("check","btn-icon")+esc(publishedCatalog.publishing?(fr?'Publication…':'Publishing…'):(fr?'Approuver et publier':'Approve and publish'))+'</button></form>'
+        +'<button type="submit" class="btn btn-primary"'+(publishedCatalog.publishing||!primaryThemeReady?' disabled':'')+'>'+icon("check","btn-icon")+esc(publishedCatalog.publishing?(fr?'Publication…':'Publishing…'):(fr?'Approuver et publier':'Approve and publish'))+'</button></form>'
        :chosen.status==="published"
        ?'<div class="admin-publish-control"><p>'+esc(fr?'Ce pictogramme est publié dans le catalogue client.':'This pictogram is published in the client catalogue.')+'</p>'
         +(TEMPLATE_CHOICES_RELEASED?'<button type="button" class="btn btn-light" data-action="admin-template-choices-open" data-id="'+esc(chosen.id)+'">'+esc(fr?"Choisir les gabarits de la fiche client":"Choose customer detail templates")+'</button>':"")
@@ -5496,6 +5510,13 @@ root.addEventListener("submit",function(event){
     if(!canOpenAdmin()||publishedCatalog.publishing||!publishForm.querySelector('[name="confirmed"]')?.checked)return;
     const asset=privateBank.items.find(x=>x.id===publishForm.dataset.id);
     if(!asset||asset.status!=="draft"||privatePreview.asset?.id!==asset.id||privatePreview.review?.id!==asset.id||!privatePreview.technical)return;
+    if(assessDraftPrimaryTheme(asset,themeUI.items,{
+      verified:themeUI.loaded&&!themeUI.error&&!privateBank.loading&&privateBank.allowed
+    }).state!=="ready"){
+      bankImageSheet.tab="classify";render();
+      root.querySelector("#pa-bank-primary-theme-status")?.focus({preventScroll:true});
+      return;
+    }
     if(!window.confirm(state.language==="fr"?"Confirmer la publication de cette image approuvée dans le catalogue des clients ?":"Publish this reviewed picture to the client catalogue?"))return;
     const reviewed={...privatePreview.review};
     publishedCatalog.publishing=true;publishedCatalog.publishError="";publishedCatalog.publishMessage="";
