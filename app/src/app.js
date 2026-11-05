@@ -1893,6 +1893,9 @@ function renderAdmin(){
     +'<button type="button" class="btn btn-primary" data-action="admin-draft-review-start"'
     +(privateBank.loading||draftReviewQueue.active?' disabled':'')+'>'
     +esc(fr?"Réviser les brouillons un par un":"Review drafts one by one")+'</button>'
+    +(draftReviewQueue.active&&!privatePreview.id?'<button type="button" class="btn btn-light" data-action="admin-draft-review-resume"'
+      +(privateBank.loading||privateBank.error||draftReviewQueue.pending?' disabled':'')+'>'+
+      esc(fr?"Reprendre la révision":"Resume draft review")+'</button>':"")
     +(draftReviewQueue.active?'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop">'
       +esc(fr?"Terminer la révision":"End review")+'</button>':"")
     +(draftReviewQueue.active?'<p role="status">'+esc(draftReviewQueue.message||
@@ -5021,7 +5024,11 @@ root.addEventListener("click",function(event){
     file.href=privatePreview.url;file.download=(base||"pictau")+".png";
     document.body.appendChild(file);file.click();file.remove();return;
   }
-  if(a==="admin-edit-draft"){openDraftEditor(el.dataset.id);return;}
+  if(a==="admin-edit-draft"){
+    openDraftEditor(el.dataset.id);
+    root.querySelector("#edit-draft-theme")?.focus({preventScroll:true});
+    return;
+  }
   if(a==="close-admin-edit"){clearDraftEditor();render();return;}
   if(a==="export-admin-proposal"){exportDraftProposal();return;}
   if(a==="admin-draft-review-start"){
@@ -5039,6 +5046,12 @@ root.addEventListener("click",function(event){
     if(!canOpenAdmin()||!privatePreview.id||privatePreview.loading||
        publishedCatalog.publishing||!confirmDiscardBankEdits())return;
     void openAdminPreview(privatePreview.id);return;
+  }
+  if(a==="admin-draft-review-resume"){
+    if(!draftReviewQueue.active||draftReviewQueue.pending||privatePreview.id||
+       privateBank.loading||privateBank.error||draftEditor.id||bankRename.id||
+       !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank")return;
+    advanceDraftReviewQueue();return;
   }
   if(a==="admin-draft-review-next"){
     if(!draftReviewQueue.active||privatePreview.loading||!privatePreview.url||
@@ -5889,6 +5902,16 @@ root.addEventListener("submit",function(event){
        !draftEditor.id||!draftEditor.original||!authStatus.user)return;
     const data=new FormData(reviewForm);
     draftEditor.form={titleFr:data.get("titleFr"),titleEn:data.get("titleEn"),theme:data.get("theme")};
+    if(assessDraftPrimaryTheme({status:"draft",theme:draftEditor.form.theme},
+      themeUI.items,{verified:themeUI.loaded&&!themeUI.error}).state!=="ready"){
+      draftEditor.error=state.language==="fr"?
+        "Choisissez une catégorie principale active et vérifiée.":
+        "Choose an active, verified primary category.";
+      render();return;
+    }
+    if(bankSheetDirty()&&!window.confirm(state.language==="fr"?
+      "Les réglages du dessin non enregistrés seront perdus. Continuer la correction ?":
+      "Unsaved artwork adjustments will be lost. Continue editing the category?"))return;
     const assetId=draftEditor.id,expected={...draftEditor.original};
     const uid=authStatus.user.id,request=++draftEditor.request;
     draftEditor.saving=true;draftEditor.error="";draftEditor.message="";render();
@@ -5898,8 +5921,16 @@ root.addEventListener("submit",function(event){
         const result=await editPrivateDraftMetadata(client,uid,assetId,expected,draftEditor.form);
         if(request!==draftEditor.request||authStatus.user?.id!==uid)return;
         draftEditor.saving=false;
-        if(result.saved){clearDraftEditor();await refreshPrivateBank(client,uid);}
-        else {draftEditor.message=state.language==="fr"?"Aucune modification nécessaire.":"No change needed.";}
+        if(result.saved){
+          clearDraftEditor();
+          draftReviewQueue.seen.delete(assetId);
+          bankSelectionId=null;bankPanel="browse";
+          clearAdminPreview(); // le PNG corrigé doit être rouvert avant toute publication
+          await refreshPrivateBank(client,uid);
+          if(authStatus.user?.id===uid&&canOpenAdmin())notify(state.language==="fr"?
+            "Brouillon corrigé. Rouvrez le PNG pour le revoir avant publication.":
+            "Draft updated. Reopen the PNG before publishing.");
+        }else {draftEditor.message=state.language==="fr"?"Aucune modification nécessaire.":"No change needed.";}
       }catch(error){
         if(request!==draftEditor.request||authStatus.user?.id!==uid)return;
         draftEditor.error=String(error?.message||error);
@@ -6033,7 +6064,11 @@ root.addEventListener("change",function(event){
     customerRequests.form.theme=event.target.value;return;
   }
   if(event.target.closest('form[data-form="admin-edit-draft"]')&&event.target.name==="theme"){
-    draftEditor.form.theme=event.target.value;draftEditor.error="";draftEditor.message="";return;
+    if(!canOpenAdmin()||!draftEditor.id||draftEditor.saving)return;
+    draftEditor.form.theme=event.target.value;draftEditor.error="";draftEditor.message="";
+    render();
+    root.querySelector("#edit-draft-theme")?.focus({preventScroll:true});
+    return;
   }
   if(event.target.closest('form[data-form="admin-import"]') && event.target.name==="theme"){
     privateImport.draft.theme=event.target.value;return;
