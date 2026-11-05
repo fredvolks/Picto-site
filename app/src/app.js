@@ -5360,7 +5360,7 @@ root.addEventListener("input",function(event){
     if(!canOpenAdmin()||batchImport.busy||!Number.isInteger(index)||
        index<0||index>=batchImport.files.length)return;
     batchImport.titles[index]=event.target.value;
-    batchImport.error="";
+    if(batchImport.validated)batchImport.error="";
     return;
   }
   if(canOpenAdmin()&&state.adminTab==="templates"&&!adminNamedTemplates.busy){
