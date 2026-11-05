@@ -107,7 +107,8 @@ async function readVerifiedImportedDraft(client,uid,imagePath,expected){
      row.crop_data?.source!=="manual-super-admin-upload")
     throw new Error("La fiche privée importée diffère de celle demandée.");
   await requireAdmin(client,uid,true);
-  return {status:"draft",imagePath};
+// Le véritable id vient de la relecture RLS du serveur, jamais du nom du PNG.
+  return {id:row.id,status:"draft",imagePath};
 }
 
 export async function importPrivateDraft(client,verifiedUserId,file,metadata,makeId=()=>globalThis.crypto.randomUUID()) {
