@@ -259,21 +259,33 @@ export async function importPrivateDraftBatch(client,uid,files,theme,{
   if(typeof onProgress!=="function"||typeof isCurrent!=="function"||
      typeof importOne!=="function")throw Error("Opération de lot invalide.");
   let completed=0;
+  // Les identifiants proviennent exclusivement des reçus d'importation
+  // confirmés par la relecture SQL sous Auth/RLS, pas des noms de fichiers.
+  const confirmedIds=[];
   for(let i=0;i<entries.length;i++){
     if(!isCurrent())return {
-      completed,total:entries.length,failedIndex:i,error:"Session ou lot modifié : importation arrêtée."
+      completed,total:entries.length,failedIndex:i,confirmedIds,
+      error:"Session ou lot modifié : importation arrêtée."
     };
     try{
-      await importOne(client,uid,entries[i].file,entries[i].metadata);
+      const receipt=await importOne(client,uid,entries[i].file,entries[i].metadata);
+      // Les doublures de tests historiques peuvent ne pas renvoyer de reçu.
+      // En production, un reçu non nul doit désigner un brouillon valide.
+      if(receipt!=null){
+        if(receipt.status!=="draft"||!uuid.test(receipt.id||"")||
+           confirmedIds.includes(receipt.id))
+          throw Error("Reçu du brouillon invalide : vérifiez la banque avant toute nouvelle importation.");
+        confirmedIds.push(receipt.id);
+      }
       completed++;
       try{onProgress({completed,total:entries.length,name:entries[i].metadata.titleFr});}
       catch{/* Un message d'interface ne doit pas créer un faux échec d'INSERT. */}
     }catch(error){
       return {
-        completed,total:entries.length,failedIndex:i,
+        completed,total:entries.length,failedIndex:i,confirmedIds,
         name:entries[i].metadata.titleFr,error:String(error?.message||error)
       };
     }
   }
-  return {completed,total:entries.length,failedIndex:null,error:""};
+  return {completed,total:entries.length,failedIndex:null,confirmedIds,error:""};
 }
