@@ -117,7 +117,7 @@ test("Émilie corrige chaque nom français avant l'import sans modifier les PNG"
  assert.deepEqual(titles,[" Se laver  les mains ","École","Pomme verte"]);
  const calls=[];
  const report=await importPrivateDraftBatch({},"verified-admin",input,"hygiene",{
-  titles,importOne:async(_c,_uid,file,metadata)=>calls.push([file.name,metadata.titleFr])
+  titles,importOne:async(_c,_uid,file,metadata)=>{calls.push([file.name,metadata.titleFr]);}
  });
  assert.equal(report.completed,3);
  assert.equal(report.failedIndex,null);
