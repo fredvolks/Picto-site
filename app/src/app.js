@@ -698,6 +698,14 @@ function requestDate(value){const ms=Date.parse(value||"");return Number.isFinit
 const privateBank={allowed:false,loading:false,items:[],error:"",request:0,total:0,page:0};
 // Les brouillons sont revus un par un; jamais d'approbation implicite.
 const draftReviewQueue={active:false,pending:false,seen:new Set(),message:""};
+function draftReviewProgress(fr){
+  if(privateBank.loading)return fr?"Chargement de la file privée…":"Loading private review queue…";
+  if(privateBank.error)return fr?"File privée indisponible. Réessayez le chargement.":"Private queue unavailable. Retry loading.";
+  const opened=draftReviewQueue.seen.size,total=privateBank.total;
+  return fr?
+    opened+" image(s) ouvertes dans cette séance · "+total+" brouillon(s) dans la file. Aucune approbation automatique.":
+    opened+" image(s) opened this session · "+total+" draft(s) in the queue. No automatic approval.";
+}
 function stopDraftReviewQueue(){
   draftReviewQueue.active=false;draftReviewQueue.pending=false;
   draftReviewQueue.seen.clear();draftReviewQueue.message="";
@@ -726,7 +734,6 @@ function advanceDraftReviewQueue(){
     total:privateBank.total,page:privateBank.page
   });
   if(plan.kind==="open"){
-    draftReviewQueue.seen.add(plan.id);
     draftReviewQueue.message="";
     // La Banque publique rend la fiche entière uniquement après sélection.
     bankPanel="browse";bankSelectionId=plan.id;
@@ -1251,7 +1258,6 @@ async function openAdminPreview(assetId){
   const userId=authStatus.user.id,request=++privatePreview.request;
   privatePreview.id=assetId;privatePreview.loading=true;
   initBankNames(privateBank.items.find(item=>item.id===assetId));
-  if(draftReviewQueue.active)draftReviewQueue.seen.add(assetId);
   render();focusBankInspector();
   try{
     const client=await supabaseClient();
@@ -1266,6 +1272,9 @@ async function openAdminPreview(assetId){
     void loadBankImageScale(assetId,userId,request);
     void loadBankNamedGallery(assetId,userId,request);
     privatePreview.url=URL.createObjectURL(result.blob);
+    // Le PNG doit être reçu avant que cette fiche soit comptée comme revue.
+    if(draftReviewQueue.active&&result.asset?.status==="draft")
+      draftReviewQueue.seen.add(assetId);
     privatePreview.inkInfo=crop;privatePreview.inkError=cropError;
     if(crop){privatePreview.inkBlob=crop.blob;privatePreview.inkUrl=URL.createObjectURL(crop.blob);}
   }catch(error){
@@ -1882,8 +1891,7 @@ function renderAdmin(){
     +(draftReviewQueue.active?'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop">'
       +esc(fr?"Terminer la révision":"End review")+'</button>':"")
     +(draftReviewQueue.active?'<p role="status">'+esc(draftReviewQueue.message||
-      (fr?"File de révision privée : publication seulement après votre approbation.":
-          "Private review queue: publication only after your approval."))+'</p>':"")
+      draftReviewProgress(fr))+'</p>':"")
     +'</div>';
   const bankSummary='<p class="admin-bank-summary" role="status">'
     +esc(fr?privateBank.total+" image(s) trouvée(s)":"Images found: "+privateBank.total)
@@ -2227,10 +2235,11 @@ function renderAdmin(){
     const reviewStep=draftReviewQueue.active&&privatePreview.id&&bankSelectionId===privatePreview.id?
       '<div class="pa-bank-review-step" role="group" aria-label="'+esc(fr?"File de révision privée":"Private draft review")+'">'
       +'<button type="button" class="btn btn-light pa-bank-review-next" data-action="admin-draft-review-next"'
-      +(privatePreview.loading||privateBank.loading||publishedCatalog.publishing?' disabled':'')+'>'
+      +(privatePreview.loading||privateBank.loading||publishedCatalog.publishing||!privatePreview.url?' disabled':'')+'>'
       +esc(fr?"Brouillon suivant · sans publier":"Next draft · without publishing")+'</button>'
       +'<button type="button" class="btn btn-light" data-action="admin-draft-review-stop"'
-      +(publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?"Terminer la révision":"End review")+'</button></div>':"";
+      +(publishedCatalog.publishing?' disabled':'')+'>'+esc(fr?"Terminer la révision":"End review")+'</button>'
+      +'<p class="pa-bank-review-progress" role="status">'+esc(draftReviewProgress(fr))+'</p></div>':"";
     const sheetNav='<nav class="pa-bank-sheet-tabs" aria-label="'+esc(fr?"Sections de la fiche":"Pictogram details")+'">'+
       sheetTabs.map(([key,label])=>'<button type="button" data-action="pa-bank-sheet-tab" data-tab="'+key+
         '" class="pa-bank-sheet-tab'+(bankImageSheet.tab===key?" active":"")+'" aria-current="'+(bankImageSheet.tab===key?"page":"false")+'">'+esc(label)+'</button>').join("")+'</nav>'+reviewStep;
@@ -2245,7 +2254,9 @@ function renderAdmin(){
       (!bankImageSheet.loaded||bankImageSheet.busy||!privatePreview.url?' disabled':'')+'>'+
         esc(fr?"Enregistrer":"Save")+'</button></header>'+
       (privatePreview.loading?'<p role="status">'+esc(fr?"Chargement de l’image…":"Loading image…")+'</p>':'')+
-      (privatePreview.error?'<p role="alert">'+esc(privatePreview.error)+'</p>':'')+
+      (privatePreview.error?'<div class="pa-bank-preview-error"><p role="alert">'+esc(privatePreview.error)+'</p>'
+        +'<button type="button" class="btn btn-light" data-action="admin-preview-retry">'
+        +esc(fr?"Réessayer le chargement du PNG":"Retry loading the PNG")+'</button></div>':'')+
       (privatePreview.url?'<figure class="pa-bank-sheet-hero'+(bankImageSheet.tab==="adjust"?' pa-bank-adjust-hero':'')+'"'+
         (bankImageSheet.tab==="adjust"?' tabindex="0" role="img" aria-label="'+esc(fr?
           "Déplacer le dessin au doigt, à la souris ou avec les flèches":
@@ -4988,8 +4999,13 @@ root.addEventListener("click",function(event){
     clearAdminPreview();clearDraftEditor();clearBankRename();
     queueAdminBankRefresh();return;
   }
+  if(a==="admin-preview-retry"){
+    if(!canOpenAdmin()||!privatePreview.id||privatePreview.loading||
+       publishedCatalog.publishing||!confirmDiscardBankEdits())return;
+    void openAdminPreview(privatePreview.id);return;
+  }
   if(a==="admin-draft-review-next"){
-    if(!draftReviewQueue.active||privatePreview.loading||
+    if(!draftReviewQueue.active||privatePreview.loading||!privatePreview.url||
        publishedCatalog.publishing||privateBank.loading||!canOpenAdmin())return;
     // Refus => conserver la fiche et ses réglages locaux (aucune perte silencieuse).
     if(!confirmDiscardBankEdits())return;
