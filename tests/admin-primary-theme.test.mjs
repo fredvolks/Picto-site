@@ -59,3 +59,18 @@ test("La navigation ne perd jamais les deux sortes de modifications d'une fiche"
      action+" doit refuser la navigation lorsque l'utilisateur annule");
  }
 });
+
+test("La navigation protège aussi la fermeture de l’aperçu et les actions historiques",()=>{
+ const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
+ const pending=app.slice(app.indexOf("function confirmDiscardBankEdits(){"),
+   app.indexOf("function focusBankInspector(){"));
+ assert.match(pending,/bankImageSheet\.busy\|\|draftEditor\.saving\|\|bankRename\.busy\|\|publishedCatalog\.publishing/,
+   "Une écriture en cours ne peut pas être abandonnée sans reçu");
+ for(const action of ["admin-theme-asset","admin-rename-cancel","close-admin-preview",
+   "admin-review-next","admin-view-published"]){
+   const start=app.indexOf('if(a==="'+action+'")');
+   assert.ok(start>0,"Action existante : "+action);
+   assert.ok(app.slice(start,start+490).includes("confirmDiscardBankEdits()"),
+     action+" ne doit pas perdre une modification non enregistrée");
+ }
+});
