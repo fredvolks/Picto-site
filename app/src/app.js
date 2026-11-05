@@ -2,6 +2,7 @@ import {samples} from "./data.js";
 import {sanitizedDemoIds,recordDemoRecent} from "./client-collections.js";
 import {renderLanding} from "./landing.js";
 import {loginGoogle,logoutGoogle,supabaseClient,currentVerifiedUser,loginWithEmail,sendEmailSignInLink,sendPasswordReset,updateEmailPassword} from "./google-auth.js";
+import {readAdminLibraryReadiness} from "./admin-library-readiness.js";
 import {readAdminBankAvailablePage,ADMIN_BANK_PAGE_SIZE,normalizeAdminBankFilters,planNextPrivateDraftReview} from "./admin-bank.js";
 import {listTestClients,createTestClient,setTestClientPlan,deleteTestClient} from "./test-clients.js";
 import {renderTestClients} from "./test-clients-ui.js";
@@ -1229,6 +1230,8 @@ async function fetchTestClientAccounts() {
   }
 }
 function resetPrivateBank(){
+  libraryReadiness.request++;libraryReadiness.loaded=false;libraryReadiness.loading=false;
+  libraryReadiness.error="";libraryReadiness.result=null;
   testClients.request++;testClients.items=[];testClients.loaded=false;
   testClients.loading=false;testClients.busy=false;testClients.error="";
   testClients.message="";testClients.created=null;
@@ -1242,6 +1245,28 @@ function resetPrivateBank(){
   privateImport.request++;privateImport.file=null;privateImport.loading=false;privateImport.error="";privateImport.message="";privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
   batchImport.request++;Object.assign(batchImport,{files:[],titles:[],theme:"autres",busy:false,completed:0,total:0,error:"",message:"",currentName:""});
 }
+const libraryReadiness={loaded:false,loading:false,error:"",result:null,request:0};
+async function refreshLibraryReadiness(client,userId){
+  if(!canOpenAdmin()||authStatus.user?.id!==userId)return;
+  const ticket=++libraryReadiness.request;
+  libraryReadiness.loading=true;libraryReadiness.error="";render();
+  try{
+    const result=await readAdminLibraryReadiness(client,userId);
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==userId||!canOpenAdmin())return;
+    libraryReadiness.result=result;libraryReadiness.loaded=true;
+  }catch{
+    if(ticket!==libraryReadiness.request||authStatus.user?.id!==userId)return;
+    // Do not expose backend permission errors in a public/admin UI.
+    libraryReadiness.result=null;libraryReadiness.loaded=false;
+    libraryReadiness.error=state.language==="fr"?
+      "Vérification indisponible. Réessayez avec votre session Super Admin.":
+      "Check unavailable. Retry with your Super Admin session.";
+  }finally{
+    if(ticket===libraryReadiness.request&&authStatus.user?.id===userId){
+      libraryReadiness.loading=false;render();
+    }
+  }
+}
 async function refreshPrivateBank(client,userId){
   clearBankThumbs();
   const request=++privateBank.request;
@@ -1253,6 +1278,8 @@ async function refreshPrivateBank(client,userId){
     privateBank.allowed=result.authorized;
     if(SITE_EMBEDDED&&authStatus.user?.id===userId)void probeTemplateChoices(client,userId);
     authStatus.roleReady=true;authStatus.roleError="";
+    if(SITE_EMBEDDED&&result.authorized&&!libraryReadiness.loaded&&!libraryReadiness.loading)
+      void refreshLibraryReadiness(client,userId);
     if(SITE_EMBEDDED&&!captionFeature.loading&&!captionFeature.loaded)
       void fetchCaptionFeature();
     if(SITE_EMBEDDED&&!result.authorized){
@@ -2316,7 +2343,55 @@ function renderRoleChecking(){
     +'<div class="hosted-access-action">'+googleButton()+'</div></div></div></section>';
 }
 function renderAdminHome(){
-  const fr=state.language==="fr";
+  const fr=state.language==="fr",status=libraryReadiness;
+  const diagnostic=status.result;
+  const technical=diagnostic&&diagnostic.guard==="available"&&diagnostic.projection==="available";
+  const templateCounts=diagnostic?.templates;
+  const templateReady=templateCounts?.state==="available";
+  const nextTemplateStep=!templateReady?
+    (fr?"Vérifiez l’accès aux gabarits avant de continuer. Aucun modèle n’est publié automatiquement.":
+      "Check template access before continuing. Nothing is published automatically."):
+    templateCounts.published===0?
+      (templateCounts.private>0?
+        (fr?"Un ou plusieurs gabarits privés attendent votre vérification et une publication volontaire.":
+          "Private templates await your review and explicit publication."):
+        (fr?"Créez votre premier gabarit dans la section Gabarits, puis publiez-le volontairement.":
+          "Create your first template in Templates, then publish it explicitly.")):
+      diagnostic.published===0?
+        (fr?"Un gabarit est publié, mais aucune image n’est encore approuvée. Vérifiez les brouillons dans la Banque.":
+          "A template is published, but no artwork is approved yet. Review drafts in Image bank."):
+        (fr?"Après vérification des pictogrammes, confirmez les modèles proposés sur chaque fiche publiée.":
+          "After reviewing artwork, confirm which templates each published pictogram can use.");
+  const stateName=value=>value==="available"?(fr?"Détecté":"Detected"):
+    value==="missing"?(fr?"Non installé":"Not installed"):(fr?"Non vérifié":"Unverified");
+  const readiness=
+    '<section class="admin-surface pa-release-readiness" aria-labelledby="pa-release-title">'
+    +'<div class="admin-surface-head"><div><h2 id="pa-release-title">'+esc(fr?"Préparer la première publication":"Prepare the first publication")+'</h2>'
+    +'<p>'+esc(fr?"Contrôles en lecture seule de ce serveur, sans approbation automatique.":"Read-only checks on this server; nothing is approved automatically.")+'</p></div>'
+    +'<button type="button" class="btn btn-light" data-action="admin-readiness-refresh"'
+    +(status.loading?' disabled':'')+'>'+esc(status.loading?(fr?"Vérification…":"Checking…"):(fr?"Revérifier":"Check again"))+'</button></div>'
+    +(status.error?'<p role="alert">'+esc(status.error)+'</p>':"")
+    +(status.loading?'<p role="status">'+esc(fr?"Lecture des permissions et du catalogue…":"Reading permissions and catalog…")+'</p>':"")
+    +(diagnostic?
+      '<div class="pa-release-grid">'
+      +'<div><span>'+esc(fr?"Brouillons privés":"Private drafts")+'</span><strong>'+diagnostic.drafts+'</strong></div>'
+      +'<div><span>'+esc(fr?"Pictogrammes publiés":"Published pictograms")+'</span><strong>'+diagnostic.published+'</strong></div>'
+      +'<div><span>'+esc(fr?"Édition sécurisée":"Guarded metadata editing")+'</span><strong>'+esc(stateName(diagnostic.guard))+'</strong></div>'
+      +'<div><span>'+esc(fr?"Catégories des images approuvées":"Approved-image categories")+'</span><strong>'+esc(stateName(diagnostic.projection))+'</strong></div>'
+      +'<div><span>'+esc(fr?"Gabarits privés":"Private templates")+'</span><strong>'+esc(templateReady?templateCounts.private:stateName(templateCounts?.state))+'</strong></div>'
+      +'<div><span>'+esc(fr?"Gabarits publiés":"Published templates")+'</span><strong>'+esc(templateReady?templateCounts.published:stateName(templateCounts?.state))+'</strong></div>'
+      +'</div>'
+      +'<p class="pa-release-summary" role="status">'+esc(technical?
+        (fr?"Composants serveur détectés. La validation des permissions client et des images reste obligatoire.":"Server components detected. Client permissions and image review are still required."):
+        (fr?"Activation incomplète ou non vérifiable sur ce serveur. Aucune publication n’est confirmée.":"Activation is incomplete or unverified on this server. No publication is confirmed."))+'</p>'
+      :(!status.loading?'<p class="pa-release-summary">'+esc(fr?"Aucun diagnostic confirmé pour cette session.":"No confirmed diagnostic for this session.")+'</p>':""))
+    +(diagnostic?'<p class="pa-release-next" role="note">'+esc(nextTemplateStep)+'</p>':"")
+    +'<p class="pa-release-caution">'+esc(fr?
+       "Ce panneau ne certifie ni les politiques RLS côté client, ni la qualité d’un PNG. La décision de publier appartient au Super Admin.":
+       "This panel does not certify client RLS or PNG quality. The Super Admin must approve every publication.")+'</p>'
+    +'<div class="pa-release-actions"><button type="button" class="btn btn-light" data-action="admin-tab" data-tab="templates">'
+    +esc(fr?"Ouvrir les gabarits":"Open templates")+'</button></div>'
+    +'</section>';
   const links=[
     ["bank",fr?"Banque d’images":"Image bank",fr?"Importer et classer les brouillons privés":"Import and organize private drafts","library"],
     ["requests",fr?"Demandes":"Requests",fr?"Suivre et traiter les demandes reçues":"Review incoming requests","file-text"],
@@ -2329,6 +2404,7 @@ function renderAdminHome(){
     +'<p>'+esc(fr?'Gérez vos pictogrammes, vos demandes et vos gabarits en un seul endroit.':'Manage your pictograms, requests, and templates in one place.')+'</p>'
     +'<div class="admin-dashboard-summary"><div><span>'+esc(fr?'Fiches dans la banque privée':'Private bank records')+'</span><strong>'+privateBank.total+'</strong></div>'
     +'</div>'
+    +readiness
     +'<section class="admin-review-shortcut" aria-labelledby="admin-review-shortcut-title">'
     +'<h2 id="admin-review-shortcut-title">'+esc(fr?'Brouillons à approuver':'Drafts to review')+'</h2>'
     +'<p>'+esc(fr?
@@ -4139,6 +4215,13 @@ root.addEventListener("click",function(event){
         }
       }
     })();return;
+  }
+  if(a==="admin-readiness-refresh"){
+    if(!canOpenAdmin()||!authStatus.user||libraryReadiness.loading)return;
+    const uid=authStatus.user.id;
+    void supabaseClient().then(client=>refreshLibraryReadiness(client,uid))
+      .catch(()=>{if(authStatus.user?.id===uid){libraryReadiness.error=state.language==="fr"?"Vérification indisponible.":"Check unavailable.";render();}});
+    return;
   }
   if(a==="admin-review-queue"){
     if(!canOpenAdmin()||!authStatus.user)return;
