@@ -702,6 +702,22 @@ function stopDraftReviewQueue(){
   draftReviewQueue.active=false;draftReviewQueue.pending=false;
   draftReviewQueue.seen.clear();draftReviewQueue.message="";
 }
+// Accueil Super Admin -> première image privée à examiner, sans publier.
+// Réutilise la file de la Banque et ses contrôles Auth/RLS; aucune écriture.
+function startPrivateDraftReviewFromHome(){
+  if(!canOpenAdmin()||!authStatus.user||privateBank.loading||
+     publishedCatalog.publishing||state.page!=="admin"||state.adminTab!=="overview")return false;
+  stopDraftReviewQueue();
+  draftReviewQueue.active=true;draftReviewQueue.pending=true;
+  bankFilters.query="";bankFilters.status="draft";
+  bankFilters.theme="all";bankFilters.sort="oldest";
+  privateBank.page=0;
+  bankPanel="browse";bankSelectionId=null;
+  clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
+  state.adminTab="bank";state.adminMenuOpen=false;state.toast="";
+  queueAdminBankRefresh();render();
+  return true;
+}
 function advanceDraftReviewQueue(){
   if(!draftReviewQueue.active||privateBank.loading||privateBank.error||
      !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank")return;
@@ -2413,7 +2429,7 @@ function renderAdminHome(){
        "Ce panneau ne certifie ni les politiques RLS côté client, ni la qualité d’un PNG. La décision de publier appartient au Super Admin.":
        "This panel does not certify client RLS or PNG quality. The Super Admin must approve every publication.")+'</p>'
     +'<div class="pa-release-actions"><button type="button" class="btn btn-primary" data-action="admin-tab" data-tab="bank">'
-    +esc(fr?"Examiner les brouillons":"Review private drafts")+'</button>'
+    +esc(fr?"Ouvrir la Banque":"Open image bank")+'</button>'
     +'<button type="button" class="btn btn-light" data-action="admin-tab" data-tab="templates">'
     +esc(fr?"Ouvrir les gabarits":"Open templates")+'</button></div>'
     +'</section>';
@@ -4243,15 +4259,7 @@ root.addEventListener("click",function(event){
     })();return;
   }
   if(a==="admin-review-queue"){
-    if(!canOpenAdmin()||!authStatus.user)return;
-    clearTimeout(bankQueryTimer);bankQueryTimer=null;
-    clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
-    bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
-    bankFilters.sort="recent";privateBank.page=0;
-    state.page="admin";state.adminTab="bank";state.adminMenuOpen=false;
-    state.toast="";render();
-    queueAdminBankRefresh();
-    return;
+    startPrivateDraftReviewFromHome();return;
   }
   if(a==="admin-view-published"){
     if(!canOpenAdmin()||!authStatus.user||publishedCatalog.publishing)return;
