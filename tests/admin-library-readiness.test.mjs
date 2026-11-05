@@ -150,3 +150,23 @@ test("Revue des brouillons : Suivant et Terminer visibles dans tous les onglets,
  assert.ok(css.includes(".pa-bank-sheet .pa-bank-review-step"));
  assert.ok(css.includes("min-height:44px"));
 });
+
+test("Panne PNG de la revue : aucun brouillon sauté avant succès du chargement",()=>{
+ const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../app/src/styles.css",import.meta.url),"utf8");
+ const advance=app.split("function advanceDraftReviewQueue(){")[1].split("\n}\n")[0];
+ assert.doesNotMatch(advance,/draftReviewQueue\.seen\.add\(/);
+ const open=app.split("async function openAdminPreview(assetId){")[1];
+ assert.doesNotMatch(open.slice(0,open.indexOf("try{")),/draftReviewQueue\.seen\.add\(/);
+ assert.match(open.slice(open.indexOf("privatePreview.url=URL.createObjectURL(result.blob);")),
+   /if\(draftReviewQueue\.active&&result\.asset\?\.status==="draft"\)\s+draftReviewQueue\.seen\.add\(assetId\)/);
+ assert.ok(app.includes('data-action="admin-preview-retry"'));
+ assert.match(app,/if\(a==="admin-preview-retry"\)[\s\S]*?void openAdminPreview\(privatePreview\.id\)/);
+ assert.match(app,/if\(!draftReviewQueue\.active\|\|privatePreview\.loading\|\|!privatePreview\.url\|\|/);
+ assert.ok(app.includes("Réessayer le chargement du PNG"));
+ assert.ok(app.includes("Retry loading the PNG"));
+ assert.ok(app.includes("Aucune approbation automatique"));
+ assert.ok(app.includes("No automatic approval"));
+ assert.ok(css.includes(".pa-bank-review-progress"));
+ assert.ok(css.includes(".pa-bank-preview-error .btn{min-height:44px"));
+});
