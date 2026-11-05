@@ -458,6 +458,20 @@ try{
       assert.equal(preflightReady.hasError,false);
       assert.match(preflightReady.status,/1 \/ 1/);
       console.log("PRECHECK PNG BANQUE — OK 390px",preflightReady.status);
+      // Parcours individuel indépendant : une erreur ne lance jamais Supabase.
+      assert.equal(await evaluate("const input=document.querySelector('[data-field=admin-import-file]');const t=new DataTransfer();t.items.add(new File([Uint8Array.from([137,80,78,71,13,10,26,10])],'tronque-individuel.png',{type:'image/png'}));input.files=t.files;input.dispatchEvent(new Event('change',{bubbles:true}));return document.querySelector('form[data-form=admin-import] button[type=submit]')?.disabled;"),true);
+      await waitFor("return !!document.querySelector('#pa-single-png-error')",14000);
+      const oneBad=await evaluate("const e=document.querySelector('#pa-single-png-error'),btn=document.querySelector('form[data-form=admin-import] button[type=submit]');return {text:e?.textContent||'',disabled:btn?.disabled,focus:document.activeElement===e};");
+      assert.match(oneBad.text,/PNG incomplète|PNG incomplet|incomplète/i);
+      assert.equal(oneBad.disabled,true);
+      assert.equal(oneBad.focus,true,"Alerte du PNG individuel focalisable");
+      await evaluate("const c=document.createElement('canvas');c.width=1;c.height=1;c.getContext('2d').fillRect(0,0,1,1);const raw=atob(c.toDataURL('image/png').split(',')[1]);const bytes=Uint8Array.from(raw,x=>x.charCodeAt(0));const input=document.querySelector('[data-field=admin-import-file]');const t=new DataTransfer();t.items.add(new File([bytes],'valide-individuel.png',{type:'image/png'}));input.files=t.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;");
+      await waitFor("return document.querySelector('#draft-file-status')?.textContent.includes('PNG vérifié')",14000);
+      const oneReady=await evaluate("const btn=document.querySelector('form[data-form=admin-import] button[type=submit]'),s=document.querySelector('#draft-file-status')?.textContent||'';return {ready:!btn?.disabled,status:s,error:!!document.querySelector('#pa-single-png-error')};");
+      assert.equal(oneReady.ready,true,"Le fichier individuel vérifié déverrouille seulement l'action");
+      assert.equal(oneReady.error,false,"L'ancienne erreur n'est pas conservée");
+      assert.match(oneReady.status,/valide-individuel\.png/);
+      console.log("PRECHECK PNG INDIVIDUEL — OK 390px",oneReady.status);
       // Revenir aux images sans valider le formulaire ni lancer d'upload.
       await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=browse]').click();return true;");
       await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
