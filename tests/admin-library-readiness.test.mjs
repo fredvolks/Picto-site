@@ -94,16 +94,14 @@ test("Role denied, changed session and inconsistent counts must refuse the whole
 test("Dashboard public : diagnostic privé et bouton de revue existant conservés",()=>{
  const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
  const css=readFileSync(new URL("../app/src/styles.css",import.meta.url),"utf8");
- assert.match(app,/import \\{readAdminLibraryReadiness\\} from "\\.\\/admin-library-readiness\\.js"/);
- assert.match(app,/function renderAdminHome\\(\\)/);
- assert.match(app,/data-action="admin-readiness-refresh"/);
- assert.match(app,/Gabarits privés/);assert.match(app,/Gabarits publiés/);
- assert.match(app,/data-tab="bank"/);assert.match(app,/data-tab="templates"/);
- assert.match(app,/Brouillons à approuver/);
- assert.match(app,/data-action="admin-review-queue"/);
- assert.match(app,/if\\(a==="admin-review-queue"\\)/);
- assert.match(app,/libraryReadiness\\.request\\+\\+;libraryReadiness\\.loaded=false/);
- assert.match(app,/if\\(ticket!==libraryReadiness\\.request\\|\\|authStatus\\.user\\?\\.id!==userId\\|\\|!canOpenAdmin\\(\\)\\)return/);
- assert.match(css,/\\.pa-release-actions button\\{min-height:44px\\}/);
- assert.match(css,/@media screen and \\(max-width:520px\\)/);
+ assert.ok(app.includes('import {readAdminLibraryReadiness} from "./admin-library-readiness.js";'));
+ assert.ok(app.includes('function renderAdminHome(){'));
+ for(const value of ['data-action="admin-readiness-refresh"','Gabarits privés',
+   'Gabarits publiés','data-tab="bank"','data-tab="templates"',
+   'Brouillons à approuver','data-action="admin-review-queue"',
+   'if(a==="admin-review-queue")'])assert.ok(app.includes(value),value);
+ assert.ok(app.includes('libraryReadiness.request++;libraryReadiness.loaded=false'));
+ assert.ok(app.includes('if(ticket!==libraryReadiness.request||authStatus.user?.id!==userId||!canOpenAdmin())return'));
+ assert.ok(css.includes('.pa-release-actions button{min-height:44px}'));
+ assert.ok(css.includes('@media screen and (max-width:520px)'));
 });
