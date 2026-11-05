@@ -16,8 +16,43 @@ assert.match(app,/<meta name="pictau-site-app" content="true">/);
 assert.match(login,/href="\.\/app\/"/);
 const allowed={".html":"text/html",".js":"text/javascript",".css":"text/css",".svg":"image/svg+xml"};
 // Ces stubs n'existent JAMAIS sur le site réel : ils ne sont servis que par CE test local.
-const authStub=String.raw`const fakeUser={id:"qa-admin-0001",email:"admin-qa@example.invalid"};
-const client={auth:{getUser:async()=>({data:{user:fakeUser},error:null}),onAuthStateChange:cb=>({data:{subscription:{unsubscribe(){}}}}),signOut:async()=>({error:null})}};
+const authStub=String.raw`const fakeUser={id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",email:"admin-qa@example.invalid"};
+// Requêtes de lecture simulées UNIQUEMENT sur ce serveur Chromium local.
+// Le vrai module admin-library-readiness.js est importé sans substitution.
+const client={
+ auth:{
+  getUser:async()=>({data:{user:window.__qaSessionRevoked?
+    {id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}:fakeUser},error:null}),
+  onAuthStateChange:cb=>({data:{subscription:{unsubscribe(){}}}}),
+  signOut:async()=>({error:null})
+ },
+ rpc:async name=>({data:name==="pictau_draft_metadata_can_edit",error:null}),
+ from(table){
+  if(table==="pictau_admins")return{
+   select:()=>({eq:()=>({maybeSingle:async()=>({data:{user_id:fakeUser.id},error:null})})})
+  };
+  let publication=null;
+  const answer=()=>{
+   if(table==="pictau_templates"){
+    if(window.__qaTemplateMode==="missing")return {data:null,count:null,error:{code:"PGRST205"}};
+    if(window.__qaTemplateMode==="denied")return {data:null,count:null,error:{code:"42501"}};
+    return {data:null,count:publication===true?2:3,error:null};
+   }
+   if(table==="pictau_assets")return {data:null,count:4,error:null};
+   if(table==="pictau_catalog_items")return {data:null,count:1,error:null};
+   if(table==="pictau_published_theme_links")return {data:null,count:1,error:null};
+   return {data:null,count:null,error:{code:"PGRST205"}};
+  };
+  const query={
+   eq(field,value){
+    if(table==="pictau_templates"&&field==="is_published")publication=value;
+    return Promise.resolve(answer());
+   },
+   then(resolve,reject){return Promise.resolve(answer()).then(resolve,reject);}
+  };
+  return {select:()=>query};
+ }
+};
 export const SUPABASE_URL="local-qa-only",SUPABASE_PUBLIC_KEY="test-publishable",SDK_URL="disabled";
 export async function supabaseClient(){return client;}
 export async function currentVerifiedUser(){return fakeUser;}
@@ -34,7 +69,7 @@ function privateRows(){
  if(!window.__qaBankItems)return [];
  return ["Pomme","Lavage des mains","Couverture lestée","Balle sensorielle"].map((title,i)=>({
   id:String(i+1).padStart(8,"0")+"-1111-4111-8111-111111111111",
-  created_by:"qa-admin-0001",admin_name:title,title_fr:title,title_en:title,
+  created_by:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",admin_name:title,title_fr:title,title_en:title,
   theme:"autres",status:"draft",created_at:"2026-11-01T13:00:00Z",
   published_at:null
  }));
@@ -116,7 +151,7 @@ const privatePreviewStub=String.raw`export async function loadPrivateAdminPrevie
  ctx.fillStyle="black";ctx.fillRect(170,200,60,230);
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));
  return {blob,asset:{id:assetId,title_fr:"Pictogramme entier",title_en:"Full artwork",
-   admin_name:"Pictogramme entier",theme:"autres",created_by:"qa-admin-0001",
+   admin_name:"Pictogramme entier",theme:"autres",created_by:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
    status:"draft",created_at:"2026-11-01T13:00:00Z"}};
 }`;
 const adjustmentStub=String.raw`const revisions=new Map();
@@ -204,12 +239,59 @@ try{
   await command("Page.enable");
   await command("Runtime.enable");
   await mkdir(resolve("artifacts/admin-ux"),{recursive:true});
-  const sizes=[[360,800],[390,844],[430,932],[768,1024]];
+  const sizes=[[360,800],[390,844],[430,932],[768,1024],[1440,900]];
   await mkdir(resolve("artifacts/admin-bank-real"),{recursive:true});
   for(const [width,height] of sizes){
     await command("Emulation.setDeviceMetricsOverride",{width,height,mobile:width<768,deviceScaleFactor:1});
     await command("Page.navigate",{url:base+"/app/"});
     await waitFor("return !!document.querySelector('#admin-dashboard-title')",14000);
+
+    // Vrai composant du Super Admin en Chrome, aucune maquette HTML substituée.
+    await evaluate("document.querySelector('[data-action=lang][data-lang=fr]').click();return true;");
+    await waitFor("return !!document.querySelector('.pa-release-readiness .pa-release-grid')",14000);
+    await waitFor("return document.querySelector('.pa-release-grid')?.textContent.includes('Gabarits publiés')");
+    const qaReadiness=async()=>evaluate("const panel=document.querySelector('.pa-release-readiness');const r=panel.getBoundingClientRect();return {labels:[...panel.querySelectorAll('.pa-release-grid>div')].map(x=>[x.querySelector('span')?.textContent.trim(),x.querySelector('strong')?.textContent.trim()]),buttonHeights:[...panel.querySelectorAll('button')].map(x=>Math.round(x.getBoundingClientRect().height)),top:r.top,left:r.left,right:r.right,scrollWidth:document.documentElement.scrollWidth,width:innerWidth,review:!!document.querySelector('[data-action=admin-review-queue]')};");
+    let readiness=await qaReadiness();
+    const countFor=label=>readiness.labels.find(([name])=>name===label)?.[1];
+    assert.equal(countFor("Brouillons privés"),"4",width+": fiches privées");
+    assert.equal(countFor("Pictogrammes publiés"),"1",width+": catalogue approuvé");
+    assert.equal(countFor("Gabarits privés"),"3",width+": modèles privés");
+    assert.equal(countFor("Gabarits publiés"),"2",width+": modèles publiés");
+    assert.ok(readiness.review,"Le raccourci Brouillons à approuver est conservé.");
+    assert.ok(readiness.buttonHeights.length>=3&&readiness.buttonHeights.every(x=>x>=44),
+      "Actions tactiles >=44 px: "+width+" "+JSON.stringify(readiness.buttonHeights));
+    assert.ok(readiness.left>=-2&&readiness.right<=width+2,
+      "Le diagnostic déborde horizontalement: "+width+" "+JSON.stringify(readiness));
+    assert.ok(readiness.scrollWidth<=readiness.width+2,"Défilement horizontal inattendu: "+width);
+    await writeFile(resolve("artifacts/admin-bank-real/readiness-fr-"+width+"x"+height+".png"),
+      Buffer.from((await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true})).data,"base64"));
+    await evaluate("document.querySelector('[data-action=lang][data-lang=en]').click();return true;");
+    await waitFor("return document.querySelector('.pa-release-grid')?.textContent.includes('Published templates')");
+    readiness=await qaReadiness();
+    assert.equal(readiness.labels.find(([name])=>name==="Published templates")?.[1],"2");
+    assert.equal(readiness.labels.find(([name])=>name==="Private templates")?.[1],"3");
+    assert.ok(readiness.review);
+    await writeFile(resolve("artifacts/admin-bank-real/readiness-en-"+width+"x"+height+".png"),
+      Buffer.from((await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true})).data,"base64"));
+    await evaluate("document.querySelector('[data-action=lang][data-lang=fr]').click();return true;");
+    await waitFor("return document.querySelector('.pa-release-grid')?.textContent.includes('Gabarits publiés')");
+    if(width===390){
+      // Table absente, RLS refusée et reprise : aucun compte fictivement à zéro.
+      for(const [mode,expected] of [["missing","Non installé"],["denied","Non vérifié"],["available","2"]]){
+        await evaluate("window.__qaTemplateMode='"+mode+"';document.querySelector('[data-action=admin-readiness-refresh]').click();return true;");
+        await waitFor("return [...document.querySelectorAll('.pa-release-grid>div')].some(x=>x.querySelector('span')?.textContent.includes('Gabarits publiés')&&x.querySelector('strong')?.textContent.trim()==='"+expected+"')",12000);
+        assert.equal((await qaReadiness()).labels.find(([name])=>name==="Gabarits publiés")?.[1],expected);
+      }
+      await evaluate("window.__qaSessionRevoked=true;document.querySelector('[data-action=admin-readiness-refresh]').click();return true;");
+      await waitFor("return !!document.querySelector('.pa-release-readiness [role=alert]')",12000);
+      assert.equal(await evaluate("return document.querySelector('.pa-release-readiness .pa-release-grid')===null"),true,
+        "Une session révoquée masque immédiatement les chiffres du diagnostic.");
+      await evaluate("window.__qaSessionRevoked=false;document.querySelector('[data-action=admin-readiness-refresh]').click();return true;");
+      await waitFor("return document.querySelector('.pa-release-grid')?.textContent.includes('Gabarits publiés')",12000);
+    }
+    console.log("VRAI DASHBOARD SUPER ADMIN — QA simulée",width+"x"+height,readiness.labels);
+    if(width>=1200)continue; // Fiche Banque couverte séparément aux largeurs mobile/tablette.
+
     await evaluate("window.__qaBankItems=true;document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=bank]').click();return true;");
     await waitFor("return !!document.querySelector('[data-action=refresh-admin-bank]')");
     await evaluate("document.querySelector('[data-action=refresh-admin-bank]').click();return true;");
