@@ -460,6 +460,12 @@ try{
         const editHeld=await evaluate("return {calls:window.__qaDiscardCalls,form:!!document.querySelector('form[data-form=admin-edit-draft]'),theme:document.querySelector('#edit-draft-theme')?.value};");
         assert.deepEqual(editHeld,{calls:2,form:true,theme:"hygiene"},
           "Fermer la correction sans confirmer conserve les champs modifiés");
+        // Le changement d'onglet est une sortie distincte : les champs non
+        // sauvegardés doivent être conservés si la personne refuse de quitter.
+        await evaluate("document.querySelector('.admin-side-nav [data-action=admin-tab][data-tab=overview]').click();return true;");
+        const tabHeld=await evaluate("return {calls:window.__qaDiscardCalls,form:!!document.querySelector('form[data-form=admin-edit-draft]'),theme:document.querySelector('#edit-draft-theme')?.value};");
+        assert.deepEqual(tabHeld,{calls:3,form:true,theme:"hygiene"},
+          "Refuser l'autre onglet conserve le formulaire Banque");
         await evaluate("window.confirm=window.__qaOriginalConfirm;delete window.__qaOriginalConfirm;return true;");
         await evaluate("document.querySelector('form[data-form=admin-edit-draft]').requestSubmit();return true;");
         await waitFor("return document.querySelector('[data-action=admin-draft-review-resume]')?.disabled===false && !document.querySelector('.pa-bank-sheet')",14000);
