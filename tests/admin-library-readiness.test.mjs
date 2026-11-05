@@ -105,3 +105,17 @@ test("Dashboard public : diagnostic privé et bouton de revue existant conservé
  assert.ok(css.includes('.pa-release-actions button{min-height:44px}'));
  assert.ok(css.includes('@media screen and (max-width:520px)'));
 });
+
+test("Retour vers Accueil Super Admin : compteurs invalidés puis relus après navigation",()=>{
+ const app=readFileSync(new URL("../app/src/app.js",import.meta.url),"utf8");
+ assert.ok(app.includes("function refreshReadinessOnOverviewReturn()"));
+ assert.ok(app.includes('const returningToOverview=el.dataset.tab==="overview"&&state.adminTab!=="overview";'));
+ assert.ok(app.includes("if(returningToOverview)refreshReadinessOnOverviewReturn();"));
+ assert.ok(app.includes('libraryReadiness.result=null;libraryReadiness.error="";'));
+ assert.ok(app.includes('libraryReadiness.loading=true;libraryReadiness.loaded=false;'));
+ assert.ok(app.includes("ticket!==libraryReadiness.request||authStatus.user?.id!==uid"));
+ assert.ok(app.includes('state.page!=="admin"||state.adminTab!=="overview"'));
+ // Contrôles existants de la vraie interface : pas de nouveau backend, pas de fausse publication.
+ assert.ok(app.includes('Brouillons à approuver'));
+ assert.ok(app.includes('data-action="admin-review-queue"'));
+});
