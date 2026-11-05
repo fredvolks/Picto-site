@@ -70,7 +70,8 @@ function privateRows(){
  return ["Pomme","Lavage des mains","Couverture lestée","Balle sensorielle"].map((title,i)=>({
   id:String(i+1).padStart(8,"0")+"-1111-4111-8111-111111111111",
   created_by:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",admin_name:title,title_fr:title,title_en:title,
-  theme:"autres",status:"draft",created_at:"2026-11-01T13:00:00Z",
+  theme:i===0&&window.__qaBankLegacyTheme?(window.__qaBankCorrectedTheme||"tests"):"autres",
+  status:"draft",created_at:"2026-11-01T13:00:00Z",
   published_at:null
  }));
 }
@@ -84,7 +85,11 @@ export function planNextPrivateDraftReview({items=[],seen=new Set()}={}){
  return next?{kind:"open",id:next.id}:{kind:"done"};
 }`;
 const themesStub=String.raw`export const MAX_THEMES_PER_ASSET=8;
-export async function readThemes(){return [];}
+export async function readThemes(){
+ return [{code:"autres",label_fr:"Autres",label_en:"Other",merged_into:null},
+  {code:"hygiene",label_fr:"Hygiène",label_en:"Hygiene",merged_into:null},
+  {code:"tests",label_fr:"Tests",label_en:"Tests",merged_into:"autres"}];
+}
 export async function readAssetThemes(){return {};}
 export async function createTheme(){throw Error("No admin mutations in QA");}
 export async function editThemeLabels(){throw Error("No admin mutations in QA");}
@@ -141,6 +146,13 @@ export async function listPictogramRequestHistory(){
 // Fake PNG privé (32 × 32, dessin noir sur fond blanc) servi au navigateur
 // d'essai uniquement. Aucun identifiant Supabase réel, aucune clé privée.
 // Pictogramme portrait contrasté, coins repères : image entière exigée.
+const editDraftStub=String.raw`export async function editPrivateDraftMetadata(_client,_uid,assetId,expected,form){
+ if(!window.__qaBankLegacyTheme||!window.__qaBankItems||!assetId.startsWith("00000001-")
+    ||expected.theme!=="tests"||form.theme!=="hygiene")
+  throw Error("Modification privée QA inattendue");
+ window.__qaBankCorrectedTheme="hygiene";
+ return {saved:true,asset:{id:assetId,theme:form.theme,title_fr:form.titleFr,title_en:form.titleEn}};
+}`;
 const privatePreviewStub=String.raw`export async function loadPrivateAdminPreview(_client,_uid,assetId){
  if(window.__qaFailFirstReviewPreview){
   window.__qaFailFirstReviewPreview=false;
@@ -155,7 +167,10 @@ const privatePreviewStub=String.raw`export async function loadPrivateAdminPrevie
  ctx.fillStyle="black";ctx.fillRect(170,200,60,230);
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));
  return {blob,asset:{id:assetId,title_fr:"Pictogramme entier",title_en:"Full artwork",
-   admin_name:"Pictogramme entier",theme:"autres",created_by:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   admin_name:"Pictogramme entier",
+   theme:window.__qaBankLegacyTheme&&assetId.startsWith("00000001-")?
+     (window.__qaBankCorrectedTheme||"tests"):"autres",
+   created_by:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
    status:"draft",created_at:"2026-11-01T13:00:00Z"}};
 }`;
 const adjustmentStub=String.raw`const revisions=new Map();
@@ -176,7 +191,9 @@ const server=createServer(async(req,res)=>{
   try{
     const url=new URL(req.url||"/","http://localhost");
     const p=decodeURIComponent(url.pathname);
-    const stubs={"/app/src/google-auth.js":authStub,"/app/src/admin-bank.js":bankStub,"/app/src/admin-themes.js":themesStub,"/app/src/admin-preview.js":privatePreviewStub,"/app/src/image-adjustments.js":adjustmentStub,"/app/src/caption-permission.js":captionStub,"/app/src/pictogram-requests.js":requestStub};
+    const stubs={"/app/src/google-auth.js":authStub,"/app/src/admin-bank.js":bankStub,"/app/src/admin-themes.js":themesStub,"/app/src/admin-preview.js":privatePreviewStub,
+      "/app/src/admin-draft-edit.js":editDraftStub,
+      "/app/src/image-adjustments.js":adjustmentStub,"/app/src/caption-permission.js":captionStub,"/app/src/pictogram-requests.js":requestStub};
     if(stubs[p]){res.writeHead(200,{"Content-Type":"text/javascript","Cache-Control":"no-store"});res.end(stubs[p]);return;}
     const target=resolve(site,"."+p,p.endsWith("/")?"index.html":"");
     if(!target.startsWith(site+"/")){res.writeHead(403);res.end();return;}
