@@ -6012,7 +6012,35 @@ root.addEventListener("submit",function(event){
             report.completed+" brouillons privés créés. Vérifiez et approuvez chaque fiche séparément.":
             report.completed+" private drafts created. Review and approve each record individually.";
         }
+        // Après l'import complet, rouvrir uniquement une fiche dont l'ID
+        // a été confirmé par la relecture SQL/RLS et retrouvé dans cette
+        // page privée, sous le même compte et avec status=draft.
+        // En cas d'échec partiel : NE PAS masquer l'erreur par une navigation.
+        if(!report.error){
+          bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
+          bankFilters.sort="recent";privateBank.page=0;
+        }
         await refreshPrivateBank(client,uid);
+        if(current()&&!report.error&&privateBank.allowed&&
+           state.page==="admin"&&state.adminTab==="bank"&&
+           Array.isArray(report.confirmedIds)){
+          const imported=[...report.confirmedIds].reverse()
+            .map(id=>privateBank.items.find(row=>row.id===id&&
+              row.created_by===uid&&row.status==="draft"))
+            .find(Boolean);
+          if(imported){
+            state.toast=fr?
+              report.completed+" brouillons privés créés. Vérifiez l'image avant publication.":
+              report.completed+" private drafts created. Review the image before publishing.";
+            bankPanel="browse";bankSelectionId=imported.id;
+            void openAdminPreview(imported.id);
+          }else if(report.confirmedIds.length){
+            batchImport.message=fr?
+              report.completed+" brouillons privés créés. Ouvrez Banque > Brouillons pour les retrouver.":
+              report.completed+" private drafts created. Open Bank > Drafts to find them.";
+            render();
+          }
+        }
       }catch(error){
         if(current())batchImport.error=String(error?.message||error);
       }finally{
