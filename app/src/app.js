@@ -1065,6 +1065,8 @@ function hasUnsavedBankEdits(){
   return renameDirty||metadataDirty||bankSheetDirty();
 }
 function confirmDiscardBankEdits(){
+  // Ne jamais abandonner une opération réseau dont le reçu est encore incertain.
+  if(bankImageSheet.busy||draftEditor.saving||bankRename.busy||publishedCatalog.publishing)return false;
   return !hasUnsavedBankEdits()||window.confirm(state.language==="fr"
     ?"Abandonner les modifications non enregistrées de cette fiche ?"
     :"Discard unsaved changes to this record?");
@@ -4320,7 +4322,8 @@ root.addEventListener("click",function(event){
     startPrivateDraftReviewFromHome();return;
   }
   if(a==="admin-view-published"){
-    if(!canOpenAdmin()||!authStatus.user||publishedCatalog.publishing)return;
+    if(!canOpenAdmin()||!authStatus.user||publishedCatalog.publishing||
+       !confirmDiscardBankEdits())return;
     clearTimeout(bankQueryTimer);bankQueryTimer=null;
     clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();
     bankFilters.query="";bankFilters.status="published";bankFilters.theme="all";
@@ -4333,7 +4336,7 @@ root.addEventListener("click",function(event){
   if(a==="admin-review-next"){
     if(!canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank"||
        bankFilters.status!=="draft"||privateBank.loading||privatePreview.loading||
-       publishedCatalog.publishing)return;
+       publishedCatalog.publishing||!confirmDiscardBankEdits())return;
     const drafts=privateBank.items.filter(item=>item.status==="draft");
     if(!drafts.length)return;
     const current=drafts.findIndex(item=>item.id===privatePreview.id);
@@ -4527,7 +4530,8 @@ root.addEventListener("click",function(event){
     return;
   }
   if(a==="admin-theme-asset"){
-    if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id))return;
+    if(!canOpenAdmin()||!privateBank.items.some(item=>item.id===el.dataset.id)||
+       !confirmDiscardBankEdits())return;
     themeUI.assetId=el.dataset.id;themeUI.error="";themeUI.message="";
     if(privatePreview.id!==el.dataset.id)clearAdminPreview();
     bankImageSheet.tab="classify";clearDraftEditor();clearBankRename();render();focusBankInspector();return;
@@ -4584,7 +4588,10 @@ root.addEventListener("click",function(event){
     if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
     openBankRename(el.dataset.id);return;
   }
-  if(a==="admin-rename-cancel"){if(!bankRename.busy){clearBankRename();render();}return;}
+  if(a==="admin-rename-cancel"){
+    if(!bankRename.busy&&confirmDiscardBankEdits()){clearBankRename();render();}
+    return;
+  }
   if(a==="catalog-unpublish"){
     if(!canOpenAdmin()||publishedCatalog.publishing)return;
     const asset=privateBank.items.find(x=>x.id===el.dataset.id);
@@ -4944,7 +4951,10 @@ root.addEventListener("click",function(event){
     })();return;
   }
 
-  if(a==="close-admin-preview"){clearAdminPreview();render();return;}
+  if(a==="close-admin-preview"){
+    if(!canOpenAdmin()||!confirmDiscardBankEdits())return;
+    clearAdminPreview();render();return;
+  }
   if(a==="download-admin-proof"){
     if(!canOpenAdmin()||!authStatus.user||privateProof.busy||
        publishedCatalog.publishing||privatePreview.loading||!privatePreview.technical||
