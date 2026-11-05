@@ -3143,6 +3143,10 @@ root.addEventListener("click",function(event){
     state.adminMenuOpen=false;render();root.querySelector("#admin-menu-toggle")?.focus();return;
   }
   if(a==="nav"){if(SITE_EMBEDDED&&(editableDrafts.deletingKind||editableDrafts.copyKind))return;if(SITE_EMBEDDED&&canOpenAdmin())return;if(el.dataset.page==="admin" && !canOpenAdmin())return;clientNavigationEpoch++;resetSingleApprovedAdd();if(!["home","files"].includes(el.dataset.page))clearPdfReprintRetry();if(el.dataset.page!=="files")clearClientPreview();if(el.dataset.page!=="admin"){clearAdminPreview();clearDraftEditor();clearBankRename();clearBankThumbs();}state.page=el.dataset.page;state.toast="";render();window.scrollTo({top:0,behavior:"instant"});if(state.page==="files"&&authStatus.user)refreshFilesForCurrentUser();if(state.page==="home"&&SITE_EMBEDDED&&authStatus.user){clientFiles.page=0;clientFiles.query="";clientFiles.type="all";clientFiles.sort="recent";clientFiles.period="all";clientFiles.source="all";refreshFilesForCurrentUser();void fetchHomeDrafts();}if(state.page==="library"&&SITE_EMBEDDED&&authStatus.user)void fetchPublishedCatalog();if(state.page==="create"&&SITE_EMBEDDED&&authStatus.user)void fetchEditableDrafts();if(state.page==="used"&&SITE_EMBEDDED&&authStatus.user)void fetchUsedPictos();}
+  if(a==="home-drafts-refresh"&&SITE_EMBEDDED&&state.page==="home"&&authStatus.user&&
+      !canOpenAdmin()&&!homeDrafts.loading){
+    void fetchHomeDrafts();return;
+  }
   if(a==="draft-page"&&SITE_EMBEDDED&&authStatus.user&&!canOpenAdmin()&&!editableDrafts.loading&&!editableDrafts.busy){
     const direction=Number(el.dataset.direction),next=editableDrafts.page+direction;
     if(![-1,1].includes(direction)||!Number.isSafeInteger(next)||next<0||
@@ -5559,9 +5563,10 @@ root.addEventListener("submit",function(event){
       try{
         const client=await supabaseClient();
         const result=await renameMyDocument(client,uid,id,doc.title,title);
+        const feedback=documentRenameFeedback(result,state.language);
         if(clientFiles.request!==epoch||authStatus.user?.id!==uid)return;
         clientFiles.busy=false;clientFiles.renameId=null;
-        clientFiles.message=documentRenameFeedback(result,state.language);
+        clientFiles.message=feedback;
         await fetchClientFiles(client,uid);
       }catch(error){
         if(clientFiles.request===epoch&&authStatus.user?.id===uid)clientFiles.error=String(error?.message||error);
