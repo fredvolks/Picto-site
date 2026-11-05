@@ -3019,3 +3019,12 @@
 }
 .pa-bank-sheet .pa-bank-preview-error p{flex:1 1 160px;min-width:0;margin:0;font-size:12px;overflow-wrap:anywhere}
 .pa-bank-sheet .pa-bank-preview-error .btn{min-height:44px;max-width:100%;white-space:normal}
+
+/* Pict-au L2 : catégorie principale sous contrôle RLS, sans décoration superflue. */
+.pa-bank-sheet .pa-bank-primary-theme{
+  display:grid;gap:7px;min-width:0;margin:10px 0;padding:11px 12px;
+  border:1px solid #dce6dd;border-radius:10px;background:#f8faf8
+}
+.pa-bank-sheet .pa-bank-primary-theme p{margin:0;font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.pa-bank-sheet .pa-bank-primary-theme [role=alert]{color:#834c32}
+.pa-bank-sheet .pa-bank-primary-theme .btn{min-height:44px;max-width:100%;white-space:normal}
