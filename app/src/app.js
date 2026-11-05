@@ -1212,7 +1212,7 @@ function openDraftEditor(assetId){
   const item=privateBank.items.find(asset=>asset.id===assetId);
   if(!item||item.status!=="draft"||item.created_by!==authStatus.user?.id)return;
   clearDraftEditor();if(privatePreview.id!==assetId)clearAdminPreview();
-  bankImageSheet.tab="name";draftEditor.id=item.id;
+  bankImageSheet.tab="classify";draftEditor.id=item.id;
   draftEditor.original={title_fr:item.title_fr,title_en:item.title_en??null,theme:item.theme};
   draftEditor.form={titleFr:item.title_fr,titleEn:item.title_en||"",theme:item.theme};
   render();focusBankInspector();
@@ -2161,15 +2161,23 @@ function renderAdmin(){
     const isUpper=value=>typeof value==="string"&&/^[\p{Lu}]/u.test(value.trim());
     const warning=isUpper(proposal.titleFr)||isUpper(proposal.titleEn)
       ?(fr?"Les libellés doivent commencer par une minuscule.":"Captions must start with a lowercase letter."):"";
-    const options=[...new Set([...themes.map(([v])=>v),proposal.theme])];
+    const options=themeUI.loaded&&!themeUI.error?
+      themeUI.items.filter(t=>!t.merged_into).map(t=>t.code):[];
+    const selectedTheme=options.includes(proposal.theme)?proposal.theme:"";
+    const proposedThemeReady=assessDraftPrimaryTheme(
+      {status:"draft",theme:proposal.theme},themeUI.items,
+      {verified:themeUI.loaded&&!themeUI.error}).state==="ready";
     const editableFields='<form data-form="admin-edit-draft" class="admin-import-form">'
       +'<div class="control"><label for="edit-draft-fr">'+esc(fr?"Nom français *":"French caption *")+'</label><input id="edit-draft-fr" name="titleFr" type="text" maxlength="100" required autocomplete="off" value="'+esc(proposal.titleFr)+'"></div>'
       +'<div class="control"><label for="edit-draft-en">'+esc(fr?"Nom anglais (facultatif)":"English caption (optional)")+'</label><input id="edit-draft-en" name="titleEn" type="text" maxlength="100" autocomplete="off" value="'+esc(proposal.titleEn)+'"></div>'
-      +'<div class="control"><label for="edit-draft-theme">'+esc(fr?"Thème":"Theme")+'</label><select id="edit-draft-theme" name="theme">'
-      +options.map(value=>'<option value="'+esc(value)+'"'+(value===proposal.theme?' selected':'')+'>'+esc(themes.find(([v])=>v===value)?.[1]||value)+'</option>').join("")+'</select></div>'
+      +'<div class="control"><label for="edit-draft-theme">'+esc(fr?"Catégorie principale active":"Active primary category")+'</label><select id="edit-draft-theme" name="theme" required>'
+      +(!selectedTheme?'<option value="" selected disabled>'+esc(fr?"Choisir une catégorie active…":"Choose an active category…")+'</option>':'')
+      +options.map(value=>'<option value="'+esc(value)+'"'+(value===selectedTheme?' selected':'')+'>'+esc(themes.find(([v])=>v===value)?.[1]||value)+'</option>').join("")+'</select></div>'
+      +(!themeUI.loaded||themeUI.error?'<p role="status">'+esc(fr?"Catégories indisponibles. Actualisez la Banque.":
+        "Categories unavailable. Refresh the bank.")+'</p>':'')
       +'<div class="control"><label>'+esc(fr?"Aperçu du texte":"Caption preview")+'</label><output id="edit-draft-preview" class="admin-draft-preview-label">'+esc(proposal.titleFr||"—")+'</output></div>'
       +(DRAFT_METADATA_WRITES_ENABLED
-        ?'<div class="admin-import-actions"><button type="submit" class="btn btn-primary"'+(draftEditor.saving?' disabled':'')+'>'+icon("check","btn-icon")+esc(fr?"Enregistrer les textes":"Save captions")+'</button></div>'
+        ?'<div class="admin-import-actions"><button type="submit" class="btn btn-primary"'+(draftEditor.saving||!proposedThemeReady?' disabled':'')+'>'+icon("check","btn-icon")+esc(fr?"Enregistrer les textes":"Save captions")+'</button></div>'
         :'<div class="admin-import-actions"><button type="button" class="btn btn-light" data-action="export-admin-proposal">'+icon("upload","btn-icon")+esc(fr?"Exporter le fichier JSON":"Export JSON file")+'</button></div>')
       +'</form>';
     draftEditBody='<section class="admin-private-preview admin-draft-editor pa-bank-draft-simple" role="region" aria-label="'+esc(fr?"Textes du pictogramme":"Pictogram captions")+'">'
@@ -2332,9 +2340,18 @@ function renderAdmin(){
       '<div class="pa-bank-adjust-gallery" role="region" tabindex="0" aria-label="'+esc(fr?
         "Galerie de templates défilante":"Scrollable template gallery")+'">'+sheetGallery+'</div></section>':"";
     const chosenThemes=selectedAsset?(themeUI.links[selectedAsset.id]||[selectedAsset.theme]):[];
+    const primaryThemePanel=selectedAsset?.status==="draft"&&chosen?.id===selectedAsset.id?
+      '<div class="pa-bank-primary-theme" role="group" aria-label="'+esc(fr?"Catégorie principale":"Primary category")+'">'+
+      '<p><strong>'+esc(fr?"Catégorie principale : ":"Primary category: ")+'</strong>'+esc(themeLabel(selectedAsset.theme))+'</p>'+
+      (primaryThemeReady?'<p role="status">'+esc(fr?"Catégorie active vérifiée. L’approbation reste manuelle.":
+        "Active category checked. Approval remains manual.")+'</p>':
+        '<p role="alert" id="pa-bank-primary-theme-status" tabindex="-1">'+esc(primaryThemeNotice)+'</p>')+
+      (selectedAsset.created_by===authStatus.user?.id?'<button type="button" class="btn btn-light" data-action="admin-edit-draft" data-id="'+esc(selectedAsset.id)+'">'+
+        esc(fr?"Corriger la catégorie principale":"Edit primary category")+'</button>':"")+'</div>':"";
     const sheetClassify=selectedAsset?'<section class="pa-bank-sheet-panel" aria-label="'+esc(fr?"Classer":"Classify")+'">'+
       '<h3>'+esc(fr?"Thèmes du pictogramme":"Pictogram themes")+'</h3>'+
       '<p>'+chosenThemes.map(code=>esc(themeLabel(code))).join(" · ")+'</p>'+
+      primaryThemePanel+
       '<button type="button" class="btn btn-primary" data-action="admin-theme-asset" data-id="'+esc(selectedAsset.id)+'">'+
         esc(fr?"Modifier les thèmes":"Edit themes")+'</button>'+themeAssetPanel+
       (selectedAsset.status==="published"?
