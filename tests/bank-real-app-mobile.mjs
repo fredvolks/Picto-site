@@ -263,6 +263,21 @@ try{
     assert.ok(readiness.left>=-2&&readiness.right<=width+2,
       "Le diagnostic déborde horizontalement: "+width+" "+JSON.stringify(readiness));
     assert.ok(readiness.scrollWidth<=readiness.width+2,"Défilement horizontal inattendu: "+width);
+
+    if(width<=768){
+      // Défaut visuel détecté sur les vraies captures : hamburger blanc sur fond blanc.
+      const menu=await evaluate("const button=document.querySelector('#admin-menu-toggle');const style=getComputedStyle(button);const svg=button.querySelector('svg');return {shown:style.display!=='none',foreground:style.color,background:style.backgroundColor,svgWidth:svg?.getBoundingClientRect().width,svgStroke:svg?.getAttribute('stroke'),expanded:button.getAttribute('aria-expanded')};");
+      assert.ok(menu.shown&&menu.svgWidth>=20,"Hamburger absent : "+width+" "+JSON.stringify(menu));
+      assert.equal(menu.foreground,"rgb(41, 75, 55)",
+        "Le bouton de menu blanc doit avoir une icône verte foncée lisible : "+width);
+      assert.equal(menu.background,"rgb(255, 255, 255)");
+      assert.equal(menu.svgStroke,"currentColor");
+      await evaluate("document.querySelector('#admin-menu-toggle').click();return true;");
+      await waitFor("return document.querySelector('#admin-menu-toggle')?.getAttribute('aria-expanded')==='true'&&document.querySelector('#pictau-admin-drawer')?.classList.contains('is-open')");
+      await evaluate("document.querySelector('.admin-drawer-close').click();return true;");
+      await waitFor("return document.querySelector('#admin-menu-toggle')?.getAttribute('aria-expanded')==='false'");
+    }
+
     await writeFile(resolve("artifacts/admin-bank-real/readiness-fr-"+width+"x"+height+".png"),
       Buffer.from((await command("Page.captureScreenshot",{format:"png",captureBeyondViewport:false,fromSurface:true})).data,"base64"));
     await evaluate("document.querySelector('[data-action=lang][data-lang=en]').click();return true;");
