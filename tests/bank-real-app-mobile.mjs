@@ -142,6 +142,10 @@ export async function listPictogramRequestHistory(){
 // d'essai uniquement. Aucun identifiant Supabase réel, aucune clé privée.
 // Pictogramme portrait contrasté, coins repères : image entière exigée.
 const privatePreviewStub=String.raw`export async function loadPrivateAdminPreview(_client,_uid,assetId){
+ if(window.__qaFailFirstReviewPreview){
+  window.__qaFailFirstReviewPreview=false;
+  throw Error("Panne PNG temporaire — QA");
+ }
  const canvas=document.createElement("canvas");canvas.width=400;canvas.height=600;
  const ctx=canvas.getContext("2d");ctx.fillStyle="white";ctx.fillRect(0,0,400,600);
  ctx.lineWidth=12;ctx.strokeStyle="black";ctx.strokeRect(8,8,384,584);
@@ -324,8 +328,22 @@ try{
       const shortcut=await evaluate("const b=document.querySelector('[data-action=admin-review-queue]');return {present:!!b,label:b?.textContent.trim(),height:b?.getBoundingClientRect().height,disabled:b?.disabled};");
       assert.ok(shortcut.present&&!shortcut.disabled&&shortcut.height>=44,
         "Raccourci d'approbation tactile absent: "+width+" "+JSON.stringify(shortcut));
-      await evaluate("window.__qaBankItems=true;document.querySelector('[data-action=admin-review-queue]').click();return true;");
+      await evaluate("window.__qaBankItems=true;window.__qaFailFirstReviewPreview="+(width===390)+";document.querySelector('[data-action=admin-review-queue]').click();return true;");
+      if(width===390){
+        await waitFor("return !!document.querySelector('.pa-bank-sheet [data-action=admin-preview-retry]')&&!!document.querySelector('.pa-bank-preview-error [role=alert]')",14000);
+        const failed=await evaluate("return {retry:!!document.querySelector('[data-action=admin-preview-retry]'),nextDisabled:document.querySelector('[data-action=admin-draft-review-next]')?.disabled,progress:document.querySelector('.pa-bank-review-progress')?.textContent||'',error:document.querySelector('.pa-bank-preview-error [role=alert]')?.textContent||'',published:!!document.querySelector('.pa-admin-publish-feedback')};");
+        assert.equal(failed.retry,true,"Panne PNG : commande Réessayer proposée");
+        assert.equal(failed.nextDisabled,true,"Un PNG échoué ne peut pas être sauté");
+        assert.match(failed.error,/Panne PNG temporaire/);
+        assert.match(failed.progress,/0 image/,"Échec du téléchargement jamais compté comme ouvert");
+        assert.equal(failed.published,false,"La panne ne publie aucun picto");
+        await evaluate("document.querySelector('[data-action=admin-preview-retry]').click();return true;");
+      }
       await waitFor("return !!document.querySelector('.pa-bank-sheet #pa-bank-inspector-title')&&document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth>=400",14000);
+      const recovered=await evaluate("return {progress:document.querySelector('.pa-bank-review-progress')?.textContent||'',nextDisabled:document.querySelector('[data-action=admin-draft-review-next]')?.disabled,retry:!!document.querySelector('[data-action=admin-preview-retry]')};");
+      assert.match(recovered.progress,/1 image/,"La fiche est comptée uniquement après PNG reçu");
+      assert.equal(recovered.nextDisabled,false,"Le bouton Suivant est de nouveau disponible");
+      assert.equal(recovered.retry,false,"Le bouton Réessayer disparaît après succès");
       // Nom, Ajuster et Classer doivent afficher la même commande de révision.
       for(const tab of ["name","adjust","classify","name"]){
         await evaluate("document.querySelector('[data-action=pa-bank-sheet-tab][data-tab="+tab+"]').click();return true;");
