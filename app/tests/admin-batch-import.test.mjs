@@ -215,6 +215,23 @@ test("Lot interrompu : conserver les reçus SQL et ouvrir leur fiche sans public
  assert.match(app,/confirmedIds:\[\]/);
 });
 
+test("Import PNG en attente : navigation, fermeture et déconnexion protégées",()=>{
+ const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+ const tab=app.indexOf('if(a==="admin-tab"){');
+ const logout=app.indexOf('if(a==="google-logout"){');
+ const unload=app.lastIndexOf('window.addEventListener("beforeunload",event=>{');
+ assert.ok(tab>=0&&logout>=0&&unload>=0);
+ assert.match(app.slice(tab,tab+170),/privateImport\.loading\|\|batchImport\.busy/);
+ assert.match(app.slice(logout,logout+300),/canOpenAdmin\(\).*privateImport\.loading\|\|batchImport\.busy/);
+ assert.match(app.slice(unload,unload+650),/privateImport\.loading\|\|batchImport\.busy/);
+ assert.match(app,/aria-pressed[^\n]*privateImport\.loading\|\|batchImport\.busy/);
+ assert.match(app,/admin-side-link[\s\S]{0,300}privateImport\.loading\|\|batchImport\.busy/);
+ assert.match(app,/data-tab="overview"'\+\(privateImport\.loading\|\|batchImport\.busy\?' disabled'/);
+ const panel=app.indexOf('if(a==="admin-bank-panel"){');
+ assert.ok(panel>0);
+ assert.match(app.slice(panel,panel+350),/batchImport\.busy/);
+});
+
 test("Après un lot complet, seuls les IDs SQL des trois vrais reçus sont conservés",async()=>{
  let sent=0;
  const report=await importPrivateDraftBatch({},"admin",files(),"autres",{

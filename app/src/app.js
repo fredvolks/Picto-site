@@ -1066,7 +1066,7 @@ function hasUnsavedBankEdits(){
 }
 function confirmDiscardBankEdits(){
   // Ne jamais abandonner une opération réseau dont le reçu est encore incertain.
-  if(bankImageSheet.busy||draftEditor.saving||bankRename.busy||publishedCatalog.publishing)return false;
+  if(bankImageSheet.busy||draftEditor.saving||bankRename.busy||publishedCatalog.publishing||privateImport.loading||batchImport.busy)return false;
   return !hasUnsavedBankEdits()||window.confirm(state.language==="fr"
     ?"Abandonner les modifications non enregistrées de cette fiche ?"
     :"Discard unsaved changes to this record?");
@@ -1869,7 +1869,7 @@ function renderAdmin(){
     edit:"Open templates",soon:"Not connected yet",noReal:"No actual imported assets are loaded in this mockup",
     mustBePrivate:"The real library will only be available to authenticated super admins."
   };
-  const tab=(name,title,ico)=>'<button class="admin-tab'+(state.adminTab===name?' active':'')+'" type="button" data-action="admin-tab" data-tab="'+name+'" aria-pressed="'+(state.adminTab===name)+'">'+icon(ico)+esc(title)+'</button>';
+  const tab=(name,title,ico)=>'<button class="admin-tab'+(state.adminTab===name?' active':'')+'" type="button" data-action="admin-tab" data-tab="'+name+'" aria-pressed="'+(state.adminTab===name)+'"'+(privateImport.loading||batchImport.busy?' disabled':'')+'>'+icon(ico)+esc(title)+'</button>';
   const preview=samples.slice(0,6).map(pic=>'<div class="admin-bank-card">'+customPicto(pic,state.currentPreset,5,true)+'<strong>'+esc(labelFor(pic,state.language))+'</strong><small>'+esc(fr?"Exemple · Non publié":"Sample · Not published")+'</small></div>').join("");
   const info='<div class="admin-surface-note">'+icon("info","btn-icon")+' '+esc(sectionNames.privateInfo)+'</div>';
   const visibleAssets=privateBank.items;
@@ -2254,7 +2254,7 @@ function renderAdmin(){
   }else if(state.adminTab==="bank"){
     const bankModes=[["browse",fr?"Images":"Images"],["import",fr?"Ajouter une image":"Add image"],["themes",fr?"Thèmes":"Themes"]];
     const bankNavigation='<nav class="pa-bank-mode-nav" aria-label="'+esc(fr?"Espaces de la banque":"Library sections")+'">'
-      +bankModes.map(([mode,label])=>'<button type="button" class="pa-bank-mode'+(bankPanel===mode?' is-active':'')+'" data-action="admin-bank-panel" data-panel="'+mode+'" aria-pressed="'+(bankPanel===mode)+'"'+(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing||draftReviewQueue.active?' disabled':'')+'>'+esc(label)+'</button>').join("")
+      +bankModes.map(([mode,label])=>'<button type="button" class="pa-bank-mode'+(bankPanel===mode?' is-active':'')+'" data-action="admin-bank-panel" data-panel="'+mode+'" aria-pressed="'+(bankPanel===mode)+'"'+(bankRename.busy||privateImport.loading||batchImport.busy||themeUI.busy||draftEditor.saving||publishedCatalog.publishing||draftReviewQueue.active?' disabled':'')+'>'+esc(label)+'</button>').join("")
       +'</nav>';
     const inspectorContent=renameForm+themeAssetPanel+privatePreviewBody+draftEditBody;
     const selectedAsset=privateBank.items.find(item=>item.id===bankSelectionId);
@@ -2592,7 +2592,7 @@ function renderAdminWorkspace(){
   ];
   const button=([tab,label,ico],compact=false)=>
     '<button type="button" class="'+(compact?'admin-mobile-link':'admin-side-link')+(state.adminTab===tab?' active':'')
-    +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+'>'
+    +'" data-action="admin-tab" data-tab="'+tab+'" '+(state.adminTab===tab?'aria-current="page"':'')+(privateImport.loading||batchImport.busy?' disabled':'')+'>'
     +icon(ico)+'<span>'+esc(label)+'</span></button>';
   return '<div class="admin-workspace admin-sage-unified'+(state.adminTab==="overview"?' admin-overview-elevated':'')+(state.adminMenuOpen?' menu-open':'')+'">'
     +'<a href="#admin-main" class="skip">'+esc(fr?'Aller au contenu':'Skip to content')+'</a>'
@@ -2600,7 +2600,7 @@ function renderAdminWorkspace(){
     +'<aside id="pictau-admin-drawer" class="admin-sidebar'+(state.adminMenuOpen?' is-open':'')+'" aria-label="'+esc(fr?'Navigation Super Admin':'Super Admin navigation')+'">'
     +'<div class="admin-mobile-drawer-head"><strong>PICT-AU · ADMIN</strong>'
     +'<button type="button" class="admin-drawer-close" data-action="admin-menu-close" aria-label="'+esc(fr?'Fermer le menu':'Close menu')+'">'+icon("close")+'</button></div>'
-    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview" aria-label="'+esc(fr?"Retour à l’accueil Super Admin":"Super Admin home")+'">'+adminBrandPicture()+'</button>'
+    +'<button type="button" class="admin-brand" data-action="admin-tab" data-tab="overview"'+(privateImport.loading||batchImport.busy?' disabled':'')+' aria-label="'+esc(fr?"Retour à l’accueil Super Admin":"Super Admin home")+'">'+adminBrandPicture()+'</button>'
     +'<div class="admin-sidebar-caption">'+esc(fr?'ADMINISTRATION':'ADMINISTRATION')+'</div>'
     +'<nav class="admin-side-nav">'+tabs.map(tab=>button(tab)).join('')+'</nav>'
     +'<div class="admin-sidebar-status">'+esc(fr?'Espace administrateur sécurisé':'Secure administrator workspace')+'</div></aside>'
@@ -3188,7 +3188,8 @@ window.addEventListener("beforeunload",event=>{
   if(!SITE_EMBEDDED||!canOpenAdmin()||
      !(hasUnsavedBankEdits()||bankImageSheet.busy||
        draftEditor.saving||bankRename.busy||themeUI.busy||
-       privatePreview.adjustBusy||publishedCatalog.publishing))return;
+       privatePreview.adjustBusy||publishedCatalog.publishing||
+        privateImport.loading||batchImport.busy))return;
   event.preventDefault();
   event.returnValue="";
 });
@@ -4118,6 +4119,10 @@ root.addEventListener("click",function(event){
   }
   if(a==="google-login"){authStatus.working=true;render();void loginGoogle(window.location.href).catch(err=>{authStatus.working=false;authStatus.error=String(err.message||err);notify(state.language==="fr"?"Connexion Google impossible : "+authStatus.error:"Google sign-in failed: "+authStatus.error);});return;}
   if(a==="google-logout"){
+    if(canOpenAdmin()&&(privateImport.loading||batchImport.busy)){
+      notify(state.language==="fr"?"Importation privée en cours. Attendez son reçu avant la déconnexion.":"Private import in progress. Wait for its receipt before signing out.");
+      return;
+    }
     if(editableDrafts.busy||draftAutosave.status("routine").busy||draftAutosave.status("board").busy){
       notify(state.language==="fr"?"Une sauvegarde est en cours. Attendez sa confirmation avant de vous déconnecter.":"A draft save is in progress. Wait for confirmation before signing out.");
       return;
@@ -4407,7 +4412,7 @@ root.addEventListener("click",function(event){
     })();return;
   }
   if(a==="admin-tab"){
-    if(!canOpenAdmin())return;
+    if(!canOpenAdmin()||privateImport.loading||batchImport.busy)return;
     const returningToOverview=el.dataset.tab==="overview"&&state.adminTab!=="overview";
     if(state.adminTab==="requests"&&el.dataset.tab!=="requests"){
       adminRequests.request++;adminRequests.loading=false;clearAdminRequestHistory();
@@ -4587,7 +4592,7 @@ root.addEventListener("click",function(event){
   }
   if(a==="admin-bank-panel"){
     if(!canOpenAdmin()||state.adminTab!=="bank")return;
-    if(bankRename.busy||privateImport.loading||themeUI.busy||draftEditor.saving||publishedCatalog.publishing)return;
+    if(bankRename.busy||privateImport.loading||batchImport.busy||themeUI.busy||draftEditor.saving||publishedCatalog.publishing)return;
     const panel=el.dataset.panel;
     if(!["browse","import","themes"].includes(panel)||panel===bankPanel)return;
     if(panel!=="browse"&&!confirmDiscardBankEdits())return;
