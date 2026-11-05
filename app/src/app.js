@@ -6035,11 +6035,33 @@ root.addEventListener("submit",function(event){
   void (async()=>{
     try{
       const client=await supabaseClient();
-      await importPrivateDraft(client,userId,file,metadata);
+      const receipt=await importPrivateDraft(client,userId,file,metadata);
       if(privateImport.request!==request||authStatus.user?.id!==userId)return;
       privateImport.file=null;privateImport.checking=false;privateImport.validated=false;privateImport.draft={titleFr:"",titleEn:"",theme:"autres"};
       privateImport.message=state.language==="fr"?"Brouillon privé importé. Non publié.":"Private draft imported. Not published.";
+      // Ne jamais reconstituer l'identifiant à partir du nom PNG : utiliser
+      // uniquement l'ID confirmé par la relecture RLS après INSERT/ACK perdu.
+      bankFilters.query="";bankFilters.status="draft";bankFilters.theme="all";
+      bankFilters.sort="recent";privateBank.page=0;
       await refreshPrivateBank(client,userId);
+      if(privateImport.request!==request||authStatus.user?.id!==userId||
+         !canOpenAdmin()||state.page!=="admin"||state.adminTab!=="bank")return;
+      const imported=privateBank.items.find(row=>row.id===receipt.id&&
+        row.created_by===userId&&row.status==="draft");
+      if(imported){
+        state.toast=state.language==="fr"?
+          "Brouillon privé créé. Vérifiez l'image avant toute publication.":
+          "Private draft created. Review the image before publishing.";
+        bankPanel="browse";bankSelectionId=imported.id;
+        void openAdminPreview(imported.id);
+      }else{
+        // L'INSERT est déjà confirmé : un échec de navigation ne doit
+        // jamais être présenté comme un échec d'import, ni relancer l'INSERT.
+        privateImport.message=state.language==="fr"?
+          "Brouillon enregistré, non publié. Retrouvez-le dans Banque > Brouillons.":
+          "Draft saved, not published. Find it under Bank > Drafts.";
+        render();
+      }
     }catch(error){
       if(privateImport.request!==request||authStatus.user?.id!==userId)return;
       privateImport.error=String(error?.message||error);
