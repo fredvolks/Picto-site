@@ -201,6 +201,7 @@ const privatePreviewStub=String.raw`export async function loadPrivateAdminPrevie
   window.__qaFailFirstReviewPreview=false;
   throw Error("Panne PNG temporaire — QA");
  }
+ window.__qaOpenedAssetId=assetId;
  const canvas=document.createElement("canvas");canvas.width=400;canvas.height=600;
  const ctx=canvas.getContext("2d");ctx.fillStyle="white";ctx.fillRect(0,0,400,600);
  ctx.lineWidth=12;ctx.strokeStyle="black";ctx.strokeRect(8,8,384,584);
@@ -528,6 +529,31 @@ try{
       assert.equal(imported.inImportPanel,false,"Après succès, retour à la Banque sans nouveau submit");
       await evaluate("document.querySelector('[data-action=admin-bank-detail-close]').click();window.__qaImportedDraft=null;window.__qaImportedDrafts=[];window.__qaAllowImport=false;window.__qaLoseImportAck=false;return true;");
       console.log("IMPORT→FICHE PRIVÉE — QA OK 390px",imported.id);
+      // Deux vrais appels importPrivateDraft dans la vraie UI sous
+      // Auth/Storage/SQL uniquement simulés en localhost; ACK perdu après
+      // chaque INSERT, toujours sans doublon ni publication.
+      await evaluate("const btn=document.querySelector('[data-action=admin-bank-panel][data-panel=import]');if(!btn)throw Error('Onglet ajout PNG manquant');btn.click();return true;");
+      await waitFor("return !!document.querySelector('[data-field=admin-batch-files]')",14000);
+      await evaluate("const cv=document.createElement('canvas');cv.width=1;cv.height=1;cv.getContext('2d').fillRect(0,0,1,1);const bytes=Uint8Array.from(atob(cv.toDataURL('image/png').split(',')[1]),x=>x.charCodeAt(0));const input=document.querySelector('[data-field=admin-batch-files]');const data=new DataTransfer();for(const name of ['lot-a.png','lot-b.png'])data.items.add(new File([bytes],name,{type:'image/png'}));input.files=data.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;");
+      await waitFor("return document.querySelector('#batch-file-status')?.textContent.includes('PNG vérifiés : 2 / 2')",14000);
+      assert.equal(await evaluate("return !document.querySelector('form[data-form=admin-batch-import] button[type=submit]')?.disabled"),true);
+      await evaluate("window.__qaImportedDrafts=[];window.__qaImportedDraft=null;window.__qaAllowImport=true;window.__qaLoseImportAck=true;window.__qaUploadCount=0;window.__qaImportInsertCount=0;const previous=window.confirm;window.confirm=()=>true;try{document.querySelector('form[data-form=admin-batch-import]').requestSubmit();}finally{window.confirm=previous;}return true;");
+      await waitFor("return window.__qaImportInsertCount===2 && !!document.querySelector('.pa-bank-sheet-hero img')?.naturalWidth",14000);
+      const createdBatch=await evaluate("const list=window.__qaImportedDrafts||[];return{ids:list.map(x=>x.id),uploads:window.__qaUploadCount,inserts:window.__qaImportInsertCount,opened:window.__qaOpenedAssetId,hasSheet:!!document.querySelector('.pa-bank-sheet'),hasImportForm:!!document.querySelector('form[data-form=admin-batch-import]'),approved:document.querySelector('form[data-form=catalog-publish] input[name=confirmed]')?.checked||false};");
+      assert.deepEqual(createdBatch.ids,[
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+      ],"Le serveur QA fournit deux IDs SQL distincts, jamais les chemins du PNG");
+      assert.equal(createdBatch.uploads,2,"Deux transferts privés, aucun retransfert après ACK perdu");
+      assert.equal(createdBatch.inserts,2,"Deux INSERT uniquement, pas de doublon");
+      assert.equal(createdBatch.opened,createdBatch.ids[1],
+        "La dernière vraie fiche confirmée est celle ouverte après le lot");
+      assert.equal(createdBatch.hasSheet,true);
+      assert.equal(createdBatch.hasImportForm,false);
+      assert.equal(createdBatch.approved,false,"Aucune approbation automatique");
+      console.log("LOT PNG→FICHE PRIVÉE — QA OK 390px",createdBatch.ids.join(","));
+      await evaluate("document.querySelector('[data-action=admin-bank-detail-close]')?.click();window.__qaImportedDrafts=[];window.__qaImportedDraft=null;window.__qaAllowImport=false;window.__qaLoseImportAck=false;document.querySelector('[data-action=refresh-admin-bank]')?.click();return true;");
+      await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
       // Revenir aux images sans valider le formulaire ni lancer d'upload.
       await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=browse]').click();return true;");
       await waitFor("return document.querySelectorAll('[data-action=admin-bank-open]').length>=2",14000);
