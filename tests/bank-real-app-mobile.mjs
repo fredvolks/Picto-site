@@ -67,15 +67,21 @@ const client={
    async insert(record){
      if(record.status!=="draft"||record.published_at!==null)throw Error("Publication QA interdite");
      window.__qaImportInsertCount=(window.__qaImportInsertCount||0)+1;
-     window.__qaImportedDraft={...record,id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd"};
+     const n=window.__qaImportInsertCount;
+     const id=n===1?"dddddddd-dddd-4ddd-8ddd-dddddddddddd":
+       n===2?"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee":
+       "55555555-5555-4555-8555-555555555555";
+     window.__qaImportedDraft={...record,id};
+     (window.__qaImportedDrafts??=[]).push(window.__qaImportedDraft);
      if(window.__qaLoseImportAck)throw Error("Accusé INSERT local volontairement perdu");
      return {error:null};
    },
    select(columns){
      if(columns.includes("image_path"))return{
        eq(field,path){return{async maybeSingle(){
-         if(field!=="image_path"||path!==window.__qaUploadedPath)throw Error("Path privé incohérent");
-         return {data:window.__qaImportedDraft||null,error:null};
+         if(field!=="image_path")throw Error("Path privé incohérent");
+         const row=(window.__qaImportedDrafts||[]).find(x=>x.image_path===path);
+         return {data:row||null,error:null};
        }};}
      };
      return query;
@@ -105,10 +111,12 @@ function privateRows(){
   status:"draft",created_at:"2026-11-01T13:00:00Z",
   published_at:null
  }));
- const draft=window.__qaImportedDraft;
- return draft?[{id:draft.id,created_by:draft.created_by,admin_name:draft.title_fr,
+ const imported=(window.__qaImportedDrafts||[]).map(draft=>({
+   id:draft.id,created_by:draft.created_by,admin_name:draft.title_fr,
    title_fr:draft.title_fr,title_en:draft.title_en,theme:draft.theme,
-   status:"draft",created_at:"2026-11-05T14:24:00Z",published_at:null},...previous]:previous;
+   status:"draft",created_at:"2026-11-05T14:24:00Z",published_at:null
+ }));
+ return [...imported].reverse().concat(previous);
 }
 export async function readAdminBank(){return readAdminBankAvailablePage();}
 export async function readAdminBankAvailablePage(){
@@ -518,7 +526,7 @@ try{
       assert.equal(imported.inserts,1,"Aucun doublon de brouillon après réponse perdue");
       assert.equal(imported.browse,true,"La fiche privée réellement importée doit s'ouvrir");
       assert.equal(imported.inImportPanel,false,"Après succès, retour à la Banque sans nouveau submit");
-      await evaluate("document.querySelector('[data-action=admin-bank-detail-close]').click();window.__qaImportedDraft=null;window.__qaAllowImport=false;window.__qaLoseImportAck=false;return true;");
+      await evaluate("document.querySelector('[data-action=admin-bank-detail-close]').click();window.__qaImportedDraft=null;window.__qaImportedDrafts=[];window.__qaAllowImport=false;window.__qaLoseImportAck=false;return true;");
       console.log("IMPORT→FICHE PRIVÉE — QA OK 390px",imported.id);
       // Revenir aux images sans valider le formulaire ni lancer d'upload.
       await evaluate("document.querySelector('[data-action=admin-bank-panel][data-panel=browse]').click();return true;");
