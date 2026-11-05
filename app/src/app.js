@@ -3160,9 +3160,13 @@ window.addEventListener("beforeunload",event=>{
   event.returnValue="";
 });
 window.addEventListener("beforeunload",event=>{
-  // Protection limitée à la fiche Super Admin et à sa requête d’écriture.
-  if(!SITE_EMBEDDED||!canOpenAdmin()||!privatePreview.id||
-     !(bankImageSheet.busy||bankScaleHasUnsavedChanges()))return;
+  // Garder les noms, catégories et réglages de la fiche, même sans aperçu ouvert,
+  // ainsi que toute sauvegarde privée dont le résultat réseau est incertain.
+  // Une alerte native n'est pas garantie lors d'une fermeture forcée sur mobile.
+  if(!SITE_EMBEDDED||!canOpenAdmin()||
+     !(hasUnsavedBankEdits()||bankImageSheet.busy||
+       draftEditor.saving||bankRename.busy||themeUI.busy||
+       privatePreview.adjustBusy||publishedCatalog.publishing))return;
   event.preventDefault();
   event.returnValue="";
 });
