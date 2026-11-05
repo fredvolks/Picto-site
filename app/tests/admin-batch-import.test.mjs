@@ -205,9 +205,10 @@ test("Lot interrompu : conserver les reçus SQL et ouvrir leur fiche sans public
  assert.match(app,/batchImport\.confirmedIds=Array\.isArray\(report\.confirmedIds\)/);
  assert.match(app,/if\(batchImport\.confirmedIds\.length\)/);
  assert.match(app,/bankFilters\.status="draft";bankFilters\.theme="all"/);
- assert.match(app,/if\(current\(\)&&report\.error/);
+ assert.match(app,/if\(batchImport\.error&&authStatus\.user\?\.id===uid&&canOpenAdmin\(\)/);
  assert.match(app,/if\(current\(\)&&!report\.error/);
  assert.match(app,/data-action="admin-batch-open-confirmed"/);
+ assert.doesNotMatch(app,/confirmDiscardAdminBankEdits\(\)/);
  assert.match(app,/batchImport\.confirmedIds\.includes\(el\.dataset\.id\)/);
  assert.match(app,/row\.created_by===authStatus\.user\.id&&row\.status==="draft"/);
  assert.match(app,/batchImport\.confirmedIds=\[\]/);

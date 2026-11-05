@@ -5099,7 +5099,7 @@ root.addEventListener("click",function(event){
     if(!canOpenAdmin()||batchImport.busy||privateBank.loading||
        state.page!=="admin"||state.adminTab!=="bank"||
        !batchImport.confirmedIds.includes(el.dataset.id)||
-       !confirmDiscardAdminBankEdits())return;
+       !confirmDiscardBankEdits())return;
     const row=privateBank.items.find(item=>item.id===el.dataset.id&&
       item.created_by===authStatus.user.id&&item.status==="draft");
     if(!row)return;
