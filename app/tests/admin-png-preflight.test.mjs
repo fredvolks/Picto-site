@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {VALID_TEST_PNG_BYTES} from "./fixtures/valid-png.mjs";
 import {inspectCompletePngBytes,MAX_PRIVATE_PNG_PIXELS} from "../src/admin-review.js";
 import {validateDraftPng,preflightPrivateDraftFiles,importPrivateDraftBatch} from "../src/admin-import.js";
@@ -127,4 +128,20 @@ test("Une sélection remplacée rend le contrôle précédent caduc",async()=>{
   });
   assert.equal(result,false);
   assert.equal(checked,1);
+});
+
+test("Précontrôle PNG individuel : aucun submit pendant chargement, erreur ou session périmée",()=>{
+  const app=readFileSync(new URL("../src/app.js",import.meta.url),"utf8");
+  assert.match(app,/privateImport\.checking=false;privateImport\.validated=false/);
+  assert.match(app,/privateImport\.loading\|\|privateImport\.checking\|\|!privateImport\.validated/);
+  assert.match(app,/if\(!canOpenAdmin\(\)\|\|privateImport\.loading\|\|privateImport\.checking\|\|!privateImport\.validated/);
+  assert.match(app,/if\(event\.target\.dataset\.field==="admin-import-file"\)/);
+  assert.match(app,/const uid=authStatus\.user\?\.id,ticket=\+\+privateImport\.request/);
+  assert.match(app,/await validateDraftPng\(file\)/);
+  assert.match(app,/privateImport\.validated=true/);
+  assert.match(app,/privateImport\.file===file/);
+  assert.match(app,/id="draft-file-status" role="status" aria-live="polite"/);
+  assert.match(app,/id="pa-single-png-error"/);
+  assert.match(app,/querySelector\("#pa-single-png-error"\)\?\.focus/);
+  assert.doesNotMatch(app,/autoApprove.*draft/i);
 });
