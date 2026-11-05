@@ -1,10 +1,11 @@
+import {inspectCompletePngBytes} from "./admin-review.js";
 // Import volontaire d'un PNG dans la banque PRIVÉE du Super Admin.
 // Aucune approbation ni publication automatique. Les politiques RLS Supabase
 // sont l'autorité finale, indépendamment des contrôles d'interface.
 export const DRAFT_BUCKET = "pictau-drafts";
 export const MAX_DRAFT_BYTES = 6 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const pngSignature = [137,80,78,71,13,10,26,10];
+
 
 export function validateDraftMetadata({titleFr,titleEn="",theme="autres"}={}) {
   const clean = value => typeof value==="string" ? value.trim().replace(/\s+/g," ") : "";
@@ -15,6 +16,46 @@ export function validateDraftMetadata({titleFr,titleEn="",theme="autres"}={}) {
   return {title_fr,title_en:title_en||null,theme:category};
 }
 
+// CRC et blocs corrects ne garantissent pas que les pixels compressés sont
+// lisibles. Dans le navigateur, faire aussi décoder le PNG sans jamais l'envoyer.
+async function ensureBrowserCanDecodeDraft(file,dimensions){
+  const expectedWidth=dimensions.width,expectedHeight=dimensions.height;
+  if(typeof globalThis.createImageBitmap==="function"){
+    let bitmap;
+    try{
+      bitmap=await globalThis.createImageBitmap(file);
+      if(bitmap.width!==expectedWidth||bitmap.height!==expectedHeight)
+        throw Error("Dimensions décodées incompatibles.");
+    }catch{
+      throw Error("Impossible de décoder le dessin PNG. Choisissez une image valide.");
+    }finally{
+      bitmap?.close?.();
+    }
+    return;
+  }
+  // Repli pour les versions Safari sans createImageBitmap.
+  if(typeof globalThis.document==="undefined")return; // tests Node sans DOM
+  if(typeof globalThis.Image!=="function"||
+     typeof globalThis.URL?.createObjectURL!=="function"||
+     typeof globalThis.URL?.revokeObjectURL!=="function")
+    throw Error("Ce navigateur ne peut pas vérifier le PNG avant importation.");
+  const url=globalThis.URL.createObjectURL(file);
+  try{
+    const decoded=await new Promise((resolve,reject)=>{
+      const img=new globalThis.Image();
+      img.onload=()=>resolve({width:img.naturalWidth,height:img.naturalHeight});
+      img.onerror=()=>reject(Error("PNG illisible."));
+      img.src=url;
+    });
+    if(decoded.width!==expectedWidth||decoded.height!==expectedHeight)
+      throw Error("Dimensions PNG décodées incompatibles.");
+  }catch{
+    throw Error("Impossible de décoder le dessin PNG. Choisissez une image valide.");
+  }finally{
+    globalThis.URL.revokeObjectURL(url);
+  }
+}
+
 export async function validateDraftPng(file) {
   if(!file || typeof file.size!=="number" || typeof file.slice!=="function")
     throw new Error("Choisissez un fichier PNG.");
@@ -23,9 +64,13 @@ export async function validateDraftPng(file) {
   if(file.type && file.type!=="image/png")throw new Error("Seuls les fichiers PNG sont acceptés.");
   const name=typeof file.name==="string"?file.name:"";
   if(!/\.png$/i.test(name))throw new Error("Le nom du fichier doit se terminer par .png.");
-  const header=new Uint8Array(await file.slice(0,8).arrayBuffer());
-  if(!pngSignature.every((n,i)=>header[i]===n))
-    throw new Error("Ce fichier ne contient pas la signature d'une image PNG.");
+  // Le fichier (6 Mo maximum) est vérifié entièrement AVANT la première
+  // mutation Supabase, même dans un lot mixte de vingt PNG.
+  const bytes=new Uint8Array(await file.slice(0,file.size).arrayBuffer());
+  if(bytes.length!==file.size)
+    throw new Error("Lecture du fichier PNG incomplète.");
+  const dimensions=inspectCompletePngBytes(bytes);
+  await ensureBrowserCanDecodeDraft(file,dimensions);
   return true;
 }
 
@@ -165,7 +210,14 @@ export async function preparePrivateDraftBatch(files,theme="autres",titles=null,
     const key=normalized.title_fr.toLocaleLowerCase("fr");
     if(seen.has(key))throw Error("Deux PNG du lot portent le même nom : "+normalized.title_fr);
     seen.add(key);
-    await validateDraftPng(file);
+    try{
+      await validateDraftPng(file);
+    }catch(error){
+      // Localiser le fichier fautif dans un lot sans jamais en envoyer une
+      // partie, même si le nom saisi contient des caractères HTML.
+      throw Error("Image "+(index+1)+" sur "+files.length+" : "+
+        String(error?.message||"PNG invalide."));
+    }
     entries.push({file,metadata:{...metadata,titleFr:normalized.title_fr}});
   }
   return entries;
