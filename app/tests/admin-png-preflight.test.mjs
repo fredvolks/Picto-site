@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {VALID_TEST_PNG_BYTES} from "./fixtures/valid-png.mjs";
 import {inspectCompletePngBytes,MAX_PRIVATE_PNG_PIXELS} from "../src/admin-review.js";
-import {validateDraftPng,importPrivateDraftBatch} from "../src/admin-import.js";
+import {validateDraftPng,preflightPrivateDraftFiles,importPrivateDraftBatch} from "../src/admin-import.js";
 
 function png(bytes=VALID_TEST_PNG_BYTES,name="pomme.png"){
   return Object.assign(new Blob([bytes],{type:"image/png"}),{name});
@@ -95,4 +95,36 @@ test("Un échec du décodeur sur le deuxième PNG arrête tout le lot",async()=>
     if(previous)Object.defineProperty(globalThis,"createImageBitmap",previous);
     else delete globalThis.createImageBitmap;
   }
+});
+
+
+test("Avant la confirmation, chaque PNG est vérifié et la progression est locale",async()=>{
+  let checked=0;
+  const ok=await preflightPrivateDraftFiles([
+    png(VALID_TEST_PNG_BYTES,"image1.png"),png(VALID_TEST_PNG_BYTES,"image2.png")
+  ].map(file=>file),{
+    onChecked:({completed,total})=>{checked++;assert.equal(completed,checked);assert.equal(total,2);}
+  });
+  assert.equal(ok,true);
+  assert.equal(checked,2);
+});
+
+test("Un PNG tronqué dans le deuxième choix bloque la validation avant envoi",async()=>{
+  let checked=0;
+  const broken=new Blob([Uint8Array.of(137,80,78,71,13,10,26,10)],{type:"image/png"});
+  Object.assign(broken,{name:"mauvais.png"});
+  await assert.rejects(preflightPrivateDraftFiles([
+    png(VALID_TEST_PNG_BYTES,"correct.png"),broken
+  ],{onChecked:()=>{checked++;}}),/Image 2 sur 2.*incomplète/i);
+  assert.equal(checked,1,"Aucun résultat valide n'est annoncé après l'image corrompue");
+});
+
+test("Une sélection remplacée rend le contrôle précédent caduc",async()=>{
+  let checked=0,current=true;
+  const result=await preflightPrivateDraftFiles([png(VALID_TEST_PNG_BYTES,"1.png"),png(VALID_TEST_PNG_BYTES,"2.png")],{
+    isCurrent:()=>current,
+    onChecked:()=>{checked++;current=false;}
+  });
+  assert.equal(result,false);
+  assert.equal(checked,1);
 });
