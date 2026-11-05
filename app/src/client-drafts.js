@@ -31,6 +31,24 @@ function snapshotItem(item){
   return {id:item.id,title_fr:item.title_fr,title_en:item.title_en||null,theme:item.theme,
     image_path:item.image_path,customLabel:typeof label==="string"&&label.trim()?label.trim():null};
 }
+// Aperçu en lecture seule : conserver l'ordre exact des pictogrammes sauvegardés.
+// Les données proviennent uniquement d'une liste privée déjà validée sous Auth/RLS.
+export function summarizeEditableDraftItems(draft,language="fr"){
+  if(!["fr","en"].includes(language)||!KINDS.includes(draft?.kind)||
+     !Array.isArray(draft?.content?.items)||
+     draft.content.items.length>(draft.kind==="routine"?10:16))
+    throw Error("Aperçu de brouillon invalide.");
+  const labels=draft.content.items.map(item=>{
+    if(!item||typeof item.title_fr!=="string"||!item.title_fr.trim()||
+       (item.title_en!=null&&typeof item.title_en!=="string")||
+       (item.customLabel!=null&&typeof item.customLabel!=="string"))
+      throw Error("Pictogramme de brouillon invalide.");
+    return item.customLabel?.trim()||
+      (language==="en"?item.title_en?.trim():null)||item.title_fr.trim();
+  });
+  return {count:labels.length,labels};
+}
+
 export function normalizeEditableDraft({kind,items,settings}){
   if(!KINDS.includes(kind)||!Array.isArray(items)||items.length>(kind==="routine"?10:16)||
     !settings||typeof settings!=="object")throw Error("Composition de brouillon invalide.");
@@ -171,4 +189,58 @@ export async function deleteEditableDraft(client,uid,id,revision){
   }
   await authorized(client,uid);
   return true;
+}
+
+/**
+ * Dupliquer un brouillon sans ouvrir ni modifier la composition en cours.
+ * La lecture de la source ET l'insertion de la copie vérifient la session UID;
+ * PostgreSQL/RLS demeure l'autorité sur les données privées.
+ */
+export function duplicatedDraftTitle(title,language="fr"){
+  if(!["fr","en"].includes(language))throw Error("Langue du brouillon invalide.");
+  const prefix=language==="fr"?"Copie de ":"Copy of ";
+  return titleOf(prefix+titleOf(title).slice(0,120-prefix.length));
+}
+export async function duplicateEditableDraft(client,uid,id,{language="fr",expectedKind=null,beforeInsert=null}={}){
+  if(!["fr","en"].includes(language))throw Error("Langue du brouillon invalide.");
+  if(expectedKind!==null&&!KINDS.includes(expectedKind))throw Error("Type de source invalide.");
+  if(beforeInsert!==null&&typeof beforeInsert!=="function")throw Error("Vérification de source invalide.");
+  const original=await loadEditableDraft(client,uid,id);
+  // Un PDF peut pointer vers une source devenue incompatible entre deux appareils.
+  // Refuser avant toute insertion, sans reconstruire ni altérer l'archive PDF.
+  if(expectedKind!==null&&original.kind!==expectedKind)
+    throw Error("Le brouillon source ne correspond plus au PDF archivé.");
+  const copiedTitle=duplicatedDraftTitle(original.title,language);
+  // Pour une copie liée à un PDF, le demandeur peut revérifier le document
+  // et la révision de sa source après la lecture initiale, avant l'INSERT.
+  if(beforeInsert)await beforeInsert({id:original.id,revision:original.revision,kind:original.kind});
+  const duplicate=await saveEditableDraft(client,uid,{
+    kind:original.kind,
+    items:original.content.items,
+    settings:{...original.content.settings,title:copiedTitle}
+  });
+  if(duplicate.id===original.id)throw Error("La copie n’a pas reçu un nouvel identifiant.");
+  return duplicate;
+}
+
+/**
+ * Change seulement le titre d'un brouillon privé, avec CAS sur sa révision.
+ * Les items, paramètres d'impression et PDF archivés ne sont jamais recréés.
+ */
+export async function renameEditableDraft(client,uid,id,revision,newTitle){
+  if(!UUID.test(id||"")||!validRevision(revision))
+    throw Error("Révision de brouillon invalide.");
+  const title=titleOf(newTitle);
+  const original=await loadEditableDraft(client,uid,id);
+  if(original.revision!==revision){
+    const error=Error("Le brouillon a changé sur un autre appareil. Actualisez la liste avant de le renommer.");
+    error.code="DRAFT_REVISION_CONFLICT";
+    throw error;
+  }
+  if(title===original.title)return original;
+  return saveEditableDraft(client,uid,{
+    kind:original.kind,
+    items:original.content.items,
+    settings:{...original.content.settings,title}
+  },{id,revision});
 }
